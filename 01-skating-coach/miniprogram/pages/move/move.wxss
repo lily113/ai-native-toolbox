@@ -1,0 +1,31 @@
+.head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.head-name { font-size: 18px; font-weight: 800; color: #0c4a6e; }
+.cat-badge { font-size: 11px; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 2px 8px; }
+.del-move { margin-left: auto; font-size: 12px; color: #b91c1c; background: #fde8e8; border-radius: 999px; padding: 4px 12px; }
+.del-move::after { border: none; }
+.block-title { font-size: 14px; font-weight: 700; color: #0c4a6e; margin-bottom: 8px; }
+.drill { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid #f1f5f9; }
+.drill-no { width: 20px; height: 20px; border-radius: 50%; background: #e0f2fe; color: #0284c7; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+.drill-name { font-size: 15px; color: #0f172a; font-weight: 600; }
+.pt-item { font-size: 13px; color: #64748B; margin-top: 3px; line-height: 1.6; }
+.empty { color: #64748B; font-size: 13px; padding: 12px 2px; }
+.tip { color: #64748B; font-size: 12px; line-height: 1.7; padding: 4px 4px; }
+
+/* 编辑弹层 */
+.mask { position: fixed; inset: 0; background: rgba(12,74,110,.4); display: flex; align-items: flex-end; opacity: 0; visibility: hidden; transition: opacity .18s; z-index: 30; }
+.mask.show { opacity: 1; visibility: visible; }
+.sheet { width: 100%; background: #f0f9ff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 78vh; overflow: auto; }
+.sh-title { font-size: 16px; font-weight: 800; color: #0c4a6e; margin-bottom: 12px; }
+.pt { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+.ta { width: 100%; box-sizing: border-box; min-height: 44px; border: 1px solid #cfe8f7; border-radius: 10px; padding: 10px 12px; font-size: 15px; background: #fff; color: #0f172a; }
+.pt-inp { flex: 1; }
+.pt-x { width: 30px; height: 30px; border-radius: 8px; background: #fde8e8; color: #b91c1c; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 4px; }
+.add-pt { font-size: 13px; color: #0284c7; padding: 4px 2px; }
+.sh-actions { display: flex; gap: 10px; margin-top: 16px; }
+.sh-actions .btn, .sh-actions .ghost-btn { flex: 1; margin: 0; }
+
+.drill-date { margin-left: 8px; font-size: 11px; font-weight: 400; color: #94a3b8; }
+
+.picker-like { width: 100%; box-sizing: border-box; border: 1px solid #cfe8f7; border-radius: 10px; padding: 10px 12px; font-size: 15px; background: #fff; color: #075985; }
+
+.edit-link { float: right; font-size: 12px; font-weight: 600; color: #0284c7; }

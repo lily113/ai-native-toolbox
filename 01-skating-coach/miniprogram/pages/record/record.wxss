@@ -1,0 +1,41 @@
+.card { padding: 14px; }
+.del { background: #fde8e8; color: #b91c1c; }
+
+.mv { border-bottom: 1px solid #eef4f8; padding: 4px 0; }
+.mv-head { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.mv-check, .dr-check { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid #bcd8ea; background: #fff; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+.mv-check.on, .dr-check.on { background: #0284c7; border-color: #0284c7; color: #fff; }
+.mv-name { font-size: 15px; color: #0f172a; font-weight: 600; }
+.mv-cat { font-size: 11px; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 1px 7px; margin-left: auto; }
+.mv-drills { padding: 2px 0 6px 30px; }
+.dr { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+.dr-check { width: 19px; height: 19px; font-size: 12px; }
+.dr-name { font-size: 14px; color: #475569; }
+
+/* 固定底部操作栏 */
+.page { padding-bottom: calc(88px + env(safe-area-inset-bottom)); }
+.footer { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; gap: 10px; align-items: center;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); background: #fff; border-top: 1px solid #cfe8f7; }
+.footer .btn, .footer .ghost-btn { margin: 0; }
+.footer .save-btn { flex: 1; }
+.footer .del { flex: none; width: 96px; }
+
+.textarea.tall { min-height: 150px; }
+
+/* 显示顺序（拖动排序） */
+.edit-link { float: right; font-size: 12px; font-weight: 600; color: #0284c7; }
+.sort-area { width: 100%; overflow: hidden; margin-top: 2px; }
+.sort-row { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 8px;
+  background: #f8fbfe; border: 1px solid #e2eef6; border-radius: 10px; padding: 0 12px; margin-bottom: 6px; }
+.sr-name { flex: 1; font-size: 13px; color: #08537a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-handle { flex: none; font-size: 16px; color: #a8c4d8; letter-spacing: -2px; }
+
+/* 已选（合并进训练笔记） */
+.sel-block { margin-top: 10px; }
+.sel-head { font-size: 12px; color: #64748B; margin-bottom: 6px; }
+.sr-del { flex: none; width: 26px; height: 26px; border-radius: 50%; background: #fde8e8; color: #b91c1c;
+  font-size: 15px; display: flex; align-items: center; justify-content: center; }
+
+.sr-pts { flex: none; font-size: 11px; color: #64748B; border: 1px solid #cfe8f7; border-radius: 999px;
+  padding: 2px 8px; margin-right: 4px; background: #fff; }
+.sr-pts.on { color: #fff; background: #0284c7; border-color: #0284c7; font-weight: 600; }

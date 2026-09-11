@@ -1,0 +1,27 @@
+<view class="coach">
+  <view class="top">
+    <text class="top-title">🤖 AI 滑冰教练</text>
+    <text class="top-clear" bindtap="clear">清空</text>
+  </view>
+
+  <scroll-view scroll-y class="chat" scroll-into-view="{{scrollId}}" scroll-with-animation>
+    <view class="msg-row {{item.role}}" id="m{{index}}" wx:for="{{msgs}}" wx:key="index">
+      <view class="bubble">{{item.text}}</view>
+    </view>
+    <view class="chat-pad" wx:if="{{!msgs.length}}">
+      <view class="chat-pad-title">你好！我是你的 AI 滑冰教练 🤖</view>
+      <view class="chat-pad-sub">
+        <view>· 某个动作的要点（前压步、勾手跳、内勾步…）</view>
+        <view>· 姿势 / 常见错误怎么改</view>
+        <view>· 转体怎么区分（内勾 / 外勾 / 括弧 / 捻转…）</view>
+      </view>
+    </view>
+    <view id="bottom"></view>
+  </scroll-view>
+
+  <view class="input-row">
+    <input class="inp" value="{{input}}" bindinput="input" confirm-type="send" bindconfirm="send"
+           placeholder="问教练，如：内勾步换刃吗？" disabled="{{sending}}" />
+    <button class="send" bindtap="send" disabled="{{sending}}">{{sending ? '…' : '发送'}}</button>
+  </view>
+</view>
