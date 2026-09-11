@@ -1,0 +1,27 @@
+.goal-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.goal-input { flex: 1; min-width: 0; height: 46px; font-size: 17px; font-weight: 600; }
+.goal-btn { flex: none; width: 96px; height: 46px; margin: 0; }
+.goal-btn-full { margin: 2px 0 10px; height: 46px; }
+.goal-chips { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.goal-chips .chip { padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid #cfe8f7; color: #075985; font-size: 13px; }
+.goal-hint { margin-bottom: 4px; line-height: 1.6; }
+.base-lb { width: 72px; flex: none; font-size: 14px; color: #0f172a; }
+
+.kv { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.kv-label { font-size: 13px; color: #64748B; flex: none; }
+.kv-val { font-size: 13px; color: #0f172a; text-align: right; word-break: break-all; }
+
+.auto-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; }
+.auto-title { font-size: 15px; font-weight: 700; color: #0f172a; }
+.auto-sub { margin-top: 2px; }
+
+.btn-row { display: flex; gap: 10px; }
+.btn-row .ghost-btn { margin-top: 0; }
+.half { flex: 1; }
+
+.export-area { min-height: 120px; font-size: 11px; }
+.muted { line-height: 1.7; }
+.danger { background: #fde8e8; color: #b91c1c; }
+.danger-card { margin-top: 4px; }
+
+.diag { margin-top: 12px; font-size: 12px; color: #0284c7; text-align: center; padding: 6px 0; }

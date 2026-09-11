@@ -1,0 +1,26 @@
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.tab { flex: 1; text-align: center; padding: 8px 2px; border-radius: 10px; background: #fff; color: #075985; font-size: 13px; font-weight: 600; border: 1px solid #cfe8f7; }
+.tab.active { background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border-color: transparent; box-shadow: 0 3px 8px rgba(2,132,199,.3); }
+.tab-n { margin-left: 4px; font-size: 11px; font-weight: 700; opacity: .75; }
+
+.head-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.head-title { font-size: 16px; font-weight: 800; color: #0c4a6e; }
+.sort-btn { font-size: 13px; font-weight: 700; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 6px 14px; }
+
+.move-card { background: #fff; border: 1px solid #cfe8f7; border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+.move-name { font-size: 16px; font-weight: 700; color: #0c4a6e; }
+.move-meta { text-align: right; }
+.cat-badge { font-size: 11px; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 2px 8px; }
+.drill-cnt { font-size: 11px; color: #64748B; margin-left: 6px; }
+.empty { color: #64748B; text-align: center; padding: 26px 8px; font-size: 13px; }
+
+.sort-hint { margin-bottom: 10px; }
+.tabs-note { font-size: 12px; color: #94a3b8; margin: -4px 2px 10px; }
+.sort-area { width: 100%; overflow: hidden; }
+.sort-row { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #cfe8f7; border-radius: 12px; padding: 0 14px; margin-bottom: 6px; }
+.sr-name { font-size: 15px; font-weight: 700; color: #0c4a6e; flex: 1; }
+.sr-meta { font-size: 12px; color: #64748B; }
+.sr-cnt { color: #0284c7; }
+.sr-handle { font-size: 18px; color: #94a3b8; flex: none; }
+
+.move-date { display: block; font-size: 11px; color: #94a3b8; margin-top: 3px; }

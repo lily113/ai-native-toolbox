@@ -1,0 +1,40 @@
+{
+  "cloud": true,
+  "pages": [
+    "pages/index/index",
+    "pages/record/record",
+    "pages/coach/coach",
+    "pages/moves/moves",
+    "pages/move/move",
+    "pages/milestone/milestone",
+    "pages/review/review",
+    "pages/settings/settings"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#e0f2fe",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "花样滑冰训练",
+    "backgroundColor": "#f0f9ff",
+    "backgroundTextStyle": "dark"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "subPackages": [
+    {
+      "root": "packageExam",
+      "name": "exam",
+      "pages": [
+        "exams/exams",
+        "exam/exam"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "all",
+      "packages": [
+        "exam"
+      ]
+    }
+  }
+}

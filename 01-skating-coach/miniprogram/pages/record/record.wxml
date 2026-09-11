@@ -1,0 +1,81 @@
+<view class="page">
+  <view class="card">
+    <view class="field">
+      <view class="field-label">类型 *</view>
+      <view class="seg">
+        <view class="seg-btn {{type === item.k ? 'active' : ''}}" wx:for="{{types}}" wx:key="k" bindtap="setType" data-k="{{item.k}}">{{item.e}}</view>
+      </view>
+    </view>
+
+    <view class="field" wx:if="{{type === 'ice'}}">
+      <view class="field-label">训练方式 *</view>
+      <view class="seg">
+        <view class="seg-btn {{mode === item.k ? 'active' : ''}}" wx:for="{{modes}}" wx:key="k" bindtap="setMode" data-k="{{item.k}}">{{item.e}}</view>
+      </view>
+    </view>
+
+    <view class="field">
+      <view class="field-label">日期 *</view>
+      <picker mode="date" value="{{date}}" bindchange="setDate">
+        <view class="picker">{{date}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <view class="field-label">时长（分钟）</view>
+      <input class="input" type="number" value="{{duration}}" data-k="duration" bindinput="input" />
+    </view>
+
+    <view class="field">
+      <view class="field-label">训练笔记（可选）</view>
+      <textarea class="textarea" value="{{content}}" data-k="content" bindinput="input" placeholder="勾选动作/考级会自动写入条目；这里可补充要点、教练的话、身体状态、下次目标…" maxlength="-1"></textarea>
+      <view class="sel-block" wx:if="{{orderRows.length > 1}}">
+        <view class="sel-head">已选 · 按住 ≡ 拖动可调整顺序（会同步上面的条目顺序）</view>
+        <movable-area class="sort-area" style="height:{{orderAreaH}}px">
+          <movable-view class="sort-row" wx:for="{{orderRows}}" wx:key="key" direction="vertical"
+                        y="{{item.y}}" style="height:{{ORDER_ROW_H}}px"
+                        bindchange="onDragOrder" data-key="{{item.key}}">
+            <view class="sr-name">{{index + 1}}. {{item.label}}</view>
+            <view class="sr-handle">≡</view>
+          </movable-view>
+        </movable-area>
+      </view>
+    </view>
+
+    <view class="field">
+      <view class="field-label">训练动作 / 练习组合（可选）</view>
+      <view class="mv-list" wx:if="{{movesList.length}}">
+        <view class="mv" wx:for="{{movesList}}" wx:for-item="mv" wx:key="id">
+          <view class="mv-head" bindtap="toggleMove" data-id="{{mv.id}}">
+            <view class="mv-check {{mv.checked ? 'on' : ''}}">{{mv.checked ? '✓' : ''}}</view>
+            <view class="mv-name">{{mv.name}}</view>
+            <view class="mv-cat">{{mv.catName}}</view>
+          </view>
+          <view class="mv-drills" wx:if="{{mv.checked && mv.drills.length}}">
+            <view class="dr" wx:for="{{mv.drills}}" wx:for-item="dr" wx:key="id"
+                  bindtap="toggleDrill" data-mid="{{mv.id}}" data-did="{{dr.id}}">
+              <view class="dr-check {{dr.checked ? 'on' : ''}}">{{dr.checked ? '✓' : ''}}</view>
+              <view class="dr-name">{{dr.name}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="muted" wx:else>动作库暂无内容，可先到「动作库」添加动作。</view>
+    </view>
+
+    <view class="field" wx:if="{{examList.length}}">
+      <view class="field-label">考级备考（可选）</view>
+      <view class="dr" wx:for="{{examList}}" wx:for-item="ex" wx:key="id"
+            bindtap="toggleExam" data-id="{{ex.id}}">
+        <view class="dr-check {{ex.checked ? 'on' : ''}}">{{ex.checked ? '✓' : ''}}</view>
+        <view class="dr-name">{{ex.label}}</view>
+      </view>
+    </view>
+
+  </view>
+
+  <view class="footer">
+    <button class="ghost-btn del" wx:if="{{id}}" bindtap="del">删除</button>
+    <button class="btn save-btn" bindtap="save">保存</button>
+  </view>
+</view>

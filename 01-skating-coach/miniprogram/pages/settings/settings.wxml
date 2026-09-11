@@ -1,0 +1,72 @@
+<view class="page">
+  <view class="card">
+    <view class="title">🎯 每周上冰目标（分钟）</view>
+      <view class="goal-row">
+        <input class="input goal-input" type="number" value="{{goal}}" bindinput="setGoal" placeholder="例如 360" />
+        <button class="btn goal-btn" bindtap="saveGoal">保存</button>
+      </view>
+      <view class="goal-chips">
+        <view class="chip" data-v="180" bindtap="quickGoal">180</view>
+        <view class="chip" data-v="270" bindtap="quickGoal">270</view>
+        <view class="chip" data-v="360" bindtap="quickGoal">360</view>
+        <view class="chip" data-v="450" bindtap="quickGoal">450</view>
+        <view class="chip" data-v="540" bindtap="quickGoal">540</view>
+      </view>
+      <view class="muted goal-hint">点上方数字可快速选；用于「月度概览」参考</view>
+  </view>
+
+  <view class="card">
+    <view class="title">📈 次数基线（开始记录前已录的次数）</view>
+    <view class="muted">早期记录不全时，填上这个基线，让「回顾」里的累计「上冰/上课」次数更准确。</view>
+    <view class="goal-row">
+      <view class="base-lb">上冰基线</view>
+      <input class="input goal-input" type="number" value="{{iceBase}}" bindinput="setIceBase" placeholder="0" />
+    </view>
+    <view class="goal-row">
+      <view class="base-lb">上课基线</view>
+      <input class="input goal-input" type="number" value="{{lessonBase}}" bindinput="setLessonBase" placeholder="0" />
+    </view>
+    <button class="btn goal-btn-full" bindtap="saveBase">保存基线</button>
+  </view>
+
+  <view class="card">
+    <view class="title">☁️ 云同步</view>
+    <view class="kv"><text class="kv-label">当前身份</text><text class="kv-val">{{openid || '获取中…'}}</text></view>
+    <view class="kv"><text class="kv-label">上次同步</text><text class="kv-val">{{syncStatus}}</text></view>
+    <view class="auto-row">
+      <view class="auto-info">
+        <view class="auto-title">自动同步</view>
+        <view class="muted auto-sub">打开/切回自动拉取，改动后几秒自动上传</view>
+      </view>
+      <switch checked="{{auto}}" bindchange="toggleAuto" color="#0284c7" />
+    </view>
+    <view class="btn-row">
+      <button class="ghost-btn half" bindtap="cloudUpload">⬆️ 上传</button>
+      <button class="ghost-btn half" bindtap="cloudPull">⬇️ 拉取合并</button>
+    </view>
+    <view class="diag" bindtap="diagnose">🔍 同步诊断（看数据和云端各有什么）</view>
+    <view class="diag" bindtap="rollback">⏮ 回滚到云端历史版本</view>
+    <view class="diag" bindtap="copyExamsRaw">📋 复制考级原始数据（用于核对/恢复）</view>
+  </view>
+
+  <view class="card">
+    <view class="title">💾 数据备份 / 迁移</view>
+    <view class="muted">「导出」生成一份 JSON 备份或迁移到其它设备；「导入」可合并网页版 / 其它设备的备份。</view>
+    <view class="btn-row">
+      <button class="ghost-btn half" bindtap="exportFile">💾 导出为文件</button>
+      <button class="ghost-btn half" bindtap="chooseImportFile">📂 导入文件</button>
+    </view>
+    <view class="btn-row">
+      <button class="ghost-btn" bindtap="toggleImport">📥 粘贴导入</button>
+    </view>
+    <view wx:if="{{showImport}}">
+      <view class="muted">粘贴 JSON 备份内容（会自动合并去重）：</view>
+      <textarea class="textarea" value="{{importText}}" bindinput="setImportText" placeholder="粘贴 JSON 备份内容…" maxlength="-1"></textarea>
+      <button class="btn" bindtap="doImport">导入</button>
+    </view>
+  </view>
+
+  <view class="card danger-card">
+    <button class="ghost-btn danger" bindtap="clearData">清空所有数据</button>
+  </view>
+</view>

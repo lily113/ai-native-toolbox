@@ -1,0 +1,76 @@
+<view class="page">
+  <view class="head card">
+    <view class="head-name">{{name}}</view>
+    <text class="cat-badge">{{catName}}</text>
+    <button class="del-move" bindtap="delMove">删除动作</button>
+  </view>
+
+  <view class="card">
+    <view class="block-title">💡 共性要点<text class="edit-link" bindtap="openPts">编辑</text></view>
+    <view class="pt-item" wx:for="{{movePoints}}" wx:for-item="p" wx:key="index">· {{p}}</view>
+    <view class="empty" wx:if="{{!movePoints.length}}">（适用于该动作下所有练习的通用要点，点「编辑」添加）</view>
+  </view>
+
+  <view class="card">
+    <view class="block-title">🏷️ 练习组合（drills）</view>
+    <view class="drill" wx:for="{{drills}}" wx:key="id" bindtap="openEdit" bindlongpress="delDrill" data-id="{{item.id}}">
+      <view class="drill-no">{{item.no}}</view>
+      <view class="drill-body">
+        <view class="drill-name">{{item.name}}<text class="drill-date" wx:if="{{item.dateText}}">{{item.dateText}}</text></view>
+        <view class="pt-item" wx:for="{{item.points}}" wx:for-item="pt" wx:key="index">· {{pt}}</view>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{!drills.length}}">还没有组合。点按组合可改名称/要点，长按可删除。</view>
+    <button class="ghost-btn" bindtap="addDrill">＋ 添加练习组合</button>
+  </view>
+
+  <view class="tip">提示：点按组合可编辑名称与要点（可多条），长按删除。</view>
+
+  <!-- 共性要点弹层 -->
+  <view class="mask {{ptsOn ? 'show' : ''}}" bindtap="closePts">
+    <view class="sheet" catchtap="noop">
+      <view class="sh-title">共性要点</view>
+      <view class="muted">适用于该动作下所有练习组合的通用要点</view>
+      <view class="field">
+        <view class="pt" wx:for="{{editPts}}" wx:for-item="p" wx:key="index">
+          <textarea class="ta pt-inp" value="{{p}}" data-i="{{index}}" bindinput="onPt" placeholder="要点…" maxlength="-1" auto-height></textarea>
+          <view class="pt-x" data-i="{{index}}" bindtap="delPt">×</view>
+        </view>
+        <view class="add-pt" bindtap="addPt">＋ 添加要点</view>
+      </view>
+      <view class="sh-actions">
+        <button class="ghost-btn" bindtap="closePts">取消</button>
+        <button class="btn" bindtap="savePts">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 编辑组合弹层 -->
+  <view class="mask {{editOn ? 'show' : ''}}" bindtap="closeEdit">
+    <view class="sheet" catchtap="noop">
+      <view class="sh-title">{{editId ? '编辑组合' : '添加组合'}}</view>
+      <view class="field">
+        <view class="field-label">名称</view>
+        <textarea class="ta" value="{{editName}}" bindinput="onName" placeholder="如：后外点冰两周 ×10 组" maxlength="-1" auto-height></textarea>
+      </view>
+      <view class="field">
+        <view class="field-label">新增日期（用于排序，日期越新越靠前）</view>
+        <picker mode="date" value="{{editDate}}" bindchange="onDateChange">
+          <view class="picker-like">{{editDate || '（未设置，点此选择）'}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="field-label">要点（可多条，可留空）</view>
+        <view class="pt" wx:for="{{editPoints}}" wx:for-item="pt" wx:key="index">
+          <textarea class="ta pt-inp" value="{{pt}}" data-i="{{index}}" bindinput="onPoint" placeholder="要点…" maxlength="-1" auto-height></textarea>
+          <view class="pt-x" data-i="{{index}}" bindtap="delPoint">×</view>
+        </view>
+        <view class="add-pt" bindtap="addPoint">＋ 添加要点</view>
+      </view>
+      <view class="sh-actions">
+        <button class="ghost-btn" bindtap="closeEdit">取消</button>
+        <button class="btn" bindtap="saveEdit">保存</button>
+      </view>
+    </view>
+  </view>
+</view>

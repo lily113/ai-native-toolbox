@@ -1,0 +1,50 @@
+<view class="page">
+  <view class="card">
+    <view class="block-title">🏆 纪念日 / 里程碑</view>
+    <view class="muted">记录你的重要日子：第一次上冰、考级、比赛、换刀、康复日子…（轻量保存，随云同步）</view>
+  </view>
+
+  <view class="ms" wx:for="{{list}}" wx:key="id" bindtap="openEdit" data-id="{{item.id}}" bindlongpress="del" data-id="{{item.id}}">
+    <view class="ms-emo">{{item.emo}}</view>
+    <view class="ms-body">
+      <view class="ms-title">{{item.title || item.typeName}}</view>
+      <view class="ms-date">{{item.date}}<text class="ms-type"> · {{item.typeName}}</text></view>
+      <view class="ms-note" wx:if="{{item.note}}">{{item.note}}</view>
+    </view>
+  </view>
+  <view class="empty" wx:if="{{!list.length}}">还没有纪念日，点下方「＋ 添加纪念日」记录第一个吧</view>
+
+  <button class="btn" bindtap="add">＋ 添加纪念日</button>
+
+  <!-- 添加/编辑弹层 -->
+  <view class="mask {{editOn ? 'show' : ''}}" bindtap="closeEdit">
+    <view class="sheet" catchtap="noop">
+      <view class="sh-title">{{editId ? '编辑纪念日' : '添加纪念日'}}</view>
+      <view class="field">
+        <view class="field-label">类型</view>
+        <view class="types">
+          <view class="type-chip {{type === item.k ? 'active' : ''}}" wx:for="{{types}}" wx:key="k" bindtap="setType" data-k="{{item.k}}">{{item.emoji}} {{item.name}}</view>
+        </view>
+      </view>
+      <view class="field">
+        <view class="field-label">日期 *</view>
+        <picker mode="date" value="{{date}}" bindchange="setDate">
+          <view class="picker">{{date}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="field-label">标题（可选）</view>
+        <input class="input" value="{{title}}" data-k="title" bindinput="input" placeholder="如：三级考级通过" maxlength="-1" />
+      </view>
+      <view class="field">
+        <view class="field-label">备注（可选）</view>
+        <input class="input" value="{{note}}" data-k="note" bindinput="input" placeholder="当时的心情、细节…" maxlength="-1" />
+      </view>
+      <view class="sh-actions">
+        <button class="ghost-btn" bindtap="closeEdit">取消</button>
+        <button class="btn" bindtap="save">保存</button>
+      </view>
+      <view class="sheet-del" wx:if="{{editId}}" bindtap="delInEdit">删除纪念日</view>
+    </view>
+  </view>
+</view>

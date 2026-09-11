@@ -1,0 +1,44 @@
+<view class="page">
+  <view class="head-row">
+    <text class="head-title">动作库</text>
+    <view class="sort-btn" wx:if="{{tab !== 'all'}}" bindtap="toggleSort">{{sortOn ? '✔ 完成' : '⇅ 排序'}}</view>
+  </view>
+
+  <!-- 普通浏览模式 -->
+  <block wx:if="{{!sortOn}}">
+    <view class="tabs">
+      <view class="tab {{tab === item.k ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="k" bindtap="switchTab" data-k="{{item.k}}">{{item.name}}<text class="tab-n" wx:if="{{item.n}}">{{item.n}}</text></view>
+    </view>
+    <view class="tabs-note" wx:if="{{tab === 'all'}}">按最近添加排序</view>
+    <view class="moves">
+      <view class="move-card" wx:for="{{list}}" wx:key="id" bindtap="openMove" data-id="{{item.id}}">
+        <view class="move-name">{{item.name}}</view>
+        <view class="move-meta">
+          <text class="cat-badge">{{item.catName}}</text>
+          <text class="drill-cnt">{{item.drillCount}} 个组合</text>
+          <text class="move-date" wx:if="{{item.dateText}}">{{item.dateText}}</text>
+        </view>
+      </view>
+      <view class="empty" wx:if="{{!list.length}}">还没有动作，点下方「＋ 添加动作」</view>
+    </view>
+  </block>
+
+  <!-- 拖拽排序模式（当前分类内） -->
+  <block wx:else>
+    <view class="tabs">
+      <view class="tab {{tab === item.k ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="k" bindtap="switchTab" data-k="{{item.k}}">{{item.name}}<text class="tab-n" wx:if="{{item.n}}">{{item.n}}</text></view>
+    </view>
+    <view class="muted sort-hint">按住并上下拖动调整「{{tab}}」内顺序，松手自动保存</view>
+    <movable-area class="sort-area" style="height:{{areaH}}px">
+      <movable-view class="sort-row" wx:for="{{sortList}}" wx:key="id"
+                    direction="vertical" y="{{item.y}}" style="height:{{ROW_H}}px"
+                    bindchange="onDragSort" data-id="{{item.id}}">
+        <view class="sr-name">{{item.name}}</view>
+        <view class="sr-meta">{{item.catName}}<text class="sr-cnt"> · {{item.drillCount}} 组合</text></view>
+        <view class="sr-handle">≡</view>
+      </movable-view>
+    </movable-area>
+  </block>
+
+  <button class="btn" bindtap="add">＋ 添加动作</button>
+</view>

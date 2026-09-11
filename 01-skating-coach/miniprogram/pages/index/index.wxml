@@ -1,0 +1,66 @@
+<view class="page">
+  <view class="home-head">
+    <view class="brand">⛸️ 花样滑冰训练</view>
+    <view class="gear" bindtap="goSettings">⚙️</view>
+  </view>
+
+  <view class="month-bar">
+    <text class="mh-btn" bindtap="switchMonth" data-dir="prev">‹</text>
+    <view class="mh-center">
+      <picker mode="date" fields="month" value="{{ymValue}}" bindchange="onDate">
+        <view class="mh-title">{{year}} 年 {{month + 1}} 月 ▾</view>
+      </picker>
+      <text class="mh-sub">📅 {{selectedDate}}</text>
+    </view>
+    <text class="mh-btn" bindtap="switchMonth" data-dir="next">›</text>
+  </view>
+
+  <view class="cal">
+    <view class="cal-wd" wx:for="{{week}}" wx:key="index">{{item}}</view>
+    <view class="cal-cell {{item.other ? 'other' : ''}} {{item.today ? 'today' : ''}} {{item.sel ? 'sel' : ''}} {{!item.other && item.wd >= 5 ? 'wknd' : ''}}"
+          wx:for="{{cells}}" wx:key="index" bindtap="selectDay" data-key="{{item.key}}">
+      <text class="day-num">{{item.day}}</text>
+      <view class="dot" wx:if="{{item.has}}"></view>
+    </view>
+  </view>
+
+  <view class="monthcard">
+    <text class="mc-label">本月</text>
+    <text class="mc-item">{{monthCount}} 次</text>
+    <text class="mc-item">{{monthMin}} 分钟</text>
+    <text class="mc-item">{{monthLesson}} 课</text>
+  </view>
+
+  <view class="stats">
+    <view class="stat"><view class="stat-num">{{dayStats.length}}</view><view class="stat-label">当日记录</view></view>
+    <view class="stat"><view class="stat-num">{{dayMinutes}}</view><view class="stat-label">分钟</view></view>
+    <view class="stat"><view class="stat-num">{{dayLesson}}</view><view class="stat-label">上课</view></view>
+  </view>
+
+  <view class="recs">
+    <view class="rec-card {{item.typeClass}}" wx:for="{{dayStats}}" wx:key="id" bindtap="editRecord" data-id="{{item.id}}">
+      <view class="rec-top">
+        <view class="rec-type">{{item.typeEmoji}} {{item.typeName}}<text class="rec-mode"> · {{item.modeName}}</text></view>
+        <view class="rec-status {{item.done ? 'ok' : 'not'}}">{{item.statusText}}</view>
+      </view>
+      <view class="rec-lines" wx:if="{{item.contentLines.length}}">
+        <view class="rec-line-item" wx:for="{{item.contentLines}}" wx:for-item="ln" wx:key="index">
+          <view class="rec-line-dot"></view><text class="rec-line-text">{{ln.text || ln}}</text>
+        </view>
+        <view class="rec-more" wx:if="{{item.moreCount}}">…共 {{item.contentLines.length + item.moreCount}} 项</view>
+      </view>
+      <view class="rec-duration" wx:if="{{item.duration}}">⏱ {{item.duration}} 分钟</view>
+    </view>
+    <view class="empty" wx:if="{{!dayStats.length}}">这一天还没有训练安排，点「＋ 添加训练」开始记录</view>
+  </view>
+
+  <button class="btn cta" bindtap="goAdd">＋ 添加训练</button>
+
+  <view class="quick">
+    <view class="quick-item" bindtap="goReview"><view class="quick-icon">📊</view><view class="quick-label">回顾</view></view>
+    <view class="quick-item" bindtap="goExams"><view class="quick-icon">🎓</view><view class="quick-label">考级</view></view>
+    <view class="quick-item" bindtap="goMoves"><view class="quick-icon">⛸️</view><view class="quick-label">动作库</view></view>
+    <view class="quick-item" bindtap="goMilestone"><view class="quick-icon">🏆</view><view class="quick-label">纪念日</view></view>
+    <view class="quick-item" bindtap="goCoach"><view class="quick-icon">🤖</view><view class="quick-label">AI 教练</view></view>
+  </view>
+</view>
