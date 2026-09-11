@@ -1,0 +1,155 @@
+<view class="page">
+  <view class="card head">
+    <view class="h-title">{{kindName}} · {{level}}</view>
+    <view class="h-badge" wx:if="{{key}}">📖 内置考纲（只读）</view>
+    <picker mode="date" value="{{date}}" bindchange="setDate">
+      <view class="h-date">📅 {{date || '设置考级日期'}}</view>
+    </picker>
+    <view class="cd-bar" wx:if="{{cdText}}">⏳ {{cdText}}</view>
+    <view class="h-actions">
+      <view class="mini-btn" bindtap="toMilestone">🎖️ 记入纪念日</view>
+      <view class="mini-btn" bindtap="copyMyMistakes">📋 复制我的易错</view>
+    </view>
+  </view>
+
+  <view class="card" wx:for="{{sections}}" wx:for-item="sec" wx:key="id">
+    <view class="sec-imgs" wx:if="{{sec.images.length}}">
+      <image wx:for="{{sec.images}}" wx:for-item="im" wx:key="*this" class="sec-img"
+             src="{{im}}" mode="widthFix" bindtap="previewBuiltin" data-src="{{im}}"
+             binderror="imgErr" bindload="imgOk"></image>
+      <view class="img-miss" wx:if="{{imgErrMsg}}">{{imgErrMsg}}</view>
+    </view>
+
+    <view class="sec-head">
+      <view class="sec-name">{{sec.name}}<text class="lock" wx:if="{{sec.builtin && !sec.userAdd}}">内置</text></view>
+      <view class="sec-menu" wx:if="{{!sec.builtin}}" catchtap="secMenu" data-id="{{sec.id}}">⋯</view>
+    </view>
+
+    <view class="item" wx:for="{{sec.items}}" wx:for-item="it" wx:key="id"
+          bindtap="openItem" data-sid="{{sec.id}}" data-iid="{{it.id}}" data-builtin="{{it.builtin}}">
+      <view class="it-title">{{it.title}}<text class="it-move" wx:if="{{it.moveName}}"> · {{it.moveName}}</text></view>
+      <view class="it-pt" wx:for="{{it.points}}" wx:for-item="p" wx:key="index">· {{p}}</view>
+      <block wx:if="{{it.mistakes.length}}">
+        <view class="it-mk-title">易犯错误</view>
+        <view class="it-mk" wx:for="{{it.mistakes}}" wx:for-item="m" wx:key="index">- {{m}}</view>
+      </block>
+      <block wx:if="{{it.myPoints.length || it.myMistakes.length || it.myNote}}">
+        <view class="it-my-title">★ 我的</view>
+        <view class="it-my" wx:for="{{it.myPoints}}" wx:for-item="p" wx:key="index">· {{p}}</view>
+        <view class="it-my-mk" wx:for="{{it.myMistakes}}" wx:for-item="m" wx:key="index">- {{m}}</view>
+        <view class="it-note" wx:if="{{it.myNote}}">📝 {{it.myNote}}</view>
+      </block>
+      <view class="it-note" wx:if="{{it.note}}">📝 {{it.note}}</view>
+    </view>
+
+    <view class="empty" wx:if="{{!sec.items.length && sec.userAdd}}">（点「＋ 添加条目」记录你的要求 / 易错点）</view>
+    <view class="add-item" wx:if="{{sec.userAdd}}" bindtap="addItem" data-sid="{{sec.id}}">＋ 添加条目</view>
+    <view class="add-item batch" wx:if="{{sec.userAdd}}" bindtap="openBatch" data-sid="{{sec.id}}">📋 批量粘贴（多行）</view>
+  </view>
+
+  <button class="ghost-btn" bindtap="addSection">＋ 添加我的分节</button>
+
+  <!-- 批量粘贴弹层 -->
+  <view class="mask {{batchOn ? 'show' : ''}}" bindtap="closeBatch">
+    <view class="sheet" catchtap="noop">
+      <view class="sh-title">批量粘贴要点</view>
+      <view class="field">
+        <view class="field-label">每行一条：不以符号开头的行 = 一个条目；以 - · • 开头的行 = 上一条目下的要点</view>
+        <textarea class="ta" style="min-height:200px" value="{{batchText}}" bindinput="onBatchInput"
+          placeholder="例如：\n后外点冰跳起跳前压刃\n- 重心别往后坐\n- 落冰要压住浮腿\n联合旋转保持转速\n- 换姿势别停" maxlength="-1"></textarea>
+      </view>
+      <view class="sh-actions">
+        <button class="ghost-btn" bindtap="closeBatch">取消</button>
+        <button class="btn" bindtap="saveBatch">解析并添加</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 条目编辑弹层 -->
+  <view class="mask {{itemOn ? 'show' : ''}}" bindtap="closeItem">
+    <view class="sheet" catchtap="noop">
+      <view class="sh-title">{{itemMode === 'builtin' ? '补充我的要点' : (itemId ? '编辑条目' : '添加条目')}}</view>
+
+      <!-- 内置条目：考纲内容只读 -->
+      <block wx:if="{{itemMode === 'builtin'}}">
+        <view class="field">
+          <view class="field-label">考纲内容（只读）</view>
+          <view class="ro-box">
+            <view class="ro-title">{{builtinTitle}}</view>
+            <view class="ro-pt" wx:for="{{builtinPoints}}" wx:for-item="p" wx:key="index">· {{p}}</view>
+            <block wx:if="{{builtinMistakes.length}}">
+              <view class="ro-mk-title">官方易犯错误</view>
+              <view class="ro-mk" wx:for="{{builtinMistakes}}" wx:for-item="m" wx:key="index">- {{m}}</view>
+            </block>
+          </view>
+        </view>
+        <view class="field">
+          <view class="field-label">★ 我的要点（可多条）</view>
+          <view class="row" wx:for="{{item.myPoints}}" wx:for-item="p" wx:key="index">
+            <textarea class="ta row-in" value="{{p}}" data-i="{{index}}" bindinput="onMyPoint" placeholder="我自己要注意的…" maxlength="-1" auto-height></textarea>
+            <view class="row-x" data-i="{{index}}" bindtap="delMyPoint">×</view>
+          </view>
+          <view class="add-pt" bindtap="addMyPoint">＋ 添加我的要点</view>
+        </view>
+        <view class="field">
+          <view class="field-label">★ 我的易犯错误（可多条）</view>
+          <view class="row" wx:for="{{item.myMistakes}}" wx:for-item="p" wx:key="index">
+            <textarea class="ta row-in" value="{{p}}" data-i="{{index}}" bindinput="onMyMistake" placeholder="我常犯的…" maxlength="-1" auto-height></textarea>
+            <view class="row-x" data-i="{{index}}" bindtap="delMyMistake">×</view>
+          </view>
+          <view class="add-pt" bindtap="addMyMistake">＋ 添加我的易犯错误</view>
+        </view>
+        <view class="field">
+          <view class="field-label">关联动作库动作（可选）</view>
+          <picker mode="selector" range="{{moveNames}}" value="{{item.moveIndex}}" bindchange="onMoveChange">
+            <view class="picker-like">{{item.moveName ? item.moveName + '（点此更换）' : '点此选择动作'}}</view>
+          </picker>
+        </view>
+        <view class="field">
+          <view class="field-label">★ 我的备注（可选）</view>
+          <textarea class="ta" value="{{item.myNote}}" bindinput="onMyNote" placeholder="教练说的话、我的理解…" maxlength="-1" auto-height></textarea>
+        </view>
+      </block>
+
+      <!-- 自建条目：完全可编辑 -->
+      <block wx:else>
+        <view class="field">
+          <view class="field-label">标题</view>
+          <textarea class="ta" value="{{item.title}}" bindinput="onTitle" placeholder="如：我的易错汇总" maxlength="-1" auto-height></textarea>
+        </view>
+        <view class="field">
+          <view class="field-label">要点（可多条）</view>
+          <view class="row" wx:for="{{item.points}}" wx:for-item="p" wx:key="index">
+            <textarea class="ta row-in" value="{{p}}" data-i="{{index}}" bindinput="onPoint" placeholder="要点…" maxlength="-1" auto-height></textarea>
+            <view class="row-x" data-i="{{index}}" bindtap="delPoint">×</view>
+          </view>
+          <view class="add-pt" bindtap="addPoint">＋ 添加要点</view>
+        </view>
+        <view class="field">
+          <view class="field-label">易犯错误（可多条，可留空）</view>
+          <view class="row" wx:for="{{item.mistakes}}" wx:for-item="p" wx:key="index">
+            <textarea class="ta row-in" value="{{p}}" data-i="{{index}}" bindinput="onMistake" placeholder="易犯错误…" maxlength="-1" auto-height></textarea>
+            <view class="row-x" data-i="{{index}}" bindtap="delMistake">×</view>
+          </view>
+          <view class="add-pt" bindtap="addMistake">＋ 添加易犯错误</view>
+        </view>
+        <view class="field">
+          <view class="field-label">关联动作库动作（可选）</view>
+          <picker mode="selector" range="{{moveNames}}" value="{{item.moveIndex}}" bindchange="onMoveChange">
+            <view class="picker-like">{{item.moveName ? item.moveName + '（点此更换）' : '点此选择动作'}}</view>
+          </picker>
+        </view>
+        <view class="field">
+          <view class="field-label">备注（可选）</view>
+          <textarea class="ta" value="{{item.note}}" bindinput="onNote" placeholder="备注…" maxlength="-1" auto-height></textarea>
+        </view>
+      </block>
+
+      <view class="sh-actions">
+        <button class="ghost-btn" bindtap="closeItem">取消</button>
+        <button class="btn" bindtap="saveItem">保存</button>
+      </view>
+      <button class="ghost-btn danger" wx:if="{{itemMode === 'user' && itemId}}" bindtap="delItem">删除条目</button>
+    </view>
+  </view>
+</view>
