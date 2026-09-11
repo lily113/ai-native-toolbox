@@ -1,0 +1,15 @@
+.tip { margin-bottom: 10px; line-height: 1.7; }
+.grp-title { font-size: 14px; font-weight: 700; color: #075985; margin: 10px 2px 8px; }
+.exam-card { background: #fff; border: 1px solid #cfe8f7; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+.ec-top { display: flex; align-items: center; justify-content: space-between; }
+.ec-level { font-size: 16px; font-weight: 700; color: #0c4a6e; }
+.ec-del { font-size: 12px; color: #b91c1c; background: #fde8e8; border-radius: 999px; padding: 3px 10px; }
+.ec-meta { display: flex; gap: 12px; font-size: 12px; color: #64748B; margin-top: 6px; }
+.ec-note { font-size: 12px; color: #64748B; margin-top: 6px; line-height: 1.6; }
+.empty { color: #64748B; font-size: 13px; padding: 10px 4px; }
+
+.ec-tag { margin-left: 6px; font-size: 11px; font-weight: 600; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 1px 8px; }
+
+.ec-cd { margin-top: 8px; font-size: 13px; font-weight: 700; color: #0369a1; background: #e0f2fe; border-radius: 8px; padding: 6px 10px; display: inline-block; }
+
+.restore { margin-top: 14px; text-align: center; font-size: 12px; color: #64748B; padding: 6px 0; }

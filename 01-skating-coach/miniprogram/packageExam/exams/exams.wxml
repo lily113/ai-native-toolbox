@@ -1,0 +1,26 @@
+<view class="page">
+  <view class="muted tip">考纲内容为内置（只读）；你可以对每条考纲补充「我的要点 / 我的易犯错误」，也可以自建分节与条目。</view>
+
+  <block wx:for="{{groups}}" wx:for-item="g" wx:key="kind">
+    <view class="grp-title">{{g.name}}</view>
+    <view class="exam-card" wx:for="{{g.list}}" wx:for-item="it" wx:key="id"
+          bindtap="open" data-id="{{it.id}}">
+      <view class="ec-top">
+        <view class="ec-level">{{it.level}}<text class="ec-tag" wx:if="{{it.builtin}}">内置考纲</text></view>
+        <view class="ec-del" wx:if="{{!it.builtin}}" catchtap="del" data-id="{{it.id}}">删除</view>
+      </view>
+      <view class="ec-cd" wx:if="{{it.cdText}}">⏳ {{it.cdText}}</view>
+      <view class="ec-meta">
+        <text wx:if="{{it.date}}">📅 {{it.date}}</text>
+        <text>📝 {{it.itemCount}} 条</text>
+        <text wx:if="{{it.myCount}}">★ 我的 {{it.myCount}}</text>
+        <text wx:if="{{it.imgCount}}">📷 {{it.imgCount}}</text>
+      </view>
+      <view class="ec-note" wx:if="{{it.note}}">{{it.note}}</view>
+    </view>
+    <view class="empty" wx:if="{{!g.list.length}}">还没有{{g.name}}内容</view>
+  </block>
+
+  <button class="btn" bindtap="add">＋ 新建考级</button>
+  <view class="restore" bindtap="restoreBackup">↩︎ 恢复上次同步前的考级数据</view>
+</view>

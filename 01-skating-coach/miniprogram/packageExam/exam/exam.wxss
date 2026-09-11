@@ -1,0 +1,58 @@
+.head { text-align: left; }
+.h-title { font-size: 18px; font-weight: 800; color: #0c4a6e; }
+.h-date { font-size: 13px; color: #0284c7; margin-top: 6px; }
+.h-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.mini-btn { font-size: 12px; font-weight: 600; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 6px 12px; }
+
+.block-title { font-size: 14px; font-weight: 700; color: #0c4a6e; margin-bottom: 8px; }
+
+.sec-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.sec-name { font-size: 15px; font-weight: 700; color: #0c4a6e; }
+.sec-menu { font-size: 18px; color: #94a3b8; padding: 0 8px; }
+
+.item { padding: 9px 0; border-bottom: 1px solid #f1f5f9; }
+.it-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+.it-move { font-size: 12px; color: #0284c7; font-weight: 500; }
+.it-pt { font-size: 13px; color: #475569; margin-top: 4px; line-height: 1.6; }
+.it-mk-title { font-size: 12px; font-weight: 700; color: #b45309; margin-top: 6px; }
+.it-mk { font-size: 13px; color: #9a3412; margin-top: 2px; line-height: 1.6; }
+.it-note { font-size: 12px; color: #64748B; margin-top: 4px; }
+.empty { color: #94a3b8; font-size: 13px; padding: 6px 2px; }
+.add-item { font-size: 13px; color: #0284c7; margin-top: 8px; }
+
+.mask { position: fixed; inset: 0; background: rgba(12,74,110,.4); display: flex; align-items: flex-end; opacity: 0; visibility: hidden; transition: opacity .18s; z-index: 30; }
+.mask.show { opacity: 1; visibility: visible; }
+.sheet { width: 100%; background: #f0f9ff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 80vh; overflow: auto; }
+.sh-title { font-size: 16px; font-weight: 800; color: #0c4a6e; margin-bottom: 12px; }
+.field { margin-bottom: 12px; }
+.field-label { font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 6px; }
+.ta { width: 100%; box-sizing: border-box; min-height: 44px; border: 1px solid #cfe8f7; border-radius: 10px; padding: 10px 12px; font-size: 15px; background: #fff; color: #0f172a; }
+.row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
+.row-in { flex: 1; }
+.row-x { width: 30px; height: 30px; border-radius: 8px; background: #fde8e8; color: #b91c1c; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 4px; }
+.add-pt { font-size: 13px; color: #0284c7; padding: 2px; }
+.picker-like { border: 1px solid #cfe8f7; border-radius: 10px; background: #fff; padding: 10px 12px; font-size: 14px; color: #075985; }
+.sh-actions { display: flex; gap: 10px; margin-top: 14px; }
+.sh-actions .btn, .sh-actions .ghost-btn { flex: 1; margin: 0; }
+.danger { background: #fde8e8; color: #b91c1c; margin-top: 10px; }
+
+/* 内置只读样式 */
+.lock { margin-left: 6px; font-size: 11px; font-weight: 600; color: #64748B; background: #e2eef6; border-radius: 999px; padding: 1px 7px; }
+.it-my-title { font-size: 12px; font-weight: 700; color: #0f766e; margin-top: 6px; }
+.it-my { font-size: 13px; color: #0f766e; margin-top: 2px; line-height: 1.6; }
+.it-my-mk { font-size: 13px; color: #b45309; margin-top: 2px; line-height: 1.6; }
+.ro-box { background: #f8fafc; border: 1px dashed #cfe8f7; border-radius: 10px; padding: 10px 12px; }
+.ro-title { font-size: 14px; font-weight: 700; color: #0f172a; }
+.ro-pt { font-size: 13px; color: #475569; margin-top: 4px; line-height: 1.6; }
+.ro-mk-title { font-size: 12px; font-weight: 700; color: #b45309; margin-top: 6px; }
+.ro-mk { font-size: 13px; color: #9a3412; margin-top: 2px; line-height: 1.6; }
+
+/* 内置图片（考纲图案） */
+.sec-imgs { margin-bottom: 10px; }
+.sec-img { width: 100%; border-radius: 10px; border: 1px solid #cfe8f7; background: #fff; }
+.img-miss { font-size: 12px; color: #b45309; background: #fef3c7; border-radius: 8px; padding: 8px 10px; margin-top: 6px; line-height: 1.6; }
+
+/* 倒计时 */
+.cd-bar { margin-top: 10px; font-size: 14px; font-weight: 700; color: #0369a1; background: #e0f2fe; border-radius: 10px; padding: 10px 12px; }
+
+.add-item.batch { color: #0f766e; }
