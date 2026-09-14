@@ -1,4 +1,4 @@
-# 03 · Friend Journal — AI 朋友型电子手账
+# 02 · Friend Journal — AI 朋友型电子手账
 
 > 情绪需要一个出口，但写日记的门槛太高：不知道写什么，也坚持不下来。
 > 解法是让 AI 先听你说，再替你把这一天变成一页好看的手账。
@@ -69,8 +69,7 @@
 ## 项目文档
 
 - [`docs/AI_PROMPTS.md`](./docs/AI_PROMPTS.md) — 核心 AI 提示词设计
-- [`docs/DEMO_GUIDE.md`](./docs/DEMO_GUIDE.md) — 演示流程
-- [`ORIGINAL_README.md`](./ORIGINAL_README.md) — 项目原始 README（含完整启动方式）
+- [`docs/DEMO_GUIDE.md`](./docs/DEMO_GUIDE.md) — 演示流程（含本地启动方式）
 
 ---
 
