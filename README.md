@@ -40,6 +40,12 @@
 
 **状态**：**两版都在正常运行。** v1 PWA 已部署可用；v2 微信小程序 **8 个主页面 + 1 个分包全部跑通**——月历记录、训练增删改、动作库、考级备考、里程碑、回顾（含 12 个月趋势与类型占比）、AI 教练对话、设置与数据管理，云同步（含自动同步）与 DeepSeek 云函数都已上线。
 
+<p>
+  <img src="01-skating-coach/screenshots/01-calendar.png" width="200" alt="首页">
+  <img src="01-skating-coach/screenshots/03-review.png" width="200" alt="回顾：趋势与累计">
+  <img src="01-skating-coach/screenshots/04-exam.png" width="200" alt="考级备考">
+</p>
+
 ```
 01-skating-coach/
 ├── pwa/           # 纯前端 PWA 版（单文件 index.html + Service Worker）
