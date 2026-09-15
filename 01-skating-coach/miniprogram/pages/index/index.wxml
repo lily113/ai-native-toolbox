@@ -40,7 +40,7 @@
   <view class="recs">
     <view class="rec-card {{item.typeClass}}" wx:for="{{dayStats}}" wx:key="id" bindtap="editRecord" data-id="{{item.id}}">
       <view class="rec-top">
-        <view class="rec-type">{{item.typeEmoji}} {{item.typeName}}<text class="rec-mode"> · {{item.modeName}}</text></view>
+        <view class="rec-type">{{item.typeEmoji}} {{item.typeName}}<text class="rec-mode"> · {{item.modeName}}{{item.unitsText}}</text></view>
         <view class="rec-status {{item.done ? 'ok' : 'not'}}">{{item.statusText}}</view>
       </view>
       <view class="rec-lines" wx:if="{{item.contentLines.length}}">
@@ -54,7 +54,7 @@
     <view class="empty" wx:if="{{!dayStats.length}}">这一天还没有训练安排，点「＋ 添加训练」开始记录</view>
   </view>
 
-  <button class="btn cta" bindtap="goAdd">＋ 添加训练</button>
+  <view class="fab-bar"><button class="btn fab" bindtap="goAdd">＋ 添加训练</button></view>
 
   <view class="quick">
     <view class="quick-item" bindtap="goReview"><view class="quick-icon">📊</view><view class="quick-label">回顾</view></view>

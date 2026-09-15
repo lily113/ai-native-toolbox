@@ -14,18 +14,38 @@
     </view>
 
     <view class="rv-card">
+      <view class="rv-lb">近 12 个月训练次数（月度最高 {{stats.trendMax}} 次）</view>
+      <view class="trend">
+        <view class="tr-col" wx:for="{{stats.trend}}" wx:key="label">
+          <view class="tr-wrap"><view class="tr-bar {{item.current ? 'cur' : ''}}" style="height:{{item.h}}%"></view></view>
+          <view class="tr-lb">{{item.label}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="rv-card" wx:if="{{stats.typeBar.length}}">
+      <view class="rv-lb">本月类型占比</view>
+      <view class="type-bar">
+        <view class="tb-seg {{item.cls}}" wx:for="{{stats.typeBar}}" wx:key="name" style="width:{{item.pct}}%"></view>
+      </view>
+      <view class="tb-legend">
+        <view class="tb-item" wx:for="{{stats.typeBar}}" wx:key="name"><text class="tb-dot {{item.cls}}"></text>{{item.name}} {{item.n}} 次 · {{item.pct}}%</view>
+      </view>
+    </view>
+
+    <view class="rv-card">
       <view class="rv-lb">类型分布</view>
       <view class="rv-row">
         <view class="rv-item"><view class="rv-val">⛸️ {{stats.ice}}</view><view class="rv-lb">上冰</view></view>
         <view class="rv-item"><view class="rv-val">🏋️ {{stats.land}}</view><view class="rv-lb">陆地</view></view>
-        <view class="rv-item"><view class="rv-val">💪 {{stats.rehab}}</view><view class="rv-lb">康复</view></view>
+        <view class="rv-item" wx:if="{{stats.showRehab}}"><view class="rv-val">💪 {{stats.rehab}}</view><view class="rv-lb">康复</view></view>
       </view>
     </view>
 
     <view class="rv-card">
       <view class="rv-lb">上课 / 自己训练</view>
       <view class="rv-row">
-        <view class="rv-item"><view class="rv-val">📖 {{stats.lesson}}</view><view class="rv-lb">上课</view></view>
+        <view class="rv-item"><view class="rv-val">📖 {{stats.lesson}}</view><view class="rv-lb">上冰课（{{stats.monthUnits}} 节）</view></view>
         <view class="rv-item"><view class="rv-val">🤸 {{stats.selfC}}</view><view class="rv-lb">自己</view></view>
       </view>
     </view>
@@ -37,10 +57,11 @@
     </view>
 
     <view class="rv-card">
-      <view class="rv-lb">累计上冰 / 累计上课（截至本月）</view>
+      <view class="rv-lb">累计上冰 / 上冰课次数 / 累计节数（截至本月）</view>
       <view class="rv-row">
         <view class="rv-item"><view class="rv-val">⛸️ {{stats.allIce}}</view><view class="rv-lb">上冰</view></view>
-        <view class="rv-item"><view class="rv-val">📖 {{stats.allLesson}}</view><view class="rv-lb">上课</view></view>
+        <view class="rv-item"><view class="rv-val">📖 {{stats.allLesson}}</view><view class="rv-lb">上冰课次数</view></view>
+        <view class="rv-item"><view class="rv-val">🎯 {{stats.allUnits}}</view><view class="rv-lb">累计节数（上冰课）</view></view>
       </view>
     </view>
   </block>

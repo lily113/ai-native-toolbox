@@ -160,8 +160,8 @@ Page({
       confirmColor: '#dc2626',
       success: r => {
         if (!r.confirm) return;
-        const moves = store.ensureMoves().filter(x => x.id !== this.data.id);
-        store.saveMoves(moves);
+        const all = store.ensureMoves();
+        store.saveMoves(all.filter(x => x.id !== this.data.id));
         wx.showToast({ title: '已删除' });
         setTimeout(() => wx.navigateBack(), 300);
       }

@@ -74,12 +74,19 @@ Page({
         });
         (used[s.key] || []).forEach(x => items.push(x));
         const imgs = s.images || [];
-        sections.push({ id: s.key, name: s.name, builtin: true, images: imgs, userAdd: s.userAdd === true, items: items });
+        const defOpen = (s.key === 'pattern' || s.key === 'my-points');
+        sections.push({
+          id: s.key, name: s.name, builtin: true, images: imgs, userAdd: s.userAdd === true, items: items,
+          open: (this._openMap && this._openMap[s.key] !== undefined) ? this._openMap[s.key] : defOpen
+        });
       });
     }
     // 用户自建分节
     (ov.mySections || []).forEach(s => {
-      sections.push({ id: s.id, name: s.name, builtin: false, userAdd: true, items: used[s.id] || [] });
+      sections.push({
+        id: s.id, name: s.name, builtin: false, userAdd: true, items: used[s.id] || [],
+        open: (this._openMap && this._openMap[s.id] !== undefined) ? this._openMap[s.id] : true
+      });
     });
 
     // 兜底：sectionKey 找不到对应分节的条目（孤儿），放进一个可编辑分节，避免“看不见”
@@ -139,6 +146,16 @@ Page({
       }
     });
   },
+  toggleSec(e) {
+    const id = e.currentTarget.dataset.id;
+    this._openMap = this._openMap || {};
+    const cur = this.data.sections.filter(x => x.id === id)[0];
+    const nextOpen = cur ? !cur.open : true;
+    this._openMap[id] = nextOpen;
+    const sections = this.data.sections.map(x => x.id === id ? Object.assign({}, x, { open: nextOpen }) : x);
+    this.setData({ sections: sections });
+  },
+
   secMenu(e) {
     const sid = e.currentTarget.dataset.id;
     const ov = this.overlay();

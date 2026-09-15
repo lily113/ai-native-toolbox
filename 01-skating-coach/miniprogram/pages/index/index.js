@@ -174,6 +174,7 @@ Page({
         typeEmoji: TYPES[r.type] ? TYPES[r.type].emoji : '',
         typeClass: 'band-' + (TYPES[r.type] ? r.type : 'other'),
         modeName: MODES[r.mode] ? MODES[r.mode].name : '',
+        unitsText: (r.mode === 'lesson' && (Number(r.units) || 1) > 1) ? (' · ' + (Number(r.units) || 1) + ' 节') : '',
         isLesson: r.mode === 'lesson',
         statusText: statusText,
         done: status === 'done'

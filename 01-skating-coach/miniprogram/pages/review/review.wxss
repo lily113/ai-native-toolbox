@@ -16,3 +16,22 @@
 .bar-fill { height: 100%; background: linear-gradient(135deg, #0284c7, #0369a1); border-radius: 999px; }
 
 .empty { color: #64748B; text-align: center; padding: 40px 8px; font-size: 14px; }
+
+/* 12 个月趋势柱状 */
+.trend { display: flex; align-items: flex-end; gap: 4px; margin: 8px 0 4px; }
+.tr-col { flex: 1; text-align: center; }
+.tr-wrap { height: 78px; display: flex; align-items: flex-end; justify-content: center; }
+.tr-bar { width: 62%; min-height: 3px; background: #bae6fd; border-radius: 5px 5px 0 0; transition: height .2s; }
+.tr-bar.cur { background: #0284c7; }
+.tr-lb { font-size: 10px; color: #94a3b8; margin-top: 4px; }
+/* 类型占比条 */
+.type-bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; margin: 8px 0; background: #eef6fb; }
+.tb-seg.ice { background: #0284c7; }
+.tb-seg.land { background: #38bdf8; }
+.tb-seg.rehab { background: #a5b4fc; }
+.tb-legend { display: flex; flex-wrap: wrap; gap: 12px; }
+.tb-item { font-size: 12px; color: #475569; display: flex; align-items: center; }
+.tb-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; display: inline-block; }
+.tb-dot.ice { background: #0284c7; }
+.tb-dot.land { background: #38bdf8; }
+.tb-dot.rehab { background: #a5b4fc; }

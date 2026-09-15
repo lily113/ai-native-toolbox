@@ -1,5 +1,5 @@
 // 云开发环境 ID：到 微信开发者工具 → 云开发控制台 创建环境后，把环境 ID 填到这里（例如 "figure-skating-1a2b3c"）
-const ENV = 'YOUR_ENV_ID';  // ← 在微信开发者工具「云开发控制台」创建环境后填入你的环境 ID
+const ENV = 'cloud1-d3gxrubwgdf9f71c7';
 
 App({
   onLaunch() {
@@ -13,7 +13,7 @@ App({
     } else {
       wx.cloud.init({ traceUser: true });
     }
-    try { require('./utils/store').migrateMergeNotes(); } catch (e) { console.warn('merge notes migrate', e); }
+    try { require('./utils/store').migrateMergeNotes();  } catch (e) { console.warn('migrate', e); }
     try { require('./utils/sync').init(); } catch (e) { console.warn('sync init', e); }
   },
   globalData: {
