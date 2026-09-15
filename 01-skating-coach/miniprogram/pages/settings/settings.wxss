@@ -25,3 +25,6 @@
 .danger-card { margin-top: 4px; }
 
 .diag { margin-top: 12px; font-size: 12px; color: #0284c7; text-align: center; padding: 6px 0; }
+
+/* 高级/排查折叠区 */
+.adv-toggle { font-size: 14px; font-weight: 700; color: #075985; padding: 4px 0; }

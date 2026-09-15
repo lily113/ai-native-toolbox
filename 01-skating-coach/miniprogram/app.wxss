@@ -43,7 +43,9 @@ page {
   border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 12px; font-size: 15px; background: var(--card); color: var(--text);
 }
+/* 单行输入/日期：加高，方便点按与编辑 */
+.input, .picker { padding: 14px 12px; font-size: 16px; line-height: 1.4; }
 .textarea { min-height: 90px; }
-.seg { display: flex; background: var(--ice-100); border-radius: 10px; padding: 3px; gap: 4px; }
-.seg-btn { flex: 1; border-radius: 8px; font-size: 14px; font-weight: 600; padding: 9px 6px; text-align: center; color: var(--ice-700); }
+.seg { display: flex; background: var(--ice-100); border-radius: 10px; padding: 4px; gap: 5px; }
+.seg-btn { flex: 1; border-radius: 9px; font-size: 15px; font-weight: 600; padding: 13px 6px; text-align: center; color: var(--ice-700); }
 .seg-btn.active { background: var(--card); color: var(--ice-800); box-shadow: 0 2px 6px rgba(2,132,199,.15); }

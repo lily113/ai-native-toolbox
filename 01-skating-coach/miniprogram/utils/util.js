@@ -27,6 +27,8 @@ function buildPayload() {
 function applyPayload(d) {
   if (!d || typeof d !== 'object') throw new Error('数据格式异常');
   const inc = (d.records ? (d.records || []).map(store.normalizeRecord) : []);
+  // 导入前先把本机记录备份一份（万一有问题可一键恢复）
+  try { store.save('figure_skating_planner_records_backup_v1', { at: Date.now(), records: store.loadRecords() }); } catch (e) {}
   store.saveRecords(mergeById(store.loadRecords(), inc));
   store.save(store.KEYS.templates, mergeById(store.load(store.KEYS.templates) || [], d.templates));
   store.save(store.KEYS.moves, mergeById(store.load(store.KEYS.moves) || [], d.moves));

@@ -7,18 +7,23 @@ Page({
     date: '',
     type: 'ice',
     mode: 'self',
-    duration: '60',
+    duration: '90',
+    durOptions: [60, 90, 120, 150],
     content: '',
+    units: 2,
+    unitOptions: [1, 2, 3, 4],
     types: [
       { k: 'ice', e: '⛸️ 上冰' },
-      { k: 'land', e: '🏋️ 陆地' },
-      { k: 'rehab', e: '💪 康复' }
+      { k: 'land', e: '🏋️ 陆地' }
     ],
     modes: [
       { k: 'self', e: '🤸 自己训练' },
       { k: 'lesson', e: '📖 上课' }
     ],
     movesList: [],
+    viewMoves: [],
+    moveQuery: '',
+    recentOnly: false,
     selMoveIds: [],
     selDrillIds: [],
     examList: [],
@@ -38,9 +43,17 @@ Page({
       date: rec ? rec.date : (q.date || store.todayKey()),
       type: rec ? rec.type : 'ice',
       mode: rec ? rec.mode : 'self',
-      duration: String(rec ? rec.duration : 60),
-      content: rec ? rec.content : ''
+      duration: String(rec ? rec.duration : 90),
+      durOptions: (function (dv) { const base = [60, 90, 120, 150]; if (dv && base.indexOf(Number(dv)) < 0) base.push(Number(dv)); return base.sort(function (a, b) { return a - b; }); })(rec ? rec.duration : 90),
+      content: rec ? rec.content : '',
+      units: rec ? (Number(rec.units) || 2) : 2
     });
+    if (rec && rec.type === 'rehab') {
+      const t = this.data.types.slice();
+      if (!t.some(x => x.k === 'rehab')) t.push({ k: 'rehab', e: '💪 康复（旧）' });
+      this.setData({ types: t });
+    }
+    if (this.data.mode === 'lesson') this.syncLessonDuration();
     this.initMoves(rec);
     this.initExams(rec);
     if (id) wx.setNavigationBarTitle({ title: '编辑训练' });
@@ -62,8 +75,37 @@ Page({
           checked: selDrills.indexOf(d.id) > -1
         }))
     }));
-    this.setData({ movesList: movesList, selMoveIds: selMoves, selDrillIds: selDrills });
+    // 统计最近使用（按历史记录里每次用到的日期）
+    const lastUse = {}, lastUseDrill = {};
+    const cut = store.dateKey(new Date(Date.now() - 60 * 86400000));
+    store.loadRecords().forEach(r => {
+      (r.moves || []).forEach(id => { if (!lastUse[id] || r.date > lastUse[id]) lastUse[id] = r.date; });
+      (r.drills || []).forEach(id => { if (!lastUseDrill[id] || r.date > lastUseDrill[id]) lastUseDrill[id] = r.date; });
+    });
+    movesList.forEach(m => {
+      m.lastUse = lastUse[m.id] || '';
+      m.recent = !!m.lastUse && m.lastUse >= cut;
+    });
+    this.setData({ movesList: movesList, selMoveIds: selMoves, selDrillIds: selDrills }, () => this.refreshMoves());
   },
+  // 搜索 / 最近使用 → 生成展示用列表
+  refreshMoves() {
+    const q = String(this.data.moveQuery || '').trim().toLowerCase();
+    const recent = !!this.data.recentOnly;
+    let list = this.data.movesList.filter(m => {
+      if (recent && !m.recent) return false;
+      if (!q) return true;
+      if (String(m.name).toLowerCase().indexOf(q) > -1) return true;
+      return (m.drills || []).some(d => String(d.name).toLowerCase().indexOf(q) > -1);
+    });
+    if (recent || q) {
+      list = list.slice().sort((a, b) => String(b.lastUse || '').localeCompare(String(a.lastUse || '')));
+    }
+    this.setData({ viewMoves: list });
+  },
+  onMoveQuery(e) { this.setData({ moveQuery: e.detail.value }, () => this.refreshMoves()); },
+  clearMoveQuery() { this.setData({ moveQuery: '' }, () => this.refreshMoves()); },
+  toggleRecent() { this.setData({ recentOnly: !this.data.recentOnly }, () => this.refreshMoves()); },
 
   toggleMove(e) {
     const id = e.currentTarget.dataset.id;
@@ -75,7 +117,7 @@ Page({
     const selDrillIds = this.data.selDrillIds.filter(did =>
       list.some(m => m.checked && m.drills.some(d => d.id === did))
     );
-    this.setData({ movesList: list, selMoveIds: selMoveIds, selDrillIds: selDrillIds }, () => this.syncContent());
+    this.setData({ movesList: list, selMoveIds: selMoveIds, selDrillIds: selDrillIds }, () => { this.refreshMoves(); this.syncContent(); });
   },
 
   toggleDrill(e) {
@@ -89,7 +131,7 @@ Page({
     });
     const selDrillIds = [];
     list.forEach(m => { if (m.checked) m.drills.forEach(d => { if (d.checked) selDrillIds.push(d.id); }); });
-    this.setData({ movesList: list, selDrillIds: selDrillIds }, () => this.syncContent());
+    this.setData({ movesList: list, selDrillIds: selDrillIds }, () => { this.refreshMoves(); this.syncContent(); });
   },
 
   // 初始化「考级备考」勾选（只到「级别 + 类型」粒度）
@@ -118,7 +160,7 @@ Page({
     const id = e.currentTarget.dataset.id;
     const examList = this.data.examList.map(x => x.id === id ? Object.assign({}, x, { checked: !x.checked }) : x);
     const ids = examList.filter(x => x.checked).map(x => x.id);
-    this.setData({ examList: examList, selExamIds: ids }, () => this.syncContent());
+    this.setData({ examList: examList, selExamIds: ids }, () => { this.refreshMoves(); this.syncContent(); });
   },
 
   // 由当前勾选生成的行（按你调整的顺序）
@@ -198,7 +240,7 @@ Page({
     list.splice(cur, 1);
     list.splice(target, 0, key);
     this._order = list;
-    this.setData({ selOrder: list }, () => this.syncContent());
+    this.setData({ selOrder: list }, () => { this.refreshMoves(); this.syncContent(); });
   },
   // 初始化时：把内容里“看起来是勾选生成”的行认出来，便于以后取消勾选时删除
   // 增量更新：只增删生成行，保留用户手写的要点/备注
@@ -210,6 +252,19 @@ Page({
   setMode(e) {
     this.setData({ mode: e.currentTarget.dataset.k });
   },
+  setDuration(e) { this.setData({ duration: String(Number(e.currentTarget.dataset.v) || 90) }); },
+  setUnits(e) {
+    const u = Number(e.currentTarget.dataset.v) || 1;
+    this.setData({ units: u });
+    this.syncLessonDuration();
+  },
+  // 上课：时长 = 节数 × 30 分钟
+  syncLessonDuration() {
+    if (this.data.mode !== 'lesson') return;
+    const u = Number(this.data.units) || 1;
+    this.setData({ duration: String(u * 30) });
+  },
+
   setDate(e) {
     this.setData({ date: e.detail.value });
   },
@@ -219,12 +274,13 @@ Page({
   },
 
   save() {
-    const { id, date, type, mode, duration, content } = this.data;
+    const { id, date, type, mode, duration, content, units } = this.data;
     if (!date) { wx.showToast({ title: '请选择日期', icon: 'none' }); return; }
     const rec = {
       id: id || store.uid(),
       date, type, mode,
       duration: Number(duration) || 0,
+      units: mode === 'lesson' ? (Number(units) || 2) : 1,
       content,
       notes: '',
       lessonSummary: '',

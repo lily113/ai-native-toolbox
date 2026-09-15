@@ -21,6 +21,8 @@
 .footer .del { flex: none; width: 96px; }
 
 .textarea.tall { min-height: 150px; }
+/* 训练笔记：更大的编辑区，随内容自动增高 */
+.textarea.note { min-height: 200px; line-height: 1.7; font-size: 15px; padding: 12px 14px; }
 
 /* 显示顺序（拖动排序） */
 .edit-link { float: right; font-size: 12px; font-weight: 600; color: #0284c7; }
@@ -39,3 +41,16 @@
 .sr-pts { flex: none; font-size: 11px; color: #64748B; border: 1px solid #cfe8f7; border-radius: 999px;
   padding: 2px 8px; margin-right: 4px; background: #fff; }
 .sr-pts.on { color: #fff; background: #0284c7; border-color: #0284c7; font-weight: 600; }
+
+/* 上课时长（自动计算，只读显示） */
+.ro-time { border: 1px solid var(--border); border-radius: 10px; background: #f8fbfe; color: #08537a;
+  padding: 14px 12px; font-size: 16px; font-weight: 600; }
+
+/* 动作搜索 + 最近用过 */
+.mv-search { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.mv-input { flex: 1; box-sizing: border-box; min-height: 52px; border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 14px; font-size: 16px; line-height: 1.4; background: #fff; }
+.mv-clear { flex: none; width: 34px; text-align: center; color: #94a3b8; font-size: 20px; }
+.mv-recent { flex: none; font-size: 14px; font-weight: 600; color: #075985; background: #e0f2fe;
+  border-radius: 999px; padding: 15px 16px; line-height: 1; }
+.mv-recent.on { color: #fff; background: #0284c7; }

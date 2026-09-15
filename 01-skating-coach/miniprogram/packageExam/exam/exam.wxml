@@ -13,16 +13,21 @@
   </view>
 
   <view class="card" wx:for="{{sections}}" wx:for-item="sec" wx:key="id">
+    <view class="sec-head" bindtap="toggleSec" data-id="{{sec.id}}">
+      <view class="sec-name">
+        <text class="chev">{{sec.open ? '▾' : '▸'}}</text>{{sec.name}}
+        <text class="lock" wx:if="{{sec.builtin && !sec.userAdd}}">内置</text>
+        <text class="sec-cnt">{{sec.items.length}} 条</text>
+      </view>
+      <view class="sec-menu" wx:if="{{!sec.builtin}}" catchtap="secMenu" data-id="{{sec.id}}">⋯</view>
+    </view>
+
+    <block wx:if="{{sec.open}}">
     <view class="sec-imgs" wx:if="{{sec.images.length}}">
       <image wx:for="{{sec.images}}" wx:for-item="im" wx:key="*this" class="sec-img"
              src="{{im}}" mode="widthFix" bindtap="previewBuiltin" data-src="{{im}}"
              binderror="imgErr" bindload="imgOk"></image>
       <view class="img-miss" wx:if="{{imgErrMsg}}">{{imgErrMsg}}</view>
-    </view>
-
-    <view class="sec-head">
-      <view class="sec-name">{{sec.name}}<text class="lock" wx:if="{{sec.builtin && !sec.userAdd}}">内置</text></view>
-      <view class="sec-menu" wx:if="{{!sec.builtin}}" catchtap="secMenu" data-id="{{sec.id}}">⋯</view>
     </view>
 
     <view class="item" wx:for="{{sec.items}}" wx:for-item="it" wx:key="id"
@@ -45,6 +50,7 @@
     <view class="empty" wx:if="{{!sec.items.length && sec.userAdd}}">（点「＋ 添加条目」记录你的要求 / 易错点）</view>
     <view class="add-item" wx:if="{{sec.userAdd}}" bindtap="addItem" data-sid="{{sec.id}}">＋ 添加条目</view>
     <view class="add-item batch" wx:if="{{sec.userAdd}}" bindtap="openBatch" data-sid="{{sec.id}}">📋 批量粘贴（多行）</view>
+    </block>
   </view>
 
   <button class="ghost-btn" bindtap="addSection">＋ 添加我的分节</button>

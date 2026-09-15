@@ -44,9 +44,8 @@
       <button class="ghost-btn half" bindtap="cloudUpload">⬆️ 上传</button>
       <button class="ghost-btn half" bindtap="cloudPull">⬇️ 拉取合并</button>
     </view>
-    <view class="diag" bindtap="diagnose">🔍 同步诊断（看数据和云端各有什么）</view>
-    <view class="diag" bindtap="rollback">⏮ 回滚到云端历史版本</view>
-    <view class="diag" bindtap="copyExamsRaw">📋 复制考级原始数据（用于核对/恢复）</view>
+    <view class="diag" bindtap="overview">📊 数据概览</view>
+    <view class="diag" bindtap="rollback">⏮ 找回云端历史版本</view>
   </view>
 
   <view class="card">
@@ -64,6 +63,24 @@
       <textarea class="textarea" value="{{importText}}" bindinput="setImportText" placeholder="粘贴 JSON 备份内容…" maxlength="-1"></textarea>
       <button class="btn" bindtap="doImport">导入</button>
     </view>
+  </view>
+
+  <view class="card">
+    <view class="adv-toggle" bindtap="toggleAdv">{{advOn ? '▾' : '▸'}} 🔧 高级 / 数据排查（平时不用）</view>
+    <block wx:if="{{advOn}}">
+      <view class="muted">这里都是排查与修复工具，日常使用不需要。操作前建议先「导出为文件」备份。</view>
+      <view class="btn-row">
+        <button class="ghost-btn half" bindtap="diagnose">🔍 同步诊断</button>
+        <button class="ghost-btn half" bindtap="extras">🔎 多出的记录</button>
+      </view>
+      <view class="btn-row">
+        <button class="ghost-btn half" bindtap="restoreRecords">↩︎ 恢复导入前</button>
+        <button class="ghost-btn half" bindtap="copyExamsRaw">📋 复制考级原始数据</button>
+      </view>
+      <view class="btn-row">
+        <button class="ghost-btn" bindtap="dedupeRecords">🧹 合并重复记录（同日期+同类型+同方式）</button>
+      </view>
+    </block>
   </view>
 
   <view class="card danger-card">

@@ -29,11 +29,17 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function normalizeRecord(r) {
   let type = r.type === 'strength' ? 'land' : r.type;
   if (!TYPES[type]) type = 'ice';
+  const mode = type === 'ice' ? (MODES[r.mode] ? r.mode : 'self') : 'lesson';
+  const date = r.date || todayKey();
+  // 节数：上课时一节算几节（2021-07-16 起通常每次 2 节）
+  let units = Number(r.units);
+  if (!units || units < 0) units = (mode === 'lesson' && date >= '2021-07-16') ? 2 : 1;
   return {
     id: r.id || uid(),
-    date: r.date || todayKey(),
+    date: date,
     type: type,
-    mode: type === 'ice' ? (MODES[r.mode] ? r.mode : 'self') : 'lesson',
+    mode: mode,
+    units: units,
     time: r.time || '',
     duration: Number(r.duration) || 0,
     content: r.content || '',

@@ -1,7 +1,7 @@
 {
   "miniprogramRoot": "./",
   "cloudfunctionRoot": "cloudfunctions/",
-  "appid": "touristappid",
+  "appid": "wx2b22b49a8ff6b484",
   "projectname": "figure-skating-mp",
   "compileType": "miniprogram",
   "libVersion": "3.0.0",

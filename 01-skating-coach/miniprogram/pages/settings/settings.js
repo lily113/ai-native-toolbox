@@ -1,4 +1,5 @@
 const store = require('../../utils/store');
+const { TYPES, MODES } = require('../../utils/const');
 const util = require('../../utils/util');
 const sync = require('../../utils/sync');
 const app = getApp();
@@ -12,6 +13,7 @@ Page({
     syncStatus: '未配置',
     auto: false,
     showImport: false,
+    advOn: false,
     importText: ''
   },
 
@@ -133,6 +135,129 @@ Page({
   },
 
   // 从微信聊天里选 .json 文件导入
+
+  extras() {
+    const recs = store.loadRecords();
+    const byDay = {};
+    recs.forEach(r => { (byDay[r.date] = byDay[r.date] || []).push(r); });
+    // a) 一天多条记录（可能跨方式重复）
+    const multi = Object.keys(byDay).filter(d => byDay[d].length > 1).sort();
+    const linesA = multi.slice(-12).map(d => {
+      const parts = byDay[d].map(r => (MODES[r.mode] ? MODES[r.mode].name : r.mode) + '(' + (r.duration || 0) + '分' + (r.mode === 'lesson' ? '/' + (Number(r.units) || 1) + '节' : '') + ')' + (String(r.id).indexOf('imp-') === 0 ? '★导入' : ''));
+      return d + '：' + parts.join(' ｜ ');
+    });
+    // b) 流水账结束后的新记录
+    const late = recs.filter(r => r.date > '2026-07-02').sort((a, b) => a.date < b.date ? -1 : 1);
+    const linesB = late.map(r => r.date + ' ' + (MODES[r.mode] ? MODES[r.mode].name : r.mode) + ' ' + (r.duration || 0) + '分'
+      + (String(r.id).indexOf('imp-') === 0 ? ' ★导入' : '') + (r.content ? ' · ' + String(r.content).split('\n')[0].slice(0, 12) : ''));
+    const txt = '【一天有多条记录的日期】共 ' + multi.length + ' 天' + (multi.length > 12 ? '（显示最近 12 天）' : '')
+      + '\n' + (linesA.join('\n') || '（无）')
+      + '\n\n【流水账结束(2026-07-02)之后的新记录】共 ' + late.length + ' 条\n'
+      + (linesB.join('\n') || '（无）')
+      + '\n\n★导入 = 来自导入文件（节数由你的编号反推，最准）';
+    wx.showModal({ title: '多出的记录', content: txt, showCancel: false });
+  },
+
+
+  overview() {
+    const recs = store.loadRecords();
+    const by = {};
+    recs.forEach(r => {
+      const k = (TYPES[r.type] ? TYPES[r.type].name : r.type) + ' · ' + (MODES[r.mode] ? MODES[r.mode].name : r.mode);
+      by[k] = (by[k] || 0) + 1;
+    });
+    const lines = Object.keys(by).sort().map(k => k + '：' + by[k] + ' 条');
+    const lessonUnits = recs.filter(r => r.mode === 'lesson').reduce((n, r) => n + (Number(r.units) || 1), 0);
+    const dates = recs.map(r => r.date).sort();
+    const meta = store.load(store.KEYS.meta) || {};
+    const txt = '总记录 ' + recs.length + ' 条（' + (dates[0] || '—') + ' ~ ' + (dates[dates.length - 1] || '—') + '）\n\n'
+      + lines.join('\n')
+      + '\n\n所有上课记录的节数合计 = ' + lessonUnits
+      + '\n基线：上冰 ' + (Number(meta.iceBase) || 0) + ' · 上课 ' + (Number(meta.lessonBase) || 0);
+    wx.showModal({ title: '数据概览', content: txt, showCancel: false });
+  },
+
+  dedupeRecords() {
+    const recs = store.loadRecords();
+    // 先按“同日期+同类型+同方式”分组
+    const groups = {};
+    recs.forEach(r => {
+      const k = r.date + '|' + r.type + '|' + r.mode;
+      (groups[k] = groups[k] || []).push(r);
+    });
+    // 再按“同日期+同类型”整体看（找出同日但方式不同的）
+    const byDay = {};
+    recs.forEach(r => { const k = r.date + '|' + r.type; (byDay[k] = byDay[k] || []).push(r); });
+
+    const plan = [];
+    Object.keys(groups).forEach(k => {
+      const g = groups[k];
+      if (g.length > 1) plan.push({ key: k, mode: 'same', group: g });
+    });
+    Object.keys(byDay).forEach(k => {
+      const g = byDay[k];
+      const modes = {};
+      g.forEach(r => { modes[r.mode] = true; });
+      if (Object.keys(modes).length > 1) {
+        const hasImp = g.some(r => String(r.id).indexOf('imp-') === 0);
+        if (hasImp) plan.push({ key: k + '(跨方式)', mode: 'cross', group: g });
+      }
+    });
+    if (!plan.length) { wx.showToast({ title: '没有可合并的重复记录', icon: 'none' }); return; }
+    const extra = plan.reduce((n, p) => n + p.group.length - 1, 0);
+    const listTxt = plan.slice(0, 8).map(p => p.key).join('\n') + (plan.length > 8 ? '\n…' : '');
+    wx.showModal({
+      title: '合并重复记录',
+      content: '发现 ' + plan.length + ' 组重复，可合并掉 ' + extra + ' 条：\n' + listTxt +
+        '\n\n规则：优先保留「导入的」那条（节数最准），把旧记录的文字并进同一份笔记，再删掉多余条目。合并前会自动备份。确定？',
+      success: r => {
+        if (!r.confirm) return;
+        try { store.save('figure_skating_planner_records_backup_v1', { at: Date.now(), records: recs }); } catch (e) {}
+        const drop = {};
+        let removed = 0;
+        plan.forEach(p => {
+          const g = p.group;
+          let primary = g.filter(x => String(x.id).indexOf('imp-') === 0)[0];
+          if (!primary && p.mode === 'cross') return;                     // 跨方式且没有导入记录 → 不动
+          if (!primary) primary = g.slice().sort((a, b) => String(b.content || '').length - String(a.content || '').length)[0];
+          const lines = [];
+          g.forEach(x => String(x.content || '').split('\n').forEach(l => {
+            const t = l.trim(); if (t && lines.indexOf(t) < 0) lines.push(t);
+          }));
+          primary.content = lines.join('\n');
+          if (g.some(x => x.status === 'done')) primary.status = 'done';
+          primary.units = Number(primary.units) || 1;
+          g.forEach(x => { if (x.id !== primary.id) { drop[x.id] = true; removed++; } });
+        });
+        const out = store.loadRecords().filter(r => !drop[r.id]);
+        store.saveRecords(out);
+        this.refreshSync();
+        wx.showModal({
+          title: '已合并', showCancel: false,
+          content: '合并了 ' + removed + ' 条，现有 ' + out.length + ' 条。\n如需回退：用「↩︎ 恢复导入前」。'
+        });
+      }
+    });
+  },
+
+  restoreRecords() {
+    const bak = store.load('figure_skating_planner_records_backup_v1');
+    if (!bak || !Array.isArray(bak.records) || !bak.records.length) {
+      wx.showToast({ title: '没有可恢复的备份', icon: 'none' }); return;
+    }
+    const t = new Date(bak.at || Date.now());
+    wx.showModal({
+      title: '恢复导入前的记录',
+      content: '备份时间：' + t.toLocaleString() + '\n共 ' + bak.records.length + ' 条。\n\n将把备份里的记录合并回来（只补缺失、不删除现有）。确定？',
+      success: r => {
+        if (!r.confirm) return;
+        store.saveRecords(util.mergeById(store.loadRecords(), bak.records.map(store.normalizeRecord)));
+        this.refreshSync();
+        wx.showToast({ title: '已恢复' });
+      }
+    });
+  },
+
   chooseImportFile() {
     wx.chooseMessageFile({
       count: 1,
@@ -166,6 +291,7 @@ Page({
   },
 
   toggleImport() { this.setData({ showImport: !this.data.showImport }); },
+  toggleAdv() { this.setData({ advOn: !this.data.advOn }); },
   setImportText(e) { this.setData({ importText: e.detail.value }); },
   doImport() {
     try {
