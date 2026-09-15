@@ -150,6 +150,23 @@ PWA 和小程序是两套完全不同的存储，我用 **JSON 导出 / 导入�
 
 ---
 
+## 截图
+
+<p>
+  <img src="screenshots/01-calendar.png" width="220" alt="首页：月历 + 当日训练记录">
+  <img src="screenshots/03-review.png" width="220" alt="回顾：近 12 个月趋势 + 类型占比 + 累计节数">
+  <img src="screenshots/04-exam.png" width="220" alt="考级备考：内置考纲、步法图案、我的要点">
+</p>
+<p>
+  <img src="screenshots/05-moves.png" width="220" alt="动作详情：共性要点 + 练习组合">
+  <img src="screenshots/06-coach.png" width="220" alt="AI 教练：术语辨析">
+  <img src="screenshots/09-milestone.png" width="220" alt="纪念日 / 里程碑">
+</p>
+
+（更多截图见 [`screenshots/`](screenshots/)，命名与内容清单在同目录 README。）
+
+---
+
 ## 当前状态：两版都在正常运行，持续迭代中
 
 **微信小程序已经完整跑通并在使用**——8 个主页面 + 1 个分包全部可用，云同步（含自动同步）和 AI 教练都已上线。
