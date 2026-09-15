@@ -154,16 +154,20 @@ PWA 和小程序是两套完全不同的存储，我用 **JSON 导出 / 导入�
 
 <p>
   <img src="screenshots/01-calendar.png" width="220" alt="首页：月历 + 当日训练记录">
+  <img src="screenshots/02-record.png" width="220" alt="添加/编辑训练：节数、时长自动、动作搜索">
   <img src="screenshots/03-review.png" width="220" alt="回顾：近 12 个月趋势 + 类型占比 + 累计节数">
-  <img src="screenshots/04-exam.png" width="220" alt="考级备考：内置考纲、步法图案、我的要点">
 </p>
 <p>
+  <img src="screenshots/04-exam.png" width="220" alt="考级备考：内置考纲、步法图案、我的要点">
   <img src="screenshots/05-moves.png" width="220" alt="动作详情：共性要点 + 练习组合">
   <img src="screenshots/06-coach.png" width="220" alt="AI 教练：术语辨析">
+</p>
+<p>
+  <img src="screenshots/07-settings.png" width="220" alt="设置：目标 / 基线 / 云同步 / 备份">
   <img src="screenshots/09-milestone.png" width="220" alt="纪念日 / 里程碑">
 </p>
 
-（更多截图见 [`screenshots/`](screenshots/)，命名与内容清单在同目录 README。）
+（截图清单见 [`screenshots/`](screenshots/)。）
 
 ---
 
