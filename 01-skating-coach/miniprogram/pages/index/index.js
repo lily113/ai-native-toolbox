@@ -1,5 +1,5 @@
 const store = require('../../utils/store');
-const { TYPES, MODES, WEEK, EXAM_KINDS } = require('../../utils/const');
+const { TYPES, MODES, WEEK, EXAM_KINDS, LESSON_FORMS } = require('../../utils/const');
 
 Page({
   data: {
@@ -175,6 +175,7 @@ Page({
         typeClass: 'band-' + (TYPES[r.type] ? r.type : 'other'),
         modeName: MODES[r.mode] ? MODES[r.mode].name : '',
         unitsText: (r.mode === 'lesson' && (Number(r.units) || 1) > 1) ? (' · ' + (Number(r.units) || 1) + ' 节') : '',
+        formText: (r.mode === 'lesson' && r.lessonForm && LESSON_FORMS[r.lessonForm]) ? (' · ' + LESSON_FORMS[r.lessonForm].name) : '',
         isLesson: r.mode === 'lesson',
         statusText: statusText,
         done: status === 'done'

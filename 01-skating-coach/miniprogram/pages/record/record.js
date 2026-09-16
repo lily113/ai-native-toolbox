@@ -1,5 +1,5 @@
 const store = require('../../utils/store');
-const { CATS, EXAM_KINDS } = require('../../utils/const');
+const { CATS, EXAM_KINDS, LESSON_FORMS } = require('../../utils/const');
 
 Page({
   data: {
@@ -12,6 +12,8 @@ Page({
     content: '',
     units: 2,
     unitOptions: [1, 2, 3, 4],
+    lessonForm: 'one',
+    formOptions: [{ k: 'one', n: '一对一' }, { k: 'two', n: '一对二' }, { k: 'multi', n: '一对多' }],
     types: [
       { k: 'ice', e: '⛸️ 上冰' },
       { k: 'land', e: '🏋️ 陆地' }
@@ -46,7 +48,8 @@ Page({
       duration: String(rec ? rec.duration : 90),
       durOptions: (function (dv) { const base = [60, 90, 120, 150]; if (dv && base.indexOf(Number(dv)) < 0) base.push(Number(dv)); return base.sort(function (a, b) { return a - b; }); })(rec ? rec.duration : 90),
       content: rec ? rec.content : '',
-      units: rec ? (Number(rec.units) || 2) : 2
+      units: rec ? (Number(rec.units) || 2) : 2,
+      lessonForm: rec ? (rec.lessonForm || 'one') : ((store.load(store.KEYS.meta) || {}).lastLessonForm || 'one')
     });
     if (rec && rec.type === 'rehab') {
       const t = this.data.types.slice();
@@ -252,6 +255,15 @@ Page({
   setMode(e) {
     this.setData({ mode: e.currentTarget.dataset.k });
   },
+  setLessonForm(e) {
+    const k = e.currentTarget.dataset.k;
+    this.setData({ lessonForm: k });
+    // 记住这次选择，下次新建默认用它
+    const meta = store.load(store.KEYS.meta) || {};
+    meta.lastLessonForm = k;
+    store.save(store.KEYS.meta, meta);
+  },
+
   setDuration(e) { this.setData({ duration: String(Number(e.currentTarget.dataset.v) || 90) }); },
   setUnits(e) {
     const u = Number(e.currentTarget.dataset.v) || 1;
@@ -274,13 +286,14 @@ Page({
   },
 
   save() {
-    const { id, date, type, mode, duration, content, units } = this.data;
+    const { id, date, type, mode, duration, content, units, lessonForm } = this.data;
     if (!date) { wx.showToast({ title: '请选择日期', icon: 'none' }); return; }
     const rec = {
       id: id || store.uid(),
       date, type, mode,
       duration: Number(duration) || 0,
       units: mode === 'lesson' ? (Number(units) || 2) : 1,
+      lessonForm: mode === 'lesson' ? (lessonForm || 'one') : '',
       content,
       notes: '',
       lessonSummary: '',

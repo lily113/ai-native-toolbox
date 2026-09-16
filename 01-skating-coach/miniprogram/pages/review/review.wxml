@@ -48,6 +48,7 @@
         <view class="rv-item"><view class="rv-val">📖 {{stats.lesson}}</view><view class="rv-lb">上冰课（{{stats.monthUnits}} 节）</view></view>
         <view class="rv-item"><view class="rv-val">🤸 {{stats.selfC}}</view><view class="rv-lb">自己</view></view>
       </view>
+      <view class="rv-sub" wx:if="{{stats.formText}}">上课形式：{{stats.formText}}</view>
     </view>
 
     <view class="rv-card" wx:if="{{stats.goal}}">

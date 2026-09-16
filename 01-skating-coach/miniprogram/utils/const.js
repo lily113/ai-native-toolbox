@@ -57,6 +57,13 @@ const MS_TYPES = [
   { k: 'custom', name: '自定义', emoji: '✨' }
 ];
 
+// 上课形式（仅“上课”记录用）
+const LESSON_FORMS = {
+  one:   { name: '一对一' },
+  two:   { name: '一对二' },
+  multi: { name: '一对多' }
+};
+
 // ---------- 考级备考 ----------
 const EXAM_KINDS = { free: { name: '自由滑' }, steps: { name: '步法' } };
 const EXAM_SECTIONS = {
@@ -159,5 +166,5 @@ const SYLLABUS = [
 
 module.exports = {
   TYPES, MODES, CATS, CAT_ORDER, DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
-  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS
+  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS
 };

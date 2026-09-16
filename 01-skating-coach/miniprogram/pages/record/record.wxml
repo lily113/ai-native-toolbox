@@ -30,6 +30,13 @@
         </view>
       </view>
       <view class="field">
+        <view class="field-label">上课形式</view>
+        <view class="seg">
+          <view class="seg-btn {{lessonForm == item.k ? 'active' : ''}}" wx:for="{{formOptions}}" wx:key="k"
+                bindtap="setLessonForm" data-k="{{item.k}}">{{item.n}}</view>
+        </view>
+      </view>
+      <view class="field">
         <view class="field-label">时长</view>
         <view class="ro-time">⏱ {{duration}} 分钟（{{units}} 节 × 30 分钟）</view>
       </view>
