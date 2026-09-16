@@ -1,4 +1,5 @@
 const store = require('../../utils/store');
+const { LESSON_FORMS } = require('../../utils/const');
 
 function fmtMin(min) {
   const h = Math.floor(min / 60);
@@ -45,10 +46,14 @@ Page({
     const recs = all.filter(r => { const d = store.keyToDate(r.date); return d.getFullYear() === y && d.getMonth() === m; });
 
     let minutes = 0, ice = 0, land = 0, rehab = 0, lesson = 0, selfC = 0, monthUnits = 0;
+    const formCount = {};
     recs.forEach(r => {
       minutes += Number(r.duration) || 0;
       if (r.type === 'ice') ice++; else if (r.type === 'land') land++; else rehab++;
-      if (r.mode === 'lesson' && r.type === 'ice') { lesson++; monthUnits += Number(r.units) || 1; }
+      if (r.mode === 'lesson' && r.type === 'ice') {
+        lesson++; monthUnits += Number(r.units) || 1;
+        if (r.lessonForm && LESSON_FORMS[r.lessonForm]) formCount[r.lessonForm] = (formCount[r.lessonForm] || 0) + 1;
+      }
       else if (r.mode === 'self') selfC++;
     });
 
@@ -100,6 +105,7 @@ Page({
         showRehab: rehab > 0,
         lesson: lesson,
         monthUnits: monthUnits,
+        formText: Object.keys(LESSON_FORMS).filter(k => formCount[k]).map(k => LESSON_FORMS[k].name + ' ' + formCount[k]).join(' · '),
         selfC: selfC,
         goal: goal,
         weeklyAvg: weeklyAvg,

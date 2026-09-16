@@ -40,6 +40,8 @@ function normalizeRecord(r) {
     type: type,
     mode: mode,
     units: units,
+    // 上课形式：one / two / multi；旧记录未标注就是空串（不擅自假设）
+    lessonForm: (mode === 'lesson' && typeof r.lessonForm === 'string' && r.lessonForm) ? r.lessonForm : '',
     time: r.time || '',
     duration: Number(r.duration) || 0,
     content: r.content || '',
@@ -61,6 +63,21 @@ function loadRecords() {
 function saveRecords(rec) { save(KEYS.records, rec); }
 function recordsOf(date) { return loadRecords().filter(r => r.date === date); }
 function statusOf(r) { return r.date < todayKey() ? 'done' : 'pending'; }
+
+// 一次性迁移：历史「上课」记录默认标为「一对一」（特殊的用户自己改）
+function migrateLessonForm() {
+  const meta = load(KEYS.meta) || {};
+  if (meta.lessonFormV1) return;
+  const recs = loadRecords();
+  let n = 0;
+  recs.forEach(r => {
+    if (r.mode === 'lesson' && !r.lessonForm) { r.lessonForm = 'one'; n++; }
+  });
+  if (n) save(KEYS.records, recs);
+  meta.lessonFormV1 = true;
+  save(KEYS.meta, meta);
+  return n;
+}
 
 // 一次性迁移：把「课后总结 / 备注」并入「训练内容」，统一为一个笔记框
 function migrateMergeNotes() {
@@ -217,7 +234,7 @@ function newExam(kind, level) {
 
 module.exports = {
   KEYS, load, save, setAfterSave, pad, dateKey, todayKey, keyToDate, uid,
-  normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes,
+  normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes, migrateLessonForm,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey

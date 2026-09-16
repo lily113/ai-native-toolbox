@@ -13,7 +13,7 @@ App({
     } else {
       wx.cloud.init({ traceUser: true });
     }
-    try { require('./utils/store').migrateMergeNotes();  } catch (e) { console.warn('migrate', e); }
+    try { const st = require('./utils/store'); st.migrateMergeNotes(); st.migrateLessonForm(); } catch (e) { console.warn('migrate', e); }
     try { require('./utils/sync').init(); } catch (e) { console.warn('sync init', e); }
   },
   globalData: {

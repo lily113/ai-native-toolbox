@@ -35,3 +35,5 @@
 .tb-dot.ice { background: #0284c7; }
 .tb-dot.land { background: #38bdf8; }
 .tb-dot.rehab { background: #a5b4fc; }
+
+.rv-sub { font-size: 12px; color: #64748B; margin-top: 8px; }
