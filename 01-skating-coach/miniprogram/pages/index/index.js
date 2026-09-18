@@ -10,6 +10,7 @@ Page({
     today: '',
     selectedDate: '',
     dayStats: [],
+    cardOpen: {},
     dayMinutes: 0,
     dayLesson: 0,
     monthCount: 0,
@@ -115,7 +116,18 @@ Page({
   },
 
   refreshDay() {
-    const recs = store.recordsOf(this.data.selectedDate);
+    // 同一天多条记录：按时间段先后排（有时间段的在前、按下段时间升序；没时间段的排后面，保持原顺序）
+    const startMin = t => {
+      const m = String(t || '').match(/^(\d{1,2}):(\d{2})/);
+      return m ? (Number(m[1]) * 60 + Number(m[2])) : -1;
+    };
+    const recs = store.recordsOf(this.data.selectedDate).slice().sort((a, b) => {
+      const ta = startMin(a.time), tb = startMin(b.time);
+      if (ta >= 0 && tb >= 0) return ta - tb;
+      if (ta >= 0) return -1;
+      if (tb >= 0) return 1;
+      return 0;
+    });
     let mins = 0, lesson = 0;
     const today = this.data.today;
     // 考级 id -> 标签
@@ -131,43 +143,40 @@ Page({
       let statusText = '已安排';
       if (status === 'done') statusText = '已完成';
       else if (r.date === today) statusText = '今天';
-      const moveNames = {};
-      (r.moves || []).forEach(id => { const m = store.moveById(id); if (m) moveNames[m.id] = m.name; });
-      const drillsByMove = {};
-      (r.drills || []).forEach(did => {
-        const f = store.drillById(did);
-        if (f) { drillsByMove[f.move.id] = drillsByMove[f.move.id] || []; drillsByMove[f.move.id].push(f.drill.name); }
-      });
-      const entries = [];
-      Object.keys(moveNames).forEach(mid => {
-        const ds = drillsByMove[mid] || [];
-        entries.push({ key: 'm:' + mid, text: ds.length ? (moveNames[mid] + '：' + ds.join('、')) : moveNames[mid] });
-      });
-      (r.examPicks || []).forEach(eid => {
-        if (examLabel[eid]) entries.push({ key: 'e:' + eid, text: '【' + examLabel[eid] + '】' });
-      });
-      // 按记录里保存的显示顺序排列（没记录的排在后面）
-      const order = Array.isArray(r.itemOrder) ? r.itemOrder : [];
-      entries.sort((a, b) => {
-        const ia = order.indexOf(a.key), ib = order.indexOf(b.key);
-        if (ia < 0 && ib < 0) return 0;
-        if (ia < 0) return 1;
-        if (ib < 0) return -1;
-        return ia - ib;
-      });
-      const lineObjs = entries.map(x => ({ text: x.text }));
-      if (!entries.length) {
+      // 条目与顺序统一用 store.recordLines（与训练笔记一致；A 方案：扁平行 + 序号）
+      let lines = store.recordLines(r, id => examLabel[id]);
+      if (!lines.length) {
         // 兜底：老记录（没选动作）仍显示训练内容里的条目
-        String(r.content || '').split(/[\n；;]/)
+        lines = String(r.content || '').split(/[\n；;]/)
           .map(x => x.trim().replace(/^[·•\-–—\s]+/, ''))
           .filter(x => x.length)
-          .forEach(x => lineObjs.push({ text: x }));
+          .map(t => ({ kind: 'one', name: '', text: t, idx: 0 }));
+      }
+      const open = !!(this.data.cardOpen || {})[r.id];
+      const ITEM_LIMIT = 6;                                     // 收起时最多展示 6 个「练习项」
+      const totalItems = lines.filter(l => l.kind !== 'head').length;
+      let shown = lines, shownItems = totalItems;
+      if (!open && totalItems > ITEM_LIMIT) {
+        // 按“项”折叠：标题行不占预算；没有项的标题（如考级标签）照常显示
+        shown = []; shownItems = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const l = lines[i];
+          if (l.kind === 'head') {
+            const next = lines[i + 1];
+            if (shownItems < ITEM_LIMIT || !next || next.kind === 'head') shown.push(l);
+            continue;
+          }
+          if (shownItems >= ITEM_LIMIT) continue;
+          shown.push(l); shownItems++;
+        }
       }
       return {
         id: r.id,
         content: r.content,
-        contentLines: lineObjs.slice(0, 6),
-        moreCount: Math.max(0, lineObjs.length - 6),
+        contentLines: shown,
+        totalItems: totalItems,
+        moreCount: open ? 0 : Math.max(0, totalItems - shownItems),
+        open: open,
         duration: r.duration,
         time: r.time,
         typeName: TYPES[r.type] ? TYPES[r.type].name : '',
@@ -175,17 +184,30 @@ Page({
         typeClass: 'band-' + (TYPES[r.type] ? r.type : 'other'),
         modeName: MODES[r.mode] ? MODES[r.mode].name : '',
         unitsText: (r.mode === 'lesson' && (Number(r.units) || 1) > 1) ? (' · ' + (Number(r.units) || 1) + ' 节') : '',
+        timeText: r.time ? String(r.time).replace('-', '–') : '',
         formText: (r.mode === 'lesson' && r.lessonForm && LESSON_FORMS[r.lessonForm]) ? (' · ' + LESSON_FORMS[r.lessonForm].name) : '',
         isLesson: r.mode === 'lesson',
         statusText: statusText,
         done: status === 'done'
       };
     });
-    this.setData({ dayStats: dayStats, dayMinutes: mins, dayLesson: lesson });
+    // 清理已不存在记录的展开状态（避免 map 无限增长）
+    const ids = {}; dayStats.forEach(d => { ids[d.id] = true; });
+    const map = this.data.cardOpen || {};
+    const kept = {};
+    Object.keys(map).forEach(k => { if (ids[k]) kept[k] = map[k]; });
+    this.setData({ dayStats: dayStats, dayMinutes: mins, dayLesson: lesson, cardOpen: kept });
   },
 
   goAdd() {
     wx.navigateTo({ url: '/pages/record/record?date=' + this.data.selectedDate });
+  },
+  // 卡片「展开 / 收起」训练计划（catchtap，避免触发进入编辑）
+  toggleCard(e) {
+    const id = e.currentTarget.dataset.id;
+    const map = Object.assign({}, this.data.cardOpen || {});
+    map[id] = !map[id];
+    this.setData({ cardOpen: map }, () => this.refreshDay());
   },
   editRecord(e) {
     wx.navigateTo({ url: '/pages/record/record?id=' + e.currentTarget.dataset.id });

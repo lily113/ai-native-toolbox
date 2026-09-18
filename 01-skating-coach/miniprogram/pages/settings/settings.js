@@ -173,7 +173,8 @@ Page({
     const txt = '总记录 ' + recs.length + ' 条（' + (dates[0] || '—') + ' ~ ' + (dates[dates.length - 1] || '—') + '）\n\n'
       + lines.join('\n')
       + '\n\n所有上课记录的节数合计 = ' + lessonUnits
-      + '\n基线：上冰 ' + (Number(meta.iceBase) || 0) + ' · 上课 ' + (Number(meta.lessonBase) || 0);
+      + '\n基线：上冰 ' + (Number(meta.iceBase) || 0) + ' · 上课 ' + (Number(meta.lessonBase) || 0)
+
     wx.showModal({ title: '数据概览', content: txt, showCancel: false });
   },
 

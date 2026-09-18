@@ -26,11 +26,6 @@
 
 /* 显示顺序（拖动排序） */
 .edit-link { float: right; font-size: 12px; font-weight: 600; color: #0284c7; }
-.sort-area { width: 100%; overflow: hidden; margin-top: 2px; }
-.sort-row { width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 8px;
-  background: #f8fbfe; border: 1px solid #e2eef6; border-radius: 10px; padding: 0 12px; margin-bottom: 6px; }
-.sr-name { flex: 1; font-size: 13px; color: #08537a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sr-handle { flex: none; font-size: 16px; color: #a8c4d8; letter-spacing: -2px; }
 
 /* 已选（合并进训练笔记） */
 .sel-block { margin-top: 10px; }
@@ -54,3 +49,52 @@
 .mv-recent { flex: none; font-size: 14px; font-weight: 600; color: #075985; background: #e0f2fe;
   border-radius: 999px; padding: 15px 16px; line-height: 1; }
 .mv-recent.on { color: #fff; background: #0284c7; }
+
+/* 训练时间（几点到几点） */
+.time-row { display: flex; align-items: center; gap: 10px; }
+.time-wrap { flex: 1; }
+.time-pick { display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 62px; border: 1px solid #cfe8f7; border-radius: 12px; background: #fff; }
+.time-pick.set { background: #eaf4fb; border-color: #bae6fd; }
+.tp-label { font-size: 11px; color: #94a3b8; line-height: 1.2; }
+.tp-value { font-size: 18px; font-weight: 700; color: #0c4a6e; margin-top: 3px; letter-spacing: .5px; }
+.tp-value.ph { color: #cbd5e1; font-weight: 500; letter-spacing: 1px; }
+.time-arrow { flex: none; color: #94a3b8; font-size: 15px; }
+.time-clear { flex: none; width: 30px; text-align: center; color: #94a3b8; font-size: 19px; }
+.time-hint { font-size: 12px; color: #D97706; background: #FEF6E7; border-radius: 8px; padding: 6px 10px; margin-top: 8px; }
+
+/* 手动输入精确时间 */
+.time-manual { display: inline-block; margin-top: 10px; font-size: 12.5px; color: #0284c7;
+  border: 1px dashed #bae6fd; border-radius: 8px; padding: 5px 10px; }
+
+/* 已选行：主标题 + 组数 */
+.sr-text { flex: 1; min-width: 0; }
+.sr-sub { font-size: 11px; color: #0284c7; margin-top: 2px; }
+
+.sr-text 
+/* 组合行：可换行两行内 */
+.sr-text 
+/* 已选：分组标题行 + 组合行 */
+.sort-row.head { background: #e8f4fc; border-color: #cfe8f7; }
+.sr-chev { flex: none; width: 22px; text-align: center; font-size: 13px; color: #0284c7; }
+.sr-text .sr-name.hd { font-weight: 700; color: #075985; }
+.sort-row.item.indent { padding-left: 22px; }
+.sort-row.item { background: #fbfdff; }
+
+/* ===== 已选列表（自然流，↑↓ 排序）===== */
+.sel-list { margin-top: 6px; }
+.sort-row { display: flex; align-items: flex-start; gap: 8px; background: #fbfdff;
+  border: 1px solid #e2eef6; border-radius: 10px; padding: 9px 10px; margin-bottom: 6px; }
+.sort-row.head { background: #eef7fd; border-color: #cfe8f7; }
+.sort-row.item.indent { margin-left: 14px; }
+.sort-row.tag { border-color: #fde9c8; background: #fffaf1; }
+.sr-chev { flex: none; width: 18px; text-align: center; font-size: 12px; color: #0284c7; line-height: 1.6; }
+.sr-text { flex: 1; min-width: 0; }
+.sr-name { font-size: 13.5px; color: #0f172a; line-height: 1.5; word-break: break-word; }
+.sr-name.hd { font-weight: 700; color: #075985; font-size: 14px; }
+.sr-sub { font-size: 11px; color: #0284c7; margin-top: 2px; }
+.sort-row.tag .sr-sub { color: #b45309; }
+.sr-ops { flex: none; display: flex; gap: 6px; align-self: center; }
+.sr-btn { width: 30px; height: 30px; line-height: 30px; text-align: center; border-radius: 8px;
+  background: #eaf4fb; color: #0284c7; font-size: 15px; }
+
