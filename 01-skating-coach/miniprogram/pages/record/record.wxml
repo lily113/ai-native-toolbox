@@ -21,6 +21,30 @@
       </picker>
     </view>
 
+    <view class="field">
+      <view class="field-label">训练时间（可选）</view>
+      <view class="time-row">
+        <picker class="time-wrap" mode="multiSelector" range="{{startRange}}" value="{{startIdx}}"
+                bindchange="setStart" bindcolumnchange="onStartCol">
+          <view class="time-pick {{timeStart ? 'set' : ''}}">
+            <text class="tp-label">开始</text>
+            <text class="tp-value {{timeStart ? '' : 'ph'}}">{{timeStart || '--:--'}}</text>
+          </view>
+        </picker>
+        <view class="time-arrow">→</view>
+        <picker class="time-wrap" mode="multiSelector" range="{{endRange}}" value="{{endIdx}}"
+                bindchange="setEnd" bindcolumnchange="onEndCol">
+          <view class="time-pick {{timeEnd ? 'set' : ''}}">
+            <text class="tp-label">结束</text>
+            <text class="tp-value {{timeEnd ? '' : 'ph'}}">{{timeEnd || '--:--'}}</text>
+          </view>
+        </picker>
+        <view class="time-clear" wx:if="{{timeStart || timeEnd}}" bindtap="clearTime">×</view>
+      </view>
+      <view class="time-manual" bindtap="manualTime">✎ 手动输入精确时间（如 15:08）</view>
+      <view class="time-hint" wx:if="{{timeHint}}">{{timeHint}}</view>
+    </view>
+
     <block wx:if="{{mode === 'lesson'}}">
       <view class="field">
         <view class="field-label">节数（1 节 = 30 分钟，时长自动算）</view>
@@ -54,19 +78,26 @@
       <view class="field-label">训练笔记（可选）</view>
       <textarea class="textarea note" value="{{content}}" data-k="content" bindinput="input" auto-height placeholder="勾选动作/考级会自动写入条目；这里可补充要点、教练的话、身体状态、下次目标…" maxlength="-1"></textarea>
       <view class="sel-block" wx:if="{{orderRows.length > 1}}">
-        <view class="sel-head">已选 · 按住 ≡ 拖动可调整顺序（会同步上面的条目顺序）</view>
-        <movable-area class="sort-area" style="height:{{orderAreaH}}px">
-          <movable-view class="sort-row" wx:for="{{orderRows}}" wx:key="key" direction="vertical"
-                        y="{{item.y}}" style="height:{{ORDER_ROW_H}}px"
-                        bindchange="onDragOrder" data-key="{{item.key}}">
-            <view class="sr-name">{{index + 1}}. {{item.label}}</view>
-            <view class="sr-handle">≡</view>
-          </movable-view>
-        </movable-area>
+        <view class="sel-head">已选 · 用 ↑ ↓ 调整顺序（动作 = 整组移动；动作内的组合 = 组内移动）</view>
+        <view class="sel-list">
+          <view class="sort-row {{item.kind === 'head' ? 'head' : 'item'}} {{item.indent ? 'indent' : ''}} {{item.tag ? 'tag' : ''}}"
+                wx:for="{{orderRows}}" wx:key="key">
+            <view class="sr-chev" wx:if="{{item.kind === 'head'}}" catchtap="toggleGroup" data-key="{{item.key}}">{{item.open ? '▾' : '▸'}}</view>
+            <view class="sr-text">
+              <view class="sr-name {{item.kind === 'head' ? 'hd' : ''}}">{{item.label}}</view>
+              <view class="sr-sub" wx:if="{{item.sub}}">{{item.sub}}</view>
+            </view>
+            <view class="sr-ops">
+              <view class="sr-btn" catchtap="moveRow" data-key="{{item.key}}" data-dir="-1">↑</view>
+              <view class="sr-btn" catchtap="moveRow" data-key="{{item.key}}" data-dir="1">↓</view>
+            </view>
+          </view>
+        </view>
       </view>
     </view>
 
-    <view class="field">
+
+<view class="field">
       <view class="field-label">训练动作 / 练习组合（可选）</view>
       <view class="mv-search">
         <input class="mv-input" value="{{moveQuery}}" bindinput="onMoveQuery" placeholder="搜索动作或组合…" confirm-type="search" />

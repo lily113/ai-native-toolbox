@@ -44,12 +44,27 @@
         <view class="rec-status {{item.done ? 'ok' : 'not'}}">{{item.statusText}}</view>
       </view>
       <view class="rec-lines" wx:if="{{item.contentLines.length}}">
-        <view class="rec-line-item" wx:for="{{item.contentLines}}" wx:for-item="ln" wx:key="index">
-          <view class="rec-line-dot"></view><text class="rec-line-text">{{ln.text || ln}}</text>
-        </view>
-        <view class="rec-more" wx:if="{{item.moreCount}}">…共 {{item.contentLines.length + item.moreCount}} 项</view>
+        <block wx:for="{{item.contentLines}}" wx:for-item="ln" wx:key="index">
+          <view class="rl-head {{ln.tag ? 'tag' : ''}}" wx:if="{{ln.kind === 'head'}}">
+            <view class="rl-bar"></view><text class="rl-head-text">{{ln.text}}</text>
+          </view>
+          <view class="rl-item" wx:elif="{{ln.kind === 'item'}}">
+            <text class="rl-idx">{{ln.idx}}</text>
+            <view class="rl-body"><text class="rl-text">{{ln.text}}</text></view>
+          </view>
+          <view class="rl-one {{ln.name ? 'titled' : ''}}" wx:else>
+            <view class="rl-bar" wx:if="{{ln.name}}"></view>
+            <text class="rl-one-name" wx:if="{{ln.name}}">{{ln.name}}</text>
+            <view class="rl-body"><text class="rl-text">{{ln.text}}</text></view>
+          </view>
+        </block>
+        <view class="rec-more" wx:if="{{!item.open && item.moreCount}}">…还有 {{item.moreCount}} 项</view>
       </view>
-      <view class="rec-duration" wx:if="{{item.duration}}">⏱ {{item.duration}} 分钟</view>
+      <view class="rec-meta-row">
+        <text class="rec-duration" wx:if="{{item.duration}}">⏱ {{item.duration}} 分钟</text>
+        <view class="rec-toggle" wx:if="{{item.totalItems > 6}}" catchtap="toggleCard" data-id="{{item.id}}">{{item.open ? '收起 ▴' : '展开全部 ' + item.totalItems + ' 项 ▾'}}</view>
+        <text class="rec-time" wx:if="{{item.timeText}}">{{item.timeText}}</text>
+      </view>
     </view>
     <view class="empty" wx:if="{{!dayStats.length}}">这一天还没有训练安排，点「＋ 添加训练」开始记录</view>
   </view>

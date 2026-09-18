@@ -6,14 +6,67 @@
 
   <scroll-view scroll-y class="chat" scroll-into-view="{{scrollId}}" scroll-with-animation>
     <view class="msg-row {{item.role}}" id="m{{index}}" wx:for="{{msgs}}" wx:key="index">
-      <view class="bubble">{{item.text}}</view>
+      <!-- 我的提问：纯文本 -->
+      <view class="bubble user" wx:if="{{item.role === 'user'}}">{{item.text}}</view>
+
+      <!-- 教练回答：结构化渲染 -->
+      <view class="bubble ai" wx:else>
+        <block wx:for="{{item.blocks}}" wx:for-item="b" wx:key="index">
+          <view class="md-h" wx:if="{{b.t === 'h'}}">
+            <text wx:for="{{b.v}}" wx:for-item="seg" wx:key="index" class="{{seg.b ? 'md-b' : ''}}">{{seg.v}}</text>
+          </view>
+          <view class="md-h2" wx:elif="{{b.t === 'h2'}}">
+            【<text wx:for="{{b.v}}" wx:for-item="seg" wx:key="index" class="{{seg.b ? 'md-b' : ''}}">{{seg.v}}</text>】<text
+              wx:for="{{b.rest}}" wx:for-item="seg" wx:key="index" class="{{seg.b ? 'md-b' : ''}}">{{seg.v}}</text>
+          </view>
+          <view class="md-line" wx:elif="{{b.t === 'li'}}">
+            <text class="md-dot">·</text>
+            <view class="md-body"><text wx:for="{{b.v}}" wx:for-item="seg" wx:key="index" class="{{seg.b ? 'md-b' : ''}}">{{seg.v}}</text></view>
+          </view>
+          <view class="md-line" wx:elif="{{b.t === 'num'}}">
+            <text class="md-num">{{b.n}}.</text>
+            <view class="md-body"><text wx:for="{{b.v}}" wx:for-item="seg" wx:key="index" class="{{seg.b ? 'md-b' : ''}}">{{seg.v}}</text></view>
+          </view>
+          <view class="md-table" wx:elif="{{b.t === 'table'}}">
+            <view class="mt-row mt-head">
+              <view class="mt-cell" wx:for="{{b.head}}" wx:for-item="cell" wx:for-index="ci" wx:key="ci">{{cell.s}}</view>
+            </view>
+            <view class="mt-row" wx:for="{{b.rows}}" wx:for-item="row" wx:for-index="ri" wx:key="ri">
+              <view class="mt-cell" wx:for="{{row}}" wx:for-item="cell" wx:for-index="ci" wx:key="ci">{{cell.s}}</view>
+            </view>
+          </view>
+          <view class="md-quote" wx:elif="{{b.t === 'quote'}}">
+            <text wx:for="{{b.v}}" wx:for-item="seg" wx:key="index" class="{{seg.b ? 'md-b' : ''}}">{{seg.v}}</text>
+          </view>
+          <view class="md-hr" wx:elif="{{b.t === 'hr'}}"></view>
+          <view class="md-gap" wx:elif="{{b.t === 'gap'}}"></view>
+          <view class="md-p" wx:else>
+            <text wx:for="{{b.v}}" wx:for-item="seg" wx:key="index" class="{{seg.b ? 'md-b' : ''}}">{{seg.v}}</text>
+          </view>
+        </block>
+
+        <!-- 参考来源（可折叠） -->
+        <view class="src" wx:if="{{item.srcList.length}}">
+          <view class="src-head" bindtap="toggleSrc" data-i="{{index}}">参考来源 {{item.srcList.length}} 条 {{item.srcOpen ? '▾' : '▸'}}</view>
+          <block wx:if="{{item.srcOpen}}">
+            <view class="src-item" wx:for="{{item.srcList}}" wx:for-item="sl" wx:key="index">· {{sl}}</view>
+          </block>
+        </view>
+
+        <view class="msg-ops" wx:if="{{item.text.length > 60}}">
+          <text class="op" bindtap="copyMsg" data-i="{{index}}">复制</text>
+        </view>
+      </view>
     </view>
+
     <view class="chat-pad" wx:if="{{!msgs.length}}">
       <view class="chat-pad-title">你好！我是你的 AI 滑冰教练 🤖</view>
       <view class="chat-pad-sub">
         <view>· 某个动作的要点（前压步、勾手跳、内勾步…）</view>
         <view>· 姿势 / 常见错误怎么改</view>
         <view>· 转体怎么区分（内勾 / 外勾 / 括弧 / 捻转…）</view>
+        <view>· 规则与评分（定级条件、GOE、SOV 分值）</view>
+        <view>· 冰舞（图案舞关键点、捻转步）</view>
       </view>
     </view>
     <view id="bottom"></view>

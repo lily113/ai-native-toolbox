@@ -64,7 +64,6 @@
 .quick-label { font-size: 12px; color: #075985; margin-top: 4px; font-weight: 600; }
 
 /* 训练内容逐条显示 */
-.rec-lines { margin-top: 8px; }
 .rec-line-item { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.6; color: #0f172a; margin-bottom: 3px; }
 .rec-line-dot { flex: none; width: 5px; height: 5px; border-radius: 50%; background: #7dd3fc; margin-top: 8px; }
 .rec-line-text { flex: 1; word-break: break-all; }
@@ -81,3 +80,36 @@
   padding: 10px 12px calc(12px + env(safe-area-inset-bottom));
   background: linear-gradient(to top, #f0f9ff 72%, rgba(240,249,255,0)); }
 .fab { margin: 0; box-shadow: 0 6px 16px rgba(2,132,199,.28); }
+
+/* 时长靠左、时间段靠右 */
+.rec-meta-row { display: flex; align-items: center; gap: 10px; }
+.rec-time { margin-left: auto; flex: none; font-size: 12.5px; color: #64748B; letter-spacing: .3px; }
+
+/* 训练计划 展开/收起 */
+.rec-toggle { font-size: 12.5px; font-weight: 600; color: #0284c7; background: #eaf4fb;
+  border-radius: 8px; padding: 3px 9px; margin-left: 10px; }
+
+/* ===== 训练计划行：三层视觉层级 ===== */
+.rec-lines { margin-top: 6px; }
+/* 动作标题：竖条 + 加粗深蓝，与上一组留出间距 */
+.rl-head { display: flex; align-items: center; gap: 7px; margin: 11px 0 4px; }
+.rl-head:first-child { margin-top: 2px; }
+.rl-bar { flex: none; width: 3px; height: 13px; border-radius: 2px; background: #38bdf8; }
+.rl-head-text { font-size: 14.5px; font-weight: 700; color: #075985; }
+/* 组合：序号列固定宽、内容列自动折行（悬挂缩进） */
+.rl-item { display: flex; align-items: flex-start; gap: 7px; margin: 3px 0 3px 10px; }
+.rl-idx { flex: none; width: 17px; text-align: right; font-size: 12.5px; font-weight: 600;
+  color: #38bdf8; line-height: 1.75; }
+.rl-body { flex: 1; min-width: 0; }
+.rl-text { font-size: 13.5px; color: #334155; line-height: 1.62; word-break: break-word; }
+/* 单组合：标题加粗 + 内容浅色，同一行 */
+.rl-one { display: flex; align-items: flex-start; gap: 7px; margin: 4px 0 4px 0; }
+.rl-one.titled { margin: 11px 0 4px 0; }
+.rl-one.titled:first-child { margin-top: 2px; }
+.rl-one .rl-bar { margin-top: 4px; }
+.rl-one-name { flex: none; font-size: 14.5px; font-weight: 700; color: #075985; line-height: 1.55; }
+
+/* 考级标签行（与动作标题区分） */
+.rl-head.tag .rl-bar { background: #f59e0b; }
+.rl-head.tag .rl-head-text { color: #b45309; }
+

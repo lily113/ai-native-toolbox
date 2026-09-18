@@ -65,10 +65,17 @@ const LESSON_FORMS = {
 };
 
 // ---------- 考级备考 ----------
-const EXAM_KINDS = { free: { name: '自由滑' }, steps: { name: '步法' } };
+const EXAM_KINDS = {
+  free:  { name: '自由滑' },
+  steps: { name: '步法' },
+  // ↓ 为冰舞考级预置（官方等级测试含「冰上舞蹈」三级~六级）
+  dance: { name: '冰上舞蹈' }
+  // 若以后练双人滑，加一行即可：pair: { name: '双人滑' }
+};
 const EXAM_SECTIONS = {
   free: ['我的要点'],
-  steps: ['我的要点']
+  steps: ['我的要点'],
+  dance: ['我的要点']
 };
 
 // 内置考纲（只读）：内容摘自《国家花样滑冰等级测试大纲（第2版）》相应页，仅供备考参考，请以官方原文为准。

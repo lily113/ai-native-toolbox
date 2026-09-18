@@ -50,10 +50,11 @@ Page({
   },
 
   add() {
+    const kinds = Object.keys(EXAM_KINDS);
     wx.showActionSheet({
-      itemList: ['自由滑', '步法'],
+      itemList: kinds.map(k => EXAM_KINDS[k].name),
       success: r => {
-        const kind = r.tapIndex === 0 ? 'free' : 'steps';
+        const kind = kinds[r.tapIndex] || 'free';
         wx.showModal({
           title: '新建考级', editable: true, placeholderText: '级别，如：五级 / 三级',
           success: m => {

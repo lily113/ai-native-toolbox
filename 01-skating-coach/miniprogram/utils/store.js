@@ -64,6 +64,57 @@ function saveRecords(rec) { save(KEYS.records, rec); }
 function recordsOf(date) { return loadRecords().filter(r => r.date === date); }
 function statusOf(r) { return r.date < todayKey() ? 'done' : 'pending'; }
 
+// 由记录里保存的动作/组合/考级 + itemOrder 生成结构化条目行（kind: head/item/one）
+// 首页日历卡片使用；顺序规则与训练笔记一致（展示样式各自不同：卡片用竖条 + 缩进）
+function recordLines(rec, examLabelOf) {
+  const order = Array.isArray(rec.itemOrder) ? rec.itemOrder.slice() : [];
+  const groups = {};
+  (rec.moves || []).forEach(id => {
+    const m = moveById(id);
+    if (m) groups[id] = { id: id, name: m.name, drills: [] };
+  });
+  (rec.drills || []).forEach(did => {
+    const f = drillById(did);
+    if (f && groups[f.move.id]) {
+      groups[f.move.id].drills.push({ key: 'm:' + f.move.id + '::d:' + did, name: f.drill.name });
+    }
+  });
+  const pos = k => { const i = order.indexOf(k); return i < 0 ? 1e9 : i; };
+  const blocks = [];
+  Object.keys(groups).forEach(id => {
+    const g = groups[id];
+    // 位置取「动作级旧键」与「各组合键」的最小值（兼容旧记录的动作级排序）
+    const ps = [pos('m:' + id)].concat(g.drills.map(d => pos(d.key)));
+    blocks.push({ pos: Math.min.apply(null, ps), kind: 'move', g: g });
+  });
+  (rec.examPicks || []).forEach(eid => blocks.push({ pos: pos('e:' + eid), kind: 'exam', id: eid, seq: blocks.length }));
+  blocks.sort((a, b) => (a.pos - b.pos) || ((a.seq || 0) - (b.seq || 0)));
+
+  // 返回结构化行：{ kind:'head'|'item'|'one', text, idx }
+  //   head = 动作标题；item = 组内某组合；one = 单组合（标题与组合同一行）
+  const lines = [];
+  blocks.forEach(b => {
+    if (b.kind === 'exam') {
+      const lab = examLabelOf ? examLabelOf(b.id) : '';
+      // 考级项：作为「标签」呈现（方括号 + tag 标记，界面用不同颜色区分）
+      if (lab) lines.push({ kind: 'head', text: '【' + lab + '】', tag: true, idx: 0 });
+      return;
+    }
+    const g = b.g;
+    if (g.drills.length > 1) {
+      lines.push({ kind: 'head', text: g.name, idx: 0 });
+      g.drills.slice().sort((x, y) => pos(x.key) - pos(y.key))
+        .forEach((d, i) => lines.push({ kind: 'item', text: d.name, idx: i + 1 }));
+    } else if (g.drills.length === 1) {
+      // 单组合：合并一行（界面在行首加标题竖条，保持“标题 + 内容”的层级）
+      lines.push({ kind: 'one', name: g.name, text: g.drills[0].name, idx: 1 });
+    } else {
+      lines.push({ kind: 'head', text: g.name, idx: 0 });
+    }
+  });
+  return lines;
+}
+
 // 一次性迁移：历史「上课」记录默认标为「一对一」（特殊的用户自己改）
 function migrateLessonForm() {
   const meta = load(KEYS.meta) || {};
@@ -234,7 +285,7 @@ function newExam(kind, level) {
 
 module.exports = {
   KEYS, load, save, setAfterSave, pad, dateKey, todayKey, keyToDate, uid,
-  normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes, migrateLessonForm,
+  normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes, migrateLessonForm, recordLines,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey
