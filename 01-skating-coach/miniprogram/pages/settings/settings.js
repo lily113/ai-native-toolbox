@@ -14,11 +14,16 @@ Page({
     auto: false,
     showImport: false,
     advOn: false,
-    importText: ''
+    importText: '',
+    // 升级自检状态（onShow 时用 guardInfo() 填）
+    guardOk: true,
+    guardText: '',
+    snapText: ''
   },
 
   onShow() {
     const meta = store.load(store.KEYS.meta) || {};
+    this.setData(this.guardInfo());
     this.setData({
       goal: meta.weeklyIceGoal || 0,
       iceBase: Number(meta.iceBase) || 0,
@@ -32,6 +37,44 @@ Page({
 
   onReady() {
     this.fetchOpenid();
+  },
+
+  // 升级自检状态：上次换版本时有没有少记录 / 少文字，以及本机有没有升级前快照
+  guardInfo() {
+    const chk = store.upgradeCheck();
+    const snap = store.upgradeSnapshotInfo();
+    const d = new Date((chk && chk.at) || Date.now());
+    const when = d.getFullYear() + '-' + store.pad(d.getMonth() + 1) + '-' + store.pad(d.getDate());
+    let text = '暂无升级记录（当前版本 ' + require('../../utils/const').APP_VERSION + '）';
+    let ok = true;
+    if (chk) {
+      if (chk.ok) {
+        text = '上次升级自检通过：' + when + '（' + chk.before + ' → ' + chk.after + ' 条记录，笔记文字都在）';
+      } else {
+        ok = false;
+        text = '⚠️ 上次升级自检未通过：' + when + '（记录 ' + chk.before + ' → ' + chk.after
+          + (chk.lost ? '，' + chk.lost + ' 行笔记没找到' : '') + '），建议用下方「恢复升级前数据」';
+      }
+    }
+    const snapText = snap ? (snap.version + ' · ' + snap.records + ' 条') : '';
+    return { guardOk: ok, guardText: text, snapText: snapText };
+  },
+
+  restoreUpgrade() {
+    const snap = store.upgradeSnapshotInfo();
+    if (!snap) { wx.showToast({ title: '没有升级前快照', icon: 'none' }); return; }
+    const d = new Date(snap.at || Date.now());
+    wx.showModal({
+      title: '恢复升级前的数据',
+      content: '快照来自 ' + snap.version + '（' + d.toLocaleString() + '，' + snap.records + ' 条记录）。\n\n会把这份快照合并回来（只补缺失、不删除现有记录）。确定？',
+      success: r => {
+        if (!r.confirm) return;
+        try { store.save('figure_skating_planner_records_backup_v1', { at: Date.now(), records: store.loadRecords() }); } catch (e) {}
+        const out = store.restoreUpgradeSnapshot();
+        this.refreshSync();
+        wx.showModal({ title: '已恢复', showCancel: false, content: out ? ('合并回 ' + out.records + ' 条记录，当前共 ' + store.loadRecords().length + ' 条。') : '没有可恢复的快照。' });
+      }
+    });
   },
 
   fetchOpenid() {

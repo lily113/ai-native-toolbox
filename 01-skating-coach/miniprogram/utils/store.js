@@ -1,4 +1,4 @@
-const { TYPES, MODES, DEFAULT_MOVES, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES, EXAM_SECTIONS, SYLLABUS } = require('./const');
+const { APP_VERSION, TYPES, MODES, DEFAULT_MOVES, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES, EXAM_SECTIONS, SYLLABUS } = require('./const');
 
 const KEYS = {
   records: 'figure_skating_planner_records_v1',
@@ -9,7 +9,9 @@ const KEYS = {
   meta: 'figure_skating_planner_meta_v1',
   aiKbUser: 'figure_skating_planner_ai_kb_user_v1',
   exams: 'figure_skating_planner_exams_v1',
-    poseMap: 'figure_skating_planner_pose_map_v1'   // 姿态自查：关键点索引映射（校准后保存）
+    poseMap: 'figure_skating_planner_pose_map_v1',  // 姿态自查：关键点索引映射（校准后保存）
+  upgradeSnap: 'figure_skating_planner_upgrade_snapshot_v1',   // 升级前的本地快照（可一键恢复）
+  upgradeGuard: 'figure_skating_planner_upgrade_guard_v1'      // 升级自检结果（少没少东西）
 };
 
 function load(key) { try { return wx.getStorageSync(key) || null; } catch (e) { return null; } }
@@ -156,6 +158,169 @@ function migrateMergeNotes() {
   return changed;
 }
 function sumMinutes(list) { return list.reduce((s, r) => s + (Number(r.duration) || 0), 0); }
+
+// ==================== 升级保护（每次发版不丢数据的保险） ====================
+// 思路：换版本时，**先**把现有数据整份快照到本机、并把"每一行文字"记成指纹，
+//       跑完迁移**再**比对：记录条数不能变少、原来写下的每一行字都还找得到。
+//       任何一条不满足 → 记下异常（首页会提示），本地快照可一键恢复。
+function rawArr(key) { const v = load(key); return Array.isArray(v) ? v : []; }
+// 一条记录里"用户真正写下的字"：content + 旧的 lessonSummary / notes
+function recLines(r) {
+  const out = [];
+  [r && r.content, r && r.lessonSummary, r && r.notes].forEach(t => {
+    String(t == null ? '' : t).split('\n').forEach(l => {
+      const x = l.trim();
+      if (x) out.push(x);
+    });
+  });
+  return out;
+}
+function allLines(recs) {
+  const seen = {}, out = [];
+  (Array.isArray(recs) ? recs : []).forEach(r => {
+    recLines(r).forEach(l => { if (!seen[l]) { seen[l] = 1; out.push(l); } });
+  });
+  return out;
+}
+function snapshotPayload() {
+  return {
+    records: rawArr(KEYS.records),
+    moves: rawArr(KEYS.moves),
+    cats: rawArr(KEYS.cats),
+    exams: rawArr(KEYS.exams),
+    milestones: rawArr(KEYS.milestones),
+    templates: rawArr(KEYS.templates),
+    meta: load(KEYS.meta) || {},
+    aiUserKb: load(KEYS.aiKbUser) || ''
+  };
+}
+// 升级前：换版本了就把整份数据存一份本机快照（只留最近 1 份，避免撑爆单键 1MB）
+function upgradeGuard() {
+  const meta = load(KEYS.meta) || {};
+  if (meta.appVersion === APP_VERSION) return null;       // 同一版本，日常启动不折腾
+  const recs = rawArr(KEYS.records);
+  const moves = rawArr(KEYS.moves);
+  let prev = { version: meta.appVersion || '(首次安装)', at: Date.now(), records: recs.length, lines: allLines(recs) };
+  if (recs.length || moves.length) {
+    const payload = snapshotPayload();
+    let str = '';
+    try { str = JSON.stringify({ version: prev.version, at: prev.at, payload: payload }); } catch (e) { str = ''; }
+    // 单键上限 1MB：太大就不存本机（云端另有 5 份历史快照兜底），并记下来
+    if (str && str.length < 700 * 1024) {
+      save(KEYS.upgradeSnap, JSON.parse(str));
+      prev.snap = true;
+    } else {
+      prev.snap = false;
+      prev.snapSkip = str ? Math.round(str.length / 1024) + 'KB 过大' : '序列化失败';
+    }
+  }
+  meta.appVersion = APP_VERSION;
+  save(KEYS.meta, meta);
+  return prev;
+}
+// 升级后：比对指纹，少一条记录 / 少一行字都要报出来
+function upgradeVerify(prev) {
+  if (!prev) return null;
+  const recs = rawArr(KEYS.records);
+  const after = allLines(recs);
+  const seen = {};
+  after.forEach(l => { seen[l] = 1; });
+  const missing = prev.lines.filter(l => !seen[l]);
+  const check = {
+    ok: !missing.length && recs.length >= prev.records,
+    lost: missing.length,
+    sample: missing.slice(0, 5),
+    before: prev.records,
+    after: recs.length,
+    at: Date.now(),
+    prevVersion: prev.version,
+    version: APP_VERSION,
+    snap: !!prev.snap,
+    snapSkip: prev.snapSkip || ''
+  };
+  save(KEYS.upgradeGuard, check);
+  return check;
+}
+function upgradeCheck() { const v = load(KEYS.upgradeGuard); return (v && typeof v === 'object') ? v : null; }
+function upgradeSnapshotInfo() {
+  const s = load(KEYS.upgradeSnap);
+  return (s && s.payload) ? { version: s.version, at: s.at, records: (s.payload.records || []).length } : null;
+}
+// 首页提示用：异常只提示一次
+function takeUpgradeWarning() {
+  const v = upgradeCheck();
+  if (!v || v.ok || v.warned) return null;
+  v.warned = true;
+  save(KEYS.upgradeGuard, v);
+  return v;
+}
+// 一键恢复升级前的数据（只补不删，和导入恢复同一套规则）
+function mergeByIdLocal(cur, inc) {
+  const map = {}, out = (Array.isArray(cur) ? cur : []).slice();
+  out.forEach(x => { if (x && x.id) map[x.id] = 1; });
+  (Array.isArray(inc) ? inc : []).forEach(x => { if (x && x.id && !map[x.id]) { out.push(x); map[x.id] = 1; } });
+  return out;
+}
+// 两边笔记取并集：恢复快照时，既要把升级中丢掉的文字找回来，
+// 也不能抹掉升级之后你自己新写的内容（谁包含谁就直接用更全的那份）
+function unionNotes(cur, snap) {
+  const c = String(cur == null ? '' : cur), s = String(snap == null ? '' : snap);
+  if (!s) return c;
+  if (!c) return s;
+  if (c.indexOf(s) > -1) return c;
+  if (s.indexOf(c) > -1) return s;
+  const seen = {}, out = [];
+  [s, c].forEach(t => t.split('\n').forEach(l => {
+    const k = l.trim();
+    if (k && !seen[k]) { seen[k] = 1; out.push(l); }
+  }));
+  return out.join('\n');
+}
+function restoreUpgradeSnapshot() {
+  const s = load(KEYS.upgradeSnap);
+  if (!s || !s.payload) return null;
+  const p = s.payload;
+  // 同 id 的记录：补齐笔记（并集），不覆盖升级后新写的内容
+  const snapById = {};
+  (p.records || []).forEach(r => { if (r && r.id) snapById[r.id] = r; });
+  const cur = loadRecords().map(r => {
+    const o = snapById[r.id];
+    if (!o) return r;
+    // 快照是升级前的原始形态，文字可能分散在 content / lessonSummary / notes 三处
+    const snapText = [o.content, o.lessonSummary, o.notes].map(t => String(t == null ? '' : t).trim()).filter(t => t).join('\n');
+    const merged = unionNotes(r.content, snapText);
+    return merged === r.content ? r : Object.assign({}, r, { content: merged });
+  });
+  saveRecords(mergeByIdLocal(cur, (p.records || []).map(normalizeRecord)));
+  save(KEYS.moves, dedupeMoves(mergeByIdLocal(rawArr(KEYS.moves), p.moves)));
+  save(KEYS.milestones, mergeByIdLocal(rawArr(KEYS.milestones), p.milestones));
+  save(KEYS.templates, mergeByIdLocal(rawArr(KEYS.templates), p.templates));
+  if (Array.isArray(p.cats) && p.cats.length) _catCache = null;
+  if (Array.isArray(p.exams) && p.exams.length) save(KEYS.exams, mergeExamsLocal(rawArr(KEYS.exams), p.exams));
+  // 补回来的记录是升级前的原始形态，文字可能还在 lessonSummary / notes 里 → 立刻并进 content
+  migrateMergeNotes();
+  return { records: (p.records || []).length, at: s.at, version: s.version };
+}
+// 考级：本地版合并（同 id 合并字段 + itemExtra 并集），避免和 util.js 互相 require
+function mergeExamsLocal(cur, inc) {
+  const out = (Array.isArray(inc) ? inc.map(e => Object.assign({}, e)) : []);
+  const idx = {};
+  out.forEach((e, i) => { if (e && e.id) idx[e.id] = i; });
+  (Array.isArray(cur) ? cur : []).forEach(le => {
+    if (!le || !le.id) return;
+    const i = idx[le.id];
+    if (i === undefined) { out.push(le); return; }
+    const re = out[i];
+    const base = Object.assign({}, re, le);
+    const ie = Object.assign({}, re.itemExtra || {});
+    Object.keys(le.itemExtra || {}).forEach(k => { if (ie[k] === undefined) ie[k] = le.itemExtra[k]; });
+    base.itemExtra = ie;
+    base.mySections = mergeByIdLocal(re.mySections, le.mySections);
+    base.myItems = mergeByIdLocal(re.myItems, le.myItems);
+    out[i] = base;
+  });
+  return out;
+}
 
 // ---------- 动作分类（可编辑；分类只决定动作库分组，记录按动作 id 关联） ----------
 let _catCache = null;
@@ -477,6 +642,7 @@ function newExam(kind, level) {
 module.exports = {
   KEYS, load, save, setAfterSave, pad, dateKey, todayKey, keyToDate, uid,
   normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes, migrateLessonForm, recordLines,
+  upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves,

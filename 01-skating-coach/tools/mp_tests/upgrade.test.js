@@ -119,6 +119,17 @@ const beforeRecs = JSON.parse(JSON.stringify(records));
 const totalTextLen = beforeRecs.reduce((s, r) => s + (r.content + r.lessonSummary + r.notes).length, 0);
 console.log('准备完毕：' + records.length + ' 条记录、' + moves.length + ' 个动作、' + totalTextLen + ' 字笔记');
 
+// ---------- ①.5 升级保护：换版本时先本地快照 + 记指纹 ----------
+console.log('\n①.5 升级保护（换版本时自动快照 + 自检）');
+const APP_VERSION = require(MP + '/utils/const').APP_VERSION;
+const guardPrev = store.upgradeGuard();
+ok(!!guardPrev, '检测到版本变化（老数据里没有 appVersion），返回指纹');
+ok(guardPrev.records === beforeRecs.length, '指纹记录了升级前的记录数：' + guardPrev.records);
+ok(guardPrev.lines.length > beforeRecs.length, '指纹记下了每一行文字，共 ' + guardPrev.lines.length + ' 行');
+ok(guardPrev.snap === true, '整份数据已存成本机快照');
+ok(JSON.stringify(store.upgradeSnapshotInfo()) !== 'null', '快照信息可读：' + JSON.stringify(store.upgradeSnapshotInfo()));
+ok(store.upgradeGuard() === null, '同一版本再次启动不再重复快照（日常启动不做无用功）');
+
 // ---------- ② 跑新版本的启动流程（app.js onLaunch 的顺序） ----------
 store.migrateMergeNotes();
 store.migrateLessonForm();
@@ -140,6 +151,16 @@ ok(beforeRecs.every(r => (byId[r.id].moves || []).join() === (r.moves || []).joi
                       && (byId[r.id].drills || []).join() === (r.drills || []).join()),
    '勾选的动作 / 组合 id 都没变');
 ok(beforeRecs.every(r => (byId[r.id].examPicks || []).join() === (r.examPicks || []).join()), '考级勾选没变');
+
+const chkOk = store.upgradeVerify(guardPrev);
+ok(chkOk && chkOk.ok === true, '升级自检通过：记录 ' + chkOk.before + ' → ' + chkOk.after + ' 条，没有文字丢失');
+ok(chkOk.lost === 0, '自检报告的丢字行数 = 0');
+
+console.log('\n①.6 迁移的幂等性：再跑一遍启动流程，数据不能有任何变化');
+const snapA = JSON.stringify({ r: mem[K.records], m: mem[K.moves], c: mem[K.cats], e: mem[K.exams], s: mem[K.milestones] });
+store.migrateMergeNotes(); store.migrateLessonForm(); store.cats(); store.ensureMoves(); store.ensureExams(); store.ensureMilestones();
+const snapB = JSON.stringify({ r: mem[K.records], m: mem[K.moves], c: mem[K.cats], e: mem[K.exams], s: mem[K.milestones] });
+ok(snapA === snapB, '再跑一遍完全一致（迁移是幂等的，每次启动不会慢慢改坏数据）');
 
 console.log('\n② 文字一个字都不能少');
 let textLost = [];
@@ -257,7 +278,32 @@ sync.init();
   const size = cloud.doc.payload.length;
   ok(size < 1024 * 1024, 'payload 体积 ' + (size / 1024).toFixed(1) + ' KB，在 1MB 云文档上限内');
 
-  console.log('\n⑧ 反方向：云端更新时，本机数据也不能被删');
+  console.log('\n⑦.5 假设某个版本迁移出错（删了记录 / 吞了文字），保险能不能兜住');
+const goodRecs = JSON.parse(JSON.stringify(mem[K.records]));
+const goodLines = store.loadRecords().reduce((a, r) => a.concat(String(r.content || '').split('\n').map(x => x.trim()).filter(Boolean)), []);
+// 模拟"坏迁移"：悄悄删掉 40 条记录、并把第 3 条记录的笔记清掉
+const bad = store.loadRecords().filter((r, i) => i % 7 !== 0);
+bad[3].content = '';
+mem[K.records] = bad;
+const chkBad = store.upgradeVerify({ version: '上一版', records: goodRecs.length, lines: goodLines, snap: true });
+ok(chkBad.ok === false, '自检没通过（检测到异常）');
+ok(chkBad.after < chkBad.before, '报出记录变少：' + chkBad.before + ' → ' + chkBad.after);
+ok(chkBad.lost > 0, '报出丢失的笔记行数：' + chkBad.lost + ' 行，例如「' + chkBad.sample[0] + '」');
+ok(!!store.takeUpgradeWarning(), '首页会拿到提示（只提示一次）');
+ok(store.takeUpgradeWarning() === null, '第二次不再重复提示');
+const restored = store.restoreUpgradeSnapshot();
+ok(!!restored && restored.records > 0, '一键恢复执行成功（快照 ' + restored.records + ' 条）');
+const nowRecs = store.loadRecords();
+ok(nowRecs.length === goodRecs.length, '恢复后记录数回到 ' + goodRecs.length + '：' + nowRecs.length);
+const nowLines = {};
+nowRecs.forEach(r => String(r.content || '').split('\n').forEach(l => { const t = l.trim(); if (t) nowLines[t] = 1; }));
+const stillMissing = goodLines.filter(l => !nowLines[l]);
+ok(stillMissing.length === 0, '恢复后每一行文字都回来了' + (stillMissing.length ? '（还差 ' + stillMissing.slice(0, 3).join(' | ') + '）' : ''));
+ok(store.loadRecords().every(r => r.id) && store.ensureMoves().length > 0, '动作库 / 记录结构完好');
+// 把状态还原成"好的"，后面的云端用例继续跑
+mem[K.records] = JSON.parse(JSON.stringify(goodRecs));
+
+console.log('\n⑧ 反方向：云端更新时，本机数据也不能被删');
   const cloudNewer = JSON.parse(cloud.doc.payload);
   cloudNewer.records = cloudNewer.records.slice(0, 5);      // 云端"更新"但只有 5 条
   cloudNewer.ts = undefined;

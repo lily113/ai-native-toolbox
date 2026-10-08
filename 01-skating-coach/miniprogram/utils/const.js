@@ -1,3 +1,7 @@
+// 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
+// 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
+const APP_VERSION = '2026.10.08.1';
+
 const TYPES = {
   ice:   { name: '上冰', emoji: '⛸️' },
   land:  { name: '陆地', emoji: '🏋️' },
@@ -205,7 +209,7 @@ const SYLLABUS = [
 ];
 
 module.exports = {
-  TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
+  APP_VERSION, TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
   DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
   MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS
 };
