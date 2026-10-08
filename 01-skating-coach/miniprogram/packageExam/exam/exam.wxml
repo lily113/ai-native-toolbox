@@ -56,7 +56,9 @@
   <button class="ghost-btn" bindtap="addSection">＋ 添加我的分节</button>
 
   <!-- 批量粘贴弹层 -->
-  <view class="mask {{batchOn ? 'show' : ''}}" bindtap="closeBatch">
+    <view class="src-note">本页只显示考纲的<text class="sn-b">结构与你自己记录的内容</text>；官方正文请查阅《国家花样滑冰等级测试大纲（第2版）》（中国花样滑冰协会 审定 · 人民体育出版社）。</view>
+
+<view class="mask {{batchOn ? 'show' : ''}}" bindtap="closeBatch">
     <view class="sheet" catchtap="noop">
       <view class="sh-title">批量粘贴要点</view>
       <view class="field">
