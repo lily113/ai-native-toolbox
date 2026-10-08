@@ -35,6 +35,7 @@ Page({
       .concat(cats.map(c => ({ k: c.id, name: c.name, n: counts[c.id] || 0 })));
     const nameOf = {};
     cats.forEach(c => { nameOf[c.id] = c.name; });
+    const cmap = store.catMap();
 
     let shown;
     if (tab === 'all') {
@@ -56,6 +57,8 @@ Page({
       name: m.name,
       catName: nameOf[store.validCat(m.category)] || '其他',
       drillCount: Array.isArray(m.drills) ? m.drills.length : 0,
+      // 勾选方式：只在「整组」时标出来，便于一眼看出哪些动作是容器
+      box: store.boxModeOf(m, cmap) === 'on' && Array.isArray(m.drills) && m.drills.length > 0,
       dateText: (Number(m.c) || 0) > 100000000000 ? store.dateKey(new Date(m.c)) : '',
       picked: sel.indexOf(m.id) > -1
     }));
@@ -64,6 +67,7 @@ Page({
       name: m.name,
       catName: nameOf[store.validCat(m.category)] || '其他',
       drillCount: Array.isArray(m.drills) ? m.drills.length : 0,
+      box: store.boxModeOf(m, cmap) === 'on' && Array.isArray(m.drills) && m.drills.length > 0,
       y: i * ROW_H
     }));
     const shownIds = list.map(x => x.id);

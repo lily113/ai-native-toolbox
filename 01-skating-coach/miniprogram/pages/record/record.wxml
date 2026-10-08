@@ -109,18 +109,11 @@
           <view class="mv-head" bindtap="toggleMove" data-id="{{mv.id}}">
             <view class="mv-check {{mv.checked ? 'on' : ''}}">{{mv.checked ? '✓' : ''}}</view>
             <view class="mv-name">{{mv.name}}</view>
-            <text class="mv-tag" wx:if="{{mv.box}}">整组</text>
+            <text class="mv-tag" wx:if="{{mv.box && mv.drills.length}}">整组</text>
             <view class="mv-cat">{{mv.catName}}</view>
           </view>
-          <!-- 串/组 类动作：勾一下带一整组，不做单个勾选 -->
-          <view class="mv-drills box" wx:if="{{mv.box && mv.drills.length}}">
-            <view class="dr-box-hint">勾选即带整组 · {{mv.drills.length}} 个组合</view>
-            <view class="dr box-item" wx:for="{{mv.drills}}" wx:for-item="dr" wx:key="id">
-              <view class="dr-check {{dr.checked ? 'on' : ''}}">{{dr.checked ? '✓' : ''}}</view>
-              <view class="dr-name">{{dr.name}}</view>
-            </view>
-          </view>
-          <view class="mv-drills" wx:elif="{{(mv.checked || moveQuery) && mv.drills.length}}">
+          <view class="mv-drills" wx:if="{{(mv.checked || moveQuery) && mv.drills.length}}">
+            <view class="dr-box-hint" wx:if="{{mv.box}}">勾动作 = 这组一起带上，仍可单独取消某个组合</view>
             <view class="dr" wx:for="{{mv.drills}}" wx:for-item="dr" wx:key="id"
                   bindtap="toggleDrill" data-mid="{{mv.id}}" data-did="{{dr.id}}">
               <view class="dr-check {{dr.checked ? 'on' : ''}}">{{dr.checked ? '✓' : ''}}</view>

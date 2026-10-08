@@ -278,6 +278,16 @@ function isBoxCat(c) {
   const t = catMap()[c];
   return !!(t && t.box);
 }
+// 「整组」解析：单个动作可以覆盖分类默认
+//   m.boxMode = 'on' / 'off'  → 该动作自己说了算
+//   m.boxMode 缺省            → 跟随所属分类的 box 设置
+function boxModeOf(m, cmap) {
+  const v = m && m.boxMode;
+  if (v === 'on' || v === 'off') return v;
+  const map = cmap || catMap();
+  const c = map[validCat(m && m.category)];
+  return (c && c.box) ? 'on' : 'off';
+}
 
 // ---------- 动作库（与网页版同一数据结构，可 JSON 互导） ----------
 function ensureMoves() {
@@ -401,7 +411,7 @@ function newExam(kind, level) {
 module.exports = {
   KEYS, load, save, setAfterSave, pad, dateKey, todayKey, keyToDate, uid,
   normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes, migrateLessonForm, recordLines,
-  cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat, isBoxCat,
+  cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat, isBoxCat, boxModeOf,
   CAT_FALLBACK, DEFAULT_CATS,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves,
   ensureMilestones, saveMilestones,

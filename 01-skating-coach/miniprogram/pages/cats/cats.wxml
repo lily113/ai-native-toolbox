@@ -8,7 +8,7 @@
     <view class="tip-l">分类只决定动作库怎么分组。动作按 id 关联记录，所以改名、排序、删除都不会动到历史训练记录。</view>
   </view>
 
-  <view class="box-hint">开启「勾选即带整组」的分类，在训练记录里勾一下该动作就会带出它下面的全部组合（适合「…串 / …组」这类容器动作）。</view>
+  <view class="box-hint">开启「勾选即带整组」的分类，在训练记录里勾一下该动作就会带出它下面的全部组合（适合「…串 / …组」这类容器动作）。这里只是分类默认值，单个动作可在动作详情页覆盖；带出来之后也能单独取消某个组合。</view>
 
   <view class="list">
     <view class="row" wx:for="{{list}}" wx:key="id">
@@ -24,8 +24,8 @@
         </view>
       </view>
       <view class="row-ops">
-        <view class="op {{item.first || item.fixed ? 'off' : ''}}" bindtap="up" data-id="{{item.id}}">↑</view>
-        <view class="op {{item.last || item.fixed ? 'off' : ''}}" bindtap="down" data-id="{{item.id}}">↓</view>
+        <view class="op {{(item.first || item.fixed) ? 'off' : ''}}" bindtap="up" data-id="{{item.id}}">↑</view>
+        <view class="op {{(item.last || item.fixed) ? 'off' : ''}}" bindtap="down" data-id="{{item.id}}">↓</view>
         <view class="op danger {{item.fixed ? 'off' : ''}}" bindtap="del" data-id="{{item.id}}">×</view>
       </view>
     </view>

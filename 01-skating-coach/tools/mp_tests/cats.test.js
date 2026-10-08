@@ -98,5 +98,22 @@ const rec = store.loadRecords()[0];
 const lines = store.recordLines(rec, () => '');
 ok(lines.length === 1 && lines[0].text === '前压步', '记录仍能正常生成行');
 
+console.log('⑥ 整组解析：分类默认 + 单个动作覆盖');
+let mm = store.ensureMoves();
+ok(store.boxModeOf({ category: 'topic' }) === 'on', '专题练习默认是整组');
+ok(store.boxModeOf({ category: 'jump' }) === 'off', '跳跃默认逐个勾选');
+ok(store.boxModeOf({ category: 'jump', boxMode: 'on' }) === 'on', '跳跃里的动作可单独打开整组');
+ok(store.boxModeOf({ category: 'topic', boxMode: 'off' }) === 'off', '专题练习里的动作可单独关掉整组');
+ok(store.boxModeOf({ category: '这个分类不存在' }) === 'off', '未知分类按兜底分类（其他）算，不会整组');
+// 关掉分类开关后，没写覆盖项的动作跟着变
+let cl = store.cats();
+cl.forEach(c => { if (c.id === 'topic') c.box = false; });
+store.saveCats(cl);
+ok(store.boxModeOf({ category: 'topic' }) === 'off', '分类开关关掉后默认变成逐个勾选');
+ok(store.boxModeOf({ category: 'topic', boxMode: 'on' }) === 'on', '但写了「总是整组」的动作不受影响');
+cl = store.cats();
+cl.forEach(c => { if (c.id === 'topic') c.box = true; });
+store.saveCats(cl);
+
 console.log(fail ? ('\n✗ 失败 ' + fail + ' 项') : '\n✓ 全部通过');
 process.exit(fail ? 1 : 0);
