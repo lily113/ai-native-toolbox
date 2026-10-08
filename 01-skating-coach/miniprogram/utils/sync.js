@@ -6,9 +6,34 @@ let pushTimer = null, busy = false, pulling = false, applying = false, lastLocal
 let retryTimer = null, retryDelay = 5000, lastPushFailed = false;
 const RETRY_STEPS = [5000, 15000, 45000, 120000, 180000, 300000, 600000];
 // 本机有改动、但还没成功推上去（用于启动/切回前台时补推）
+//
+// ⚠️ 只比时间戳（lastEdit > seenTs）会被骗：seenTs 是"云端那份的更新时间"，
+//    如果它比本机最后一次改动时间还新（时钟差异、拉取时把 seenTs 设成云端 ts、
+//    某些写入路径没走到保存钩子……），就会出现"本机 713 条、云端 153 条，
+//    但按钮说『本机没有未上传的改动』"——数据从此再也传不上去。
+// 所以改成**比内容**：记下上次成功上传时本机有多少条、payload 多大。
+function fingerprint() {
+  const recs = store.loadRecords();
+  let size = 0;
+  try { size = payloadString().length; } catch (e) { size = 0; }
+  return { n: recs.length, size: size };
+}
 function pendingPush() {
   const c = cfg();
+  const f = fingerprint();
+  if (f.n === 0 && !Number(c.pushedRecords)) return false;      // 本机本来就是空的，没什么可传
+  if (c.pushedRecords === undefined || c.pushedRecords === null) return true;   // 从没成功传过
+  if (f.n !== Number(c.pushedRecords)) return true;             // 条数变了 → 一定要传
+  if (Number(c.pushedSize) && f.size !== Number(c.pushedSize)) return true;     // 内容变了 → 传
   return (Number(c.lastEdit) || 0) > (Number(c.seenTs) || 0);
+}
+// 上传成功后记下"传上去的就是这个样子"
+function markPushed(payload) {
+  const c = cfg();
+  c.pushedSize = payload ? payload.length : fingerprint().size;
+  c.pushedRecords = payload ? statsOf(payload).records : fingerprint().n;
+  c.pushedAt = Date.now();
+  saveCfg(c);
 }
 // 上传失败 → 退避重试，别再静默放弃。次数记在本地（retryN），
 // 关掉小程序再打开也会接着重试；设置页还有一个「立即重试上传」按钮兜底。
@@ -64,7 +89,9 @@ function stats() {
     errorAt: Number(c.lastErrorAt) || 0,
     restored: Number(c.lastRestored) || 0,
     restoredAt: Number(c.lastRestoredAt) || 0,
-    pending: pendingPush()          // 本机有改动还没推上去
+    pending: pendingPush(),         // 本机有改动还没推上去（比内容，不只看时间戳）
+    pushedRecords: Number(c.pushedRecords) || 0,
+    localRecords: store.loadRecords().length
   };
 }
 // 本机原本是空的、这次拉回来了数据 → 明确告诉用户，并让当前页面刷新
@@ -288,9 +315,10 @@ function push(manual) {
         const localS = statsOf(localPayload);
         const finish = () => {
           const ts = Date.now();
-          return writePayload(oid, payloadString(), ts)
+          return writePayload(oid, localPayload, ts)
             .then(() => {
               const c3 = cfg(); c3.seenTs = ts; c3.retryN = 0; saveCfg(c3);
+              markPushed(localPayload);
               markOk('push'); lastPushFailed = false;
               if (fallbackNote) { const c4 = cfg(); c4.lastError = fallbackNote; c4.lastErrorAt = Date.now(); saveCfg(c4); fallbackNote = ''; }
             })
@@ -373,7 +401,7 @@ function pull(manual) {
         // 本机原本没有记录、这次从云端拉回来了 → 提示 + 刷新当前页面
         const added = store.loadRecords().length - localBefore;
         if (localBefore === 0 && added > 0) notifyRestored(added);
-        if (localNewer) schedule(800);
+        if (localNewer || pendingPush()) schedule(800);
       })
       .catch(e => { markErr('pull', e); if (manual) notifyFail('拉取', e); })
       .finally(() => { pulling = false; });
@@ -488,7 +516,8 @@ function diagnose() {
       const ts = Date.now();
       return writePayload(oid, payloadString(), ts)
         .then(() => {
-          const c = cfg(); c.seenTs = ts; c.retryN = 0; saveCfg(c); markOk('push'); lastPushFailed = false;
+          const c = cfg(); c.seenTs = ts; c.retryN = 0; saveCfg(c);
+          markPushed(null); markOk('push'); lastPushFailed = false;
           out.lines.push('✅ 整份上传：成功（' + Math.round(size / 1024) + 'KB / ' + n + ' 块）  ' + ms());
         })
         .catch(e => {

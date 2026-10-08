@@ -101,8 +101,27 @@ Page({
   // 复制 openid：配云函数的 OWNER_OPENID 环境变量时直接粘，不用手打 28 位
   // 上传失败时的一键重试：不用等自动退避，也不用再改一次数据
   retryUpload() {
-    const c = sync.stats();
-    if (!c.pending) { wx.showToast({ title: '本机没有未上传的改动', icon: 'none' }); return; }
+    const st = sync.stats();
+    const localN = st.localRecords || store.loadRecords().length;
+    const cloudN = this.data.cloudCount;
+    const cloudBehind = (typeof cloudN === 'number' && cloudN >= 0 && cloudN !== localN);
+    // 以前这里只要 pending=false 就拒绝上传——而 pending 是比时间戳算出来的，
+    // 一旦被时钟/时间戳骗到，就会出现"云端比本机少 560 条，但按钮说没有未上传的改动"，
+    // 数据从此再也传不上去。所以：只要本机和云端对不上，就允许（并确认）上传。
+    if (!st.pending && !cloudBehind) { wx.showToast({ title: '本机没有未上传的改动', icon: 'none' }); return; }
+    if (!st.pending && cloudBehind) {
+      wx.showModal({
+        title: '要用本机覆盖云端吗',
+        content: '本机 ' + localN + ' 条 · 云端 ' + cloudN + ' 条。\n同步状态以为已经传过了，但两边条数不一致（可能是同步时间戳被别的情况影响）。\n\n确定把本机这份传上去吗？云端旧版会自动存成历史，可回滚。',
+        confirmText: '上传本机',
+        success: r => { if (r.confirm) this.doRetryUpload(); }
+      });
+      return;
+    }
+    this.doRetryUpload();
+  },
+
+  doRetryUpload() {
     wx.showLoading({ title: '正在上传…', mask: true });
     // 兜底：万一网络卡住没回调，最多 45 秒也要把转圈关掉
     const guard = setTimeout(() => { try { wx.hideLoading(); } catch (e) {} }, 45000);
