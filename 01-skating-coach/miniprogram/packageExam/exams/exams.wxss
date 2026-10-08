@@ -13,3 +13,4 @@
 .ec-cd { margin-top: 8px; font-size: 13px; font-weight: 700; color: #0369a1; background: #e0f2fe; border-radius: 8px; padding: 6px 10px; display: inline-block; }
 
 .restore { margin-top: 14px; text-align: center; font-size: 12px; color: #64748B; padding: 6px 0; }
+.eg-cnt { font-size: 11px; color: #94a3b8; font-weight: 500; }
