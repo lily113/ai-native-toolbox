@@ -114,5 +114,28 @@ const setWxml = readIf(MP + '/pages/settings/settings.wxml');
 ok(setWxml.indexOf('copyOpenid') > -1, '设置页：能一键复制 openid（配 OWNER_OPENID 用）');
 ok(setWxml.indexOf('aiStatus') > -1, '设置页：显示 AI 教练对谁开放');
 
-console.log(fail ? ('\n✗ 失败 ' + fail + ' 项 —— 先别发！') : '\n✓ 全部通过：每一页都能加载，启动流程与对外闸门正常');
+// ---------- ⑤ 云函数静态检查（本地跑不了真实运行时，但能抓"用了却没引入"这类错） ----------
+console.log('\n⑤ 云函数');
+const cfDir = MP + '/cloudfunctions';
+fs.readdirSync(cfDir).forEach(name => {
+  const f = cfDir + '/' + name + '/index.js';
+  if (!fs.existsSync(f)) return;
+  const src = fs.readFileSync(f, 'utf8');
+  const problems = [];
+  if (/\bcloud\./.test(src) && src.indexOf("require('wx-server-sdk')") < 0) {
+    problems.push("用了 cloud.xxx 但没 require('wx-server-sdk')（运行时会 ReferenceError）");
+  }
+  if (src.indexOf("require('wx-server-sdk')") > -1 && src.indexOf('cloud.init(') < 0) {
+    problems.push('require 了 wx-server-sdk 但没调 cloud.init()');
+  }
+  const pkgF = cfDir + '/' + name + '/package.json';
+  if (src.indexOf("require('wx-server-sdk')") > -1 && fs.existsSync(pkgF)) {
+    const deps = (JSON.parse(fs.readFileSync(pkgF, 'utf8')).dependencies) || {};
+    if (!deps['wx-server-sdk']) problems.push("package.json 里没有 wx-server-sdk 依赖（云端安装会失败）");
+  }
+  try { new (require('vm').Script)(src); } catch (e) { problems.push('语法错误: ' + e.message); }
+  ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
+});
+
+console.log(fail ? ('\n✗ 失败 ' + fail + ' 项 —— 先别发！') : '\n✓ 全部通过：页面、启动流程、对外闸门、云函数静态检查都正常');
 process.exit(fail ? 1 : 0);
