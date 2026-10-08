@@ -116,7 +116,9 @@ function mergeArrays(local, remote, localWins) {
 //   · 每块 ≤ 16000 字符（中文约 48KB），失败只重发那一块；
 //   · 清单（planner_data 主文档）最后写，所以传一半失败不会破坏云端那份；
 //   · 数据再涨也不会撞 1MB 上限。
-const CHUNK_COL = 'planner_data_chunks';
+// ⚠️ 分块就放在**已有的 planner_data 集合**里（用独立的文档 id），
+//    这样不需要你去云开发控制台新建集合/配权限——少一步人为配置，就少一次上传失败。
+const CHUNK_COL = 'planner_data';
 const CHUNK_CHARS = 16000;
 const SINGLE_LIMIT = 20000;        // 字符数小于它就还按老样子写单文档（兼容老数据）
 function chunkCol() { return wx.cloud.database().collection(CHUNK_COL); }
@@ -162,12 +164,24 @@ function dropOldChunks(oid, gen, n) {
   return Promise.all(jobs);
 }
 let fallbackNote = '';        // 分块不可用时退回单文档，成功后仍要在设置页留一句提示
+// 3 块并发写：700 条 = 15 块，串行写要十几秒，用户切走 App 就可能被系统掐掉
+function writeChunks(oid, gen, parts) {
+  let next = 0;
+  const worker = () => {
+    const i = next++;
+    if (i >= parts.length) return Promise.resolve();
+    return setChunk(oid, gen, i, parts[i], 3).then(worker);
+  };
+  const jobs = [];
+  for (let k = 0; k < Math.min(3, parts.length); k++) jobs.push(worker());
+  return Promise.all(jobs);
+}
 function writePayload(oid, payload, ts) {
   const col = wx.cloud.database().collection('planner_data');
   const prev = cfg().lastChunk || null;
   if (payload.length > SINGLE_LIMIT) {
     const parts = splitChunks(payload);
-    return parts.reduce((chain, str, i) => chain.then(() => setChunk(oid, ts, i, str, 3)), Promise.resolve())
+    return writeChunks(oid, ts, parts)
       .then(() => col.doc(oid).set({ data: { chunked: true, gen: ts, n: parts.length, size: payload.length, ts: ts } }))
       .then(() => {
         const c2 = cfg(); c2.lastChunk = { gen: ts, n: parts.length }; saveCfg(c2);
@@ -177,9 +191,7 @@ function writePayload(oid, payload, ts) {
         // 兜底：云环境里还没建 planner_data_chunks 集合（或分块被权限挡住）→ 退回老的单文档写法，
         // 至少别因为配置少一步就完全传不上去。
         const msg = String((e && (e.errMsg || e.message)) || '');
-        fallbackNote = /not exist|collection|permission|denied/i.test(msg)
-          ? '分块上传不可用（' + msg + '）。请到云开发控制台新建集合 planner_data_chunks（权限选「仅创建者可读写」）——建好后上传会更稳，也能支持更多数据。'
-          : '';
+        fallbackNote = '这次没能用分块上传（' + msg + '），已改成"整份写一个文档"传上去。分块方式更稳，换到 Wi-Fi 后再点一次「立即重试上传」就会用回来。';
         return col.doc(oid).set({ data: { payload: payload, ts: ts } });
       });
   }
@@ -407,4 +419,56 @@ function remoteInfo() {
 }
 function localSize() { return payloadString().length; }
 
-module.exports = { init, push, pull, getAuto, setAuto, listHistory, saveHistory, statsOf, stats, remoteInfo, localSize };
+// ---------- 上传诊断：一步一步试，看到底卡在哪 ----------
+// 上传失败的原因可能是：身份拿不到 / 读云端被权限挡住 / 写不进去 / 大请求超时。
+// 这里按"小文档 → 48KB 块 → 整份"逐级试，每步都报耗时和原始错误。
+function diagnose() {
+  const out = { lines: [], openid: '', email: '' };
+  const t0 = Date.now();
+  const ms = () => (Date.now() - t0) + 'ms';
+  const msgOf = e => String((e && (e.errMsg || e.message)) || e || '未知');
+  const col = () => wx.cloud.database().collection('planner_data');
+  const brief = o => o ? (o.slice(0, 8) + '…' + o.slice(-4)) : '';
+  let oid = '';
+  let testId = '';
+  return ensureOpenid()
+    .then(o => {
+      oid = o || '';
+      out.openid = oid;
+      if (!oid) { out.lines.push('❌ 身份：拿不到 openid（云函数 login 没部署或环境 id 不对）'); throw new Error('stop'); }
+      out.lines.push('✅ 身份：' + brief(oid) + '  ' + ms());
+      testId = oid + '__selftest';
+      return col().doc(oid).get()
+        .then(r => {
+          const d = (r && r.data) || {};
+          const n = d.payload ? statsOf(d.payload).records : (d.chunked ? (Number(d.n) || 0) + ' 块' : 0);
+          out.lines.push('✅ 读云端：记录 ' + n + '  ' + ms());
+        })
+        .catch(e => out.lines.push('⚠️ 读云端：' + msgOf(e) + '（还没上传过 / 权限不对，都可能是这句）  ' + ms()));
+    })
+    .then(() => col().doc(testId).set({ data: { kind: 'selftest', at: Date.now() } })
+      .then(() => { out.lines.push('✅ 写小文档：成功（说明集合和权限没问题）  ' + ms()); })
+      .catch(e => { out.lines.push('❌ 写小文档：' + msgOf(e) + '  ' + ms()); throw new Error('stop'); }))
+    .then(() => col().doc(testId).set({ data: { kind: 'selftest', at: Date.now(), blob: '测'.repeat(16000) } })
+      .then(() => out.lines.push('✅ 写 48KB：成功  ' + ms()))
+      .catch(e => out.lines.push('❌ 写 48KB：' + msgOf(e) + '（小块都写不进去 → 手机网络或云环境问题）  ' + ms())))
+    .then(() => {
+      const size = localSize();
+      const n = splitChunks(payloadString()).length;
+      out.lines.push('· 本机数据 ' + Math.round(size / 1024) + 'KB，分 ' + n + ' 块上传，开始试…');
+      const ts = Date.now();
+      return writePayload(oid, payloadString(), ts)
+        .then(() => {
+          const c = cfg(); c.seenTs = ts; c.retryN = 0; saveCfg(c); markOk('push'); lastPushFailed = false;
+          out.lines.push('✅ 整份上传：成功（' + Math.round(size / 1024) + 'KB / ' + n + ' 块）  ' + ms());
+        })
+        .catch(e => {
+          out.lines.push('❌ 整份上传：' + msgOf(e) + '（小文档能写、整份不行 → 基本就是网络太慢/请求被掐）  ' + ms());
+        });
+    })
+    .catch(() => {})
+    .then(() => col().doc(testId).remove().catch(() => {}))
+    .then(() => { out.lines.push('· 已清掉诊断用的临时文档'); return out; });
+}
+
+module.exports = { init, push, pull, getAuto, setAuto, listHistory, saveHistory, statsOf, stats, remoteInfo, localSize, diagnose };

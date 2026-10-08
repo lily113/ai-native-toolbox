@@ -114,7 +114,13 @@ Page({
         wx.hideLoading();
         const st = sync.stats();
         if (st.error && st.pending) {
-          wx.showModal({ title: '还是没传上去', content: st.error + '\n\n本机数据没受影响，云端那份也还是完整的。\n可以换个网络（比如连上 Wi-Fi）后再点一次。', showCancel: false });
+          wx.showModal({
+            title: '还是没传上去',
+            content: st.error + '\n\n本机数据没受影响，云端那份也还是完整的。\n\n① 先换网络（连 Wi-Fi）再点一次；\n② 还不行就点「确定」跑一遍逐级诊断，看清卡在哪一步。',
+            confirmText: '跑诊断',
+            cancelText: '知道了',
+            success: r => { if (r.confirm) this.diagnose(); }
+          });
         } else {
           wx.showToast({ title: '已上传到云端' });
         }
@@ -533,23 +539,31 @@ Page({
       const v = e.itemExtra[k] || {};
       if ((v.points || []).length || (v.mistakes || []).length || v.note || v.moveId) extraCnt++;
     }));
-    let localTxt = '【本机】记录 ' + store.loadRecords().length + ' 条 · 考级自建条目 ' + localItems + ' 条 · 基线 ' + (meta.iceBase || 0) + '/' + (meta.lessonBase || 0);
-    localTxt += '\n条目归属：' + keyTxt + ' · 逐条个性化 ' + extraCnt + ' 条';
-    localTxt += bak ? ('\n备份：有（' + new Date(bak.at).toLocaleString() + '）') : '\n备份：无';
-    const oid = app.globalData.openid;
-    if (!oid) { wx.showModal({ title: '同步诊断', content: localTxt + '\n【云端】未获取身份，无法读取', showCancel: false }); return; }
-    wx.cloud.database().collection('planner_data').doc(oid).get()
-      .then(res => {
-        let d = {};
-        try { d = JSON.parse(res.data.payload); } catch (e) {}
-        const rExams = Array.isArray(d.exams) ? d.exams : [];
-        const rItems = rExams.reduce((n, e) => n + ((e.myItems || []).length), 0);
-        const rMeta = d.meta || {};
-        const cloudTxt = '【云端】记录 ' + ((d.records || []).length) + ' 条 · 考级自建条目 ' + rItems + ' 条 · 基线 ' + (rMeta.iceBase || 0) + '/' + (rMeta.lessonBase || 0)
-          + '\n更新于 ' + (res.data.ts ? new Date(res.data.ts).toLocaleString() : '—');
-        wx.showModal({ title: '同步诊断', content: localTxt + '\n' + cloudTxt, showCancel: false });
+    localTxt += '\n本机数据体积：' + Math.round(sync.localSize() / 1024) + 'KB';
+    // 逐级试写：小文档 → 48KB → 整份，直接看出卡在哪一步
+    wx.showLoading({ title: '正在逐级试写…', mask: true });
+    sync.diagnose()
+      .then(r => {
+        wx.hideLoading();
+        const body = localTxt + '\n' + ((r && r.lines) || []).join('\n');
+        wx.showModal({
+          title: '同步诊断',
+          content: body,
+          confirmText: '复制结果',
+          cancelText: '好',
+          success: res => {
+            if (!res.confirm) return;
+            wx.setClipboardData({
+              data: '【花样滑冰训练 · 同步诊断】\n' + body + '\n云环境：cloud1-d3gxrubwgdf9f71c7',
+              success: () => wx.showToast({ title: '已复制，把它发给我', icon: 'none', duration: 2500 })
+            });
+          }
+        });
       })
-      .catch(() => wx.showModal({ title: '同步诊断', content: localTxt + '\n【云端】读取失败（可能还没上传过）', showCancel: false }));
+      .catch(e => {
+        wx.hideLoading();
+        wx.showModal({ title: '同步诊断', content: localTxt + '\n诊断本身出错了：' + ((e && (e.errMsg || e.message)) || e), showCancel: false });
+      });
     sync.listHistory(5).then(list => {
       if (!list.length) return;
       const t = new Date(list[0].at || 0);
