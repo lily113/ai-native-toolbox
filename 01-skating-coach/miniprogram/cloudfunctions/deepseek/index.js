@@ -1,5 +1,10 @@
 const https = require('https');
+// ⚠️ 这个云函数原来只用 https 调 API，没有 require 过 wx-server-sdk；
+//    下面鉴权要用 cloud.getWXContext()，所以必须在这里引入（package.json 里本来就有这个依赖）
+const cloud = require('wx-server-sdk');
 const KB = require('./kb_data');
+
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 // ============================================================
 // 知识库检索：按「项目(discipline) + 赛季」过滤 + 关键词打分
@@ -314,7 +319,8 @@ exports.main = async (event) => {
     if (!owner) return { answer: 'AI 教练暂未开放（云函数未配置 OWNER_OPENID 环境变量）' };
     if (OPENID !== owner) return { answer: 'AI 教练目前仅开发者本人可用 🙂 训练记录、动作库、考级等功能都可以正常用。' };
   } catch (e) {
-    return { answer: 'AI 教练暂未开放（鉴权失败）' };
+    console.error('[deepseek] 鉴权异常', e && e.message);
+    return { answer: 'AI 教练暂未开放（鉴权失败：' + ((e && e.message) || '未知') + '）' };
   }
   const mode = (event && event.mode) === 'note' ? 'note' : 'coach';
   const q = String((event && event.question) || '').trim();
