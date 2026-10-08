@@ -135,6 +135,9 @@ function pull(manual) {
           store.save(store.KEYS.records, mergeArrays(store.loadRecords(), data.records, localNewer));
           store.save(store.KEYS.templates, mergeArrays(store.load(store.KEYS.templates) || [], data.templates, localNewer));
           store.save(store.KEYS.moves, store.dedupeMoves(mergeArrays(store.ensureMoves(), data.moves, localNewer)));
+          if (Array.isArray(data.cats) && data.cats.length) {
+            store.saveCats(util.mergeCats(store.cats(), data.cats, localNewer));
+          }
           store.save(store.KEYS.milestones, mergeArrays(store.load(store.KEYS.milestones) || [], data.milestones, localNewer));
           // 拉取前先备份本机考级 + meta，万一有问题可恢复
           try {

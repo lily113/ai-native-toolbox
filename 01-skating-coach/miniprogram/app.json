@@ -6,9 +6,11 @@
     "pages/coach/coach",
     "pages/moves/moves",
     "pages/move/move",
+    "pages/cats/cats",
     "pages/milestone/milestone",
     "pages/review/review",
-    "pages/settings/settings"
+    "pages/settings/settings",
+    "pages/pose/pose"
   ],
   "window": {
     "navigationBarBackgroundColor": "#e0f2fe",

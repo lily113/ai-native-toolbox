@@ -1,9 +1,10 @@
 <view class="page">
   <view class="head card">
     <view class="head-name">{{name}}</view>
-    <text class="cat-badge">{{catName}}</text>
+    <text class="cat-badge tappable" bindtap="pickCat">🏷️ {{catName}} ▾</text>
     <button class="del-move" bindtap="delMove">删除动作</button>
   </view>
+  <view class="cat-tip">点上面的分类可以把这个动作挪到别的分类（比如把「…串 / …练习」类动作归到专题练习）。</view>
 
   <view class="card">
     <view class="block-title">💡 共性要点<text class="edit-link" bindtap="openPts">编辑</text></view>

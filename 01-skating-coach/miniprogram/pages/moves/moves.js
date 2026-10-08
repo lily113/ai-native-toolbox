@@ -1,17 +1,20 @@
 const store = require('../../utils/store');
-const { CATS, CAT_ORDER } = require('../../utils/const');
 
 const ROW_H = 64; // 拖动行高（固定，方便算序号）
 
 Page({
   data: {
-    tabs: [{ k: 'all', name: '全部' }].concat(CAT_ORDER.map(c => ({ k: c, name: CATS[c].name }))),
+    tabs: [],
     tab: 'all',
     list: [],
     sortOn: false,
     sortList: [],
     areaH: 0,
-    ROW_H: ROW_H
+    ROW_H: ROW_H,
+    bulkOn: false,
+    selIds: [],
+    selCount: 0,
+    allSel: false
   },
 
   onShow() {
@@ -19,15 +22,19 @@ Page({
   },
 
   refresh() {
+    const cats = store.cats();
     const moves = store.dedupeMoves(store.ensureMoves());
-    const tab = this.data.tab;
+    let tab = this.data.tab;
+    if (tab !== 'all' && !cats.some(c => c.id === tab)) tab = 'all';   // 分类被删掉后回到「全部」
 
     // 各类别数量，用于标签角标
     const counts = { all: moves.length };
-    CAT_ORDER.forEach(c => { counts[c] = 0; });
-    moves.forEach(m => { if (counts[m.category] !== undefined) counts[m.category]++; });
+    cats.forEach(c => { counts[c.id] = 0; });
+    moves.forEach(m => { const c = store.validCat(m.category); counts[c] = (counts[c] || 0) + 1; });
     const tabs = [{ k: 'all', name: '全部', n: counts.all }]
-      .concat(CAT_ORDER.map(c => ({ k: c, name: CATS[c].name, n: counts[c] })));
+      .concat(cats.map(c => ({ k: c.id, name: c.name, n: counts[c.id] || 0 })));
+    const nameOf = {};
+    cats.forEach(c => { nameOf[c.id] = c.name; });
 
     let shown;
     if (tab === 'all') {
@@ -35,30 +42,41 @@ Page({
       shown = moves.slice().sort((a, b) => (b.c || 0) - (a.c || 0));
     } else {
       shown = moves
-        .filter(m => m.category === tab)
+        .filter(m => store.validCat(m.category) === tab)
         .sort((a, b) => (a.sort || 0) - (b.sort || 0));
     }
+
+    // 批量整理：选中项跨分类保留，但清掉已经不存在的动作
+    const alive = {};
+    moves.forEach(m => { alive[m.id] = 1; });
+    const sel = (this.data.selIds || []).filter(id => alive[id]);
 
     const list = shown.map(m => ({
       id: m.id,
       name: m.name,
-      catName: CATS[m.category] ? CATS[m.category].name : '其他',
+      catName: nameOf[store.validCat(m.category)] || '其他',
       drillCount: Array.isArray(m.drills) ? m.drills.length : 0,
-      dateText: (Number(m.c) || 0) > 100000000000 ? store.dateKey(new Date(m.c)) : ''
+      dateText: (Number(m.c) || 0) > 100000000000 ? store.dateKey(new Date(m.c)) : '',
+      picked: sel.indexOf(m.id) > -1
     }));
     const sortList = shown.map((m, i) => ({
       id: m.id,
       name: m.name,
-      catName: CATS[m.category] ? CATS[m.category].name : '其他',
+      catName: nameOf[store.validCat(m.category)] || '其他',
       drillCount: Array.isArray(m.drills) ? m.drills.length : 0,
       y: i * ROW_H
     }));
+    const shownIds = list.map(x => x.id);
 
     this.setData({
+      tab: tab,
       tabs: tabs,
       list: list,
       sortList: sortList,
-      areaH: Math.max(1, shown.length) * ROW_H
+      areaH: Math.max(1, shown.length) * ROW_H,
+      selIds: sel,
+      selCount: sel.length,
+      allSel: shownIds.length > 0 && shownIds.every(id => sel.indexOf(id) > -1)
     });
   },
 
@@ -72,12 +90,89 @@ Page({
       wx.showToast({ title: '请在具体分类里拖动排序', icon: 'none' });
       return;
     }
-    this.setData({ sortOn: !this.data.sortOn });
+    this.setData({ sortOn: !this.data.sortOn, bulkOn: false, selIds: [] });
     this.refresh();
   },
 
-  openMove(e) {
-    wx.navigateTo({ url: '/pages/move/move?id=' + e.currentTarget.dataset.id });
+  // ---------- 批量整理 ----------
+  toggleBulk() {
+    const on = !this.data.bulkOn;
+    this.setData({ bulkOn: on, sortOn: false, selIds: [] });
+    this.refresh();
+    if (on) wx.showToast({ title: '点动作多选，可批量改分类', icon: 'none' });
+  },
+
+  tapRow(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!this.data.bulkOn) { wx.navigateTo({ url: '/pages/move/move?id=' + id }); return; }
+    const sel = (this.data.selIds || []).slice();
+    const i = sel.indexOf(id);
+    if (i > -1) sel.splice(i, 1); else sel.push(id);
+    this.setData({ selIds: sel });
+    this.refresh();
+  },
+
+  bulkAll() {
+    const ids = this.data.list.map(x => x.id);
+    const sel = (this.data.selIds || []).slice();
+    let next;
+    if (ids.length && ids.every(id => sel.indexOf(id) > -1)) {
+      next = sel.filter(id => ids.indexOf(id) < 0);
+    } else {
+      next = sel.slice();
+      ids.forEach(id => { if (next.indexOf(id) < 0) next.push(id); });
+    }
+    this.setData({ selIds: next });
+    this.refresh();
+  },
+
+  bulkMove() {
+    const sel = this.data.selIds || [];
+    if (!sel.length) { wx.showToast({ title: '先点选要整理的动作', icon: 'none' }); return; }
+    const cats = store.cats();
+    wx.showActionSheet({
+      itemList: cats.map(c => '移到「' + c.name + '」'),
+      success: res => {
+        const t = cats[res.tapIndex];
+        if (!t) return;
+        const all = store.ensureMoves();
+        let n = 0;
+        all.forEach(m => {
+          if (sel.indexOf(m.id) < 0) return;
+          if (store.validCat(m.category) === t.id) return;
+          m.category = t.id;
+          let max = -1;
+          all.forEach(x => { if (x.id !== m.id && x.category === t.id && typeof x.sort === 'number' && x.sort > max) max = x.sort; });
+          m.sort = max + 1;
+          n++;
+        });
+        store.saveMoves(all);
+        this.setData({ selIds: [] });
+        this.refresh();
+        wx.showToast({ title: n ? ('已移动 ' + n + ' 个') : '都已经在这个分类里', icon: 'none' });
+      }
+    });
+  },
+
+  bulkDel() {
+    const sel = this.data.selIds || [];
+    if (!sel.length) { wx.showToast({ title: '先点选要删除的动作', icon: 'none' }); return; }
+    wx.showModal({
+      title: '批量删除动作',
+      content: '确定删除选中的 ' + sel.length + ' 个动作？它们的练习组合也会一起删除。已经写进训练笔记的文字不会被改动。',
+      confirmColor: '#dc2626',
+      success: r => {
+        if (!r.confirm) return;
+        store.saveMoves(store.ensureMoves().filter(m => sel.indexOf(m.id) < 0));
+        this.setData({ selIds: [] });
+        this.refresh();
+        wx.showToast({ title: '已删除 ' + sel.length + ' 个' });
+      }
+    });
+  },
+
+  openCats() {
+    wx.navigateTo({ url: '/pages/cats/cats' });
   },
 
   onDragSort(e) {
@@ -100,25 +195,31 @@ Page({
   },
 
   add() {
+    const cats = store.cats();
+    const create = (name, cat) => {
+      const moves = store.ensureMoves();
+      let max = -1;
+      moves.forEach(m => { if (m.category === cat && typeof m.sort === 'number' && m.sort > max) max = m.sort; });
+      moves.push({ id: store.uid(), name: name, category: cat, drills: [], sort: max + 1, c: Date.now() });
+      store.saveMoves(moves);
+      this.refresh();
+      wx.showToast({ title: '已添加' });
+    };
     wx.showModal({
       title: '新动作',
       editable: true,
-      placeholderText: '名称，如：后外点冰跳 / 燕式旋转…',
+      placeholderText: '名称，如：后外点冰跳 / 变刃步伐串…',
       success: r => {
         if (!r.confirm) return;
         const name = (r.content || '').trim();
         if (!name) { wx.showToast({ title: '名称不能为空', icon: 'none' }); return; }
+        // 已经停在某个分类里：直接放进该分类，不再问一次
+        if (this.data.tab !== 'all' && cats.some(c => c.id === this.data.tab)) { create(name, this.data.tab); return; }
         wx.showActionSheet({
-          itemList: CAT_ORDER.map(c => CATS[c].name),
+          itemList: cats.map(c => c.name),
           success: res => {
-            const cat = CAT_ORDER[res.tapIndex];
-            const moves = store.ensureMoves();
-            let max = -1;
-            moves.forEach(m => { if (m.category === cat && typeof m.sort === 'number' && m.sort > max) max = m.sort; });
-            moves.push({ id: store.uid(), name: name, category: cat, drills: [], sort: max + 1, c: Date.now() });
-            store.saveMoves(moves);
-            this.refresh();
-            wx.showToast({ title: '已添加' });
+            const t = cats[res.tapIndex];
+            if (t) create(name, t.id);
           }
         });
       }

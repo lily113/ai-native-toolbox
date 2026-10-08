@@ -17,10 +17,15 @@
 .cal-wd { width: calc(100% / 7); text-align: center; font-size: 12px; color: #94a3b8; margin-bottom: 6px; }
 .cal-cell { position: relative; width: calc(100% / 7); height: 42px; display: flex; align-items: center; justify-content: center; font-size: 14px; border-radius: 10px; color: #334155; flex-direction: column; }
 .day-num { line-height: 1; }
-.dot { position: absolute; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; background: #0284c7; }
-.cal-cell.sel .dot { background: #fff; }
-.cal-cell.today .dot { background: #0284c7; }
-.cal-cell.today.sel .dot { background: #fff; }
+/* 日历小点：上课 / 自己训练 用不同颜色，同一天可同时出现 */
+.dots { position: absolute; bottom: 5px; display: flex; gap: 3px; }
+.dot { width: 5px; height: 5px; border-radius: 50%; background: #0284c7; }
+.dot-lesson { background: #f97316; }        /* 上课：橙色 */
+.dot-self { background: #0284c7; }          /* 自己训练：蓝色 */
+.cal-cell.sel .dot { background: #fff !important; }
+.cal-legend { display: flex; gap: 14px; justify-content: center; margin: 2px 0 8px; }
+.lg-item { display: flex; align-items: center; gap: 5px; font-size: 11.5px; color: #64748B; }
+.lg-item .dot { position: static; }
 .cal-cell.other { color: #cbd5e1; }
 .cal-cell.wknd { color: #64748B; }
 .cal-cell.other.wknd { color: #dbe3ec; }

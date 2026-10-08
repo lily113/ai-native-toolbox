@@ -83,11 +83,21 @@ Page({
 
   // 给本月每一天标记“是否有训练”（小圆点）
   refreshDayMarks() {
+    // 按天统计：条数 + 是否含「上课」「自己训练」（日历小点区分用）
     const byDate = {};
-    store.loadRecords().forEach(r => { byDate[r.date] = (byDate[r.date] || 0) + 1; });
-    const cells = this.data.cells.map(c =>
-      c.other ? c : Object.assign({}, c, { has: !!byDate[c.key], cnt: byDate[c.key] || 0 })
-    );
+    store.loadRecords().forEach(r => {
+      const d = byDate[r.date] || (byDate[r.date] = { cnt: 0, lesson: false, self: false });
+      d.cnt++;
+      if (r.mode === 'lesson') d.lesson = true; else d.self = true;
+    });
+    const cells = this.data.cells.map(c => {
+      if (c.other) return c;
+      const d = byDate[c.key];
+      return Object.assign({}, c, {
+        has: !!d, cnt: d ? d.cnt : 0,
+        lesson: !!(d && d.lesson), self: !!(d && d.self)
+      });
+    });
     this.setData({ cells });
   },
 
@@ -211,6 +221,9 @@ Page({
   },
   editRecord(e) {
     wx.navigateTo({ url: '/pages/record/record?id=' + e.currentTarget.dataset.id });
+  },
+  goPose() {
+    wx.navigateTo({ url: '/pages/pose/pose' });
   },
   goCoach() {
     wx.navigateTo({ url: '/pages/coach/coach' });

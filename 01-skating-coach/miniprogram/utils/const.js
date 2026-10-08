@@ -7,13 +7,32 @@ const MODES = {
   self:   { name: '🤸 自己训练' },
   lesson: { name: '📖 上课' }
 };
-const CATS = {
-  jump:  { name: '跳跃' },
-  spin:  { name: '旋转' },
-  step:  { name: '步法' },
-  other: { name: '其他' }
-};
-const CAT_ORDER = ['jump', 'spin', 'step', 'other'];
+// 动作分类：默认表（用户可在「动作库 → 分类管理」里改名 / 新增 / 排序 / 删除）
+//   id   = 内部标识，动作记录按 id 关联，改名不影响历史记录
+//   box  = 「串/组」类容器：在训练记录里勾选该动作即带出它下面的全部组合
+const DEFAULT_CATS = [
+  { id: 'warm',  name: '热身',     box: true },
+  { id: 'step',  name: '步法' },
+  { id: 'spin',  name: '旋转' },
+  { id: 'jump',  name: '跳跃' },
+  { id: 'topic', name: '专题练习', box: true },
+  { id: 'other', name: '其他' }
+];
+const CAT_FALLBACK = 'other';   // 兜底分类：固定存在且排在最后，不可删除
+// 首次升级到「可编辑分类」时自动补进动作库的预置动作
+//   专题练习 = 串 / 组 / 综合类，命名统一带 串 / 练习 / 组合 后缀，与其他板块区分
+const CAT_SEED_MOVES = [
+  { name: '常规热身',       category: 'warm' },
+  { name: '膝关节激活',     category: 'warm' },
+  { name: '髋部激活',       category: 'warm' },
+  { name: '变刃步伐串',     category: 'topic' },
+  { name: '膝关节韵律练习', category: 'topic' },
+  { name: '胯的练习',       category: 'topic' }
+];
+// 兼容旧代码的静态表（页面请改用 store.cats() / store.catName()）
+const CATS = {};
+DEFAULT_CATS.forEach(c => { CATS[c.id] = { name: c.name }; });
+const CAT_ORDER = DEFAULT_CATS.map(c => c.id);
 const DEFAULT_MOVES = [
   // 跳跃（6 种官方跳型）
   { name: '后内结环跳', category: 'jump' },  // Salchow
@@ -55,6 +74,20 @@ const MS_TYPES = [
   { k: 'first', name: '第一次', emoji: '🌟' },
   { k: 'recovery', name: '康复', emoji: '💪' },
   { k: 'custom', name: '自定义', emoji: '✨' }
+];
+
+// 姿态自查：需要校准的关键点（顺序即校准顺序）
+const POSE_JOINTS = [
+  { k: 'head',    n: '头（头顶或鼻）' },
+  { k: 'neck',    n: '颈 / 肩中点' },
+  { k: 'shL',     n: '左肩' },
+  { k: 'shR',     n: '右肩' },
+  { k: 'hipL',    n: '左髋' },
+  { k: 'hipR',    n: '右髋' },
+  { k: 'kneeL',   n: '左膝' },
+  { k: 'kneeR',   n: '右膝' },
+  { k: 'ankL',    n: '左踝' },
+  { k: 'ankR',    n: '右踝' }
 ];
 
 // 上课形式（仅“上课”记录用）
@@ -172,6 +205,7 @@ const SYLLABUS = [
 ];
 
 module.exports = {
-  TYPES, MODES, CATS, CAT_ORDER, DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
-  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS
+  TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
+  DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
+  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS
 };

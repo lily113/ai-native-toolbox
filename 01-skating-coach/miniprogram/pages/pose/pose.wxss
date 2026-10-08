@@ -1,0 +1,62 @@
+.pose { min-height: 100vh; background: #f0f9ff; padding: 12px 12px calc(20px + env(safe-area-inset-bottom)); }
+.card { background: #fff; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+.card-t { font-size: 15px; font-weight: 800; color: #0c4a6e; }
+.card-s { font-size: 12px; color: #64748B; margin-top: 4px; line-height: 1.6; }
+.row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.btn { font-size: 14px; padding: 9px 16px; border-radius: 10px; background: #0284c7; color: #fff; margin: 0; }
+.btn.stop { background: #dc2626; }
+.btn.ghost { background: #eaf4fb; color: #0284c7; }
+.info { font-size: 12px; color: #475569; }
+.seg-label { font-size: 12px; color: #64748B; }
+.seg { display: flex; gap: 6px; }
+.seg-btn { font-size: 12px; padding: 6px 10px; border-radius: 8px; background: #f1f7fc; color: #0c4a6e; }
+.seg-btn.active { background: #0284c7; color: #fff; font-weight: 700; }
+.bar-wrap { height: 8px; background: #e2eef6; border-radius: 6px; margin-top: 10px; overflow: hidden; }
+.bar-in { height: 100%; background: #38bdf8; }
+.fmt { font-size: 11.5px; color: #0284c7; margin-top: 8px; line-height: 1.5; }
+.inp { flex: 1; min-width: 90px; border: 1px solid #cfe8f7; border-radius: 10px; padding: 10px 12px; font-size: 15px; }
+
+.calib-box { margin-top: 10px; }
+.calib-canvas { width: 100%; height: 300px; background: #0b1220; border-radius: 12px; }
+.calib-tip { margin-top: 8px; font-size: 14px; font-weight: 700; color: #b45309; }
+.calib-sub { font-size: 11.5px; color: #64748B; margin-top: 2px; }
+
+.chk { border-top: 1px dashed #e2eef6; padding: 10px 0; }
+.chk:first-of-type { border-top: none; }
+.chk-top { display: flex; align-items: center; justify-content: space-between; }
+.chk-name { font-size: 13.5px; color: #0f172a; font-weight: 600; }
+.chk-badge { font-size: 11.5px; padding: 2px 8px; border-radius: 8px; }
+.chk-badge.good { background: #dcfce7; color: #15803d; }
+.chk-badge.warn { background: #fef3c7; color: #b45309; }
+.chk-badge.bad { background: #fee2e2; color: #b91c1c; }
+.chk-badge.na { background: #f1f5f9; color: #64748B; }
+.chk-val { font-size: 20px; font-weight: 800; color: #0c4a6e; margin-top: 3px; }
+.chk-sub { font-size: 12px; font-weight: 500; color: #64748B; margin-left: 6px; }
+.chk-hint { font-size: 11.5px; color: #94a3b8; margin-top: 3px; line-height: 1.5; }
+.stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-top: 1px solid #f1f5f9; }
+.stat-k { font-size: 12.5px; color: #64748B; }
+.stat-v { font-size: 13px; font-weight: 700; color: #0c4a6e; }
+
+.tag { font-size: 12px; padding: 5px 10px; border-radius: 8px; background: #f1f7fc; color: #0c4a6e; }
+.tag.on { background: #0284c7; color: #fff; }
+.chart-t { font-size: 12px; color: #64748B; margin: 8px 0 4px; }
+.chart { width: 100%; height: 200px; background: #f8fbfe; border-radius: 10px; }
+
+.block { border: 1px solid #f87171; }
+.block-t { font-size: 15px; font-weight: 700; color: #b91c1c; }
+.block-s { font-size: 12.5px; color: #475569; margin-top: 6px; line-height: 1.6; }
+
+.tips { padding: 4px 4px 10px; }
+.tip-t { font-size: 12px; font-weight: 700; color: #0284c7; margin-top: 8px; }
+.tip-t.warn { color: #b45309; }
+.tip-l { font-size: 11.5px; color: #64748B; line-height: 1.7; }
+.tip-l.warn { color: #475569; }
+.b { color: #0c4a6e; font-weight: 700; }
+
+/* 诊断面板 */
+.diag { margin-top: 10px; background: #0b1220; border-radius: 10px; padding: 10px; }
+.diag-line { font-size: 11.5px; color: #cbd5e1; line-height: 1.7; word-break: break-all; }
+.diag-copy { margin-top: 8px; display: inline-block; font-size: 12px; color: #7dd3fc; border: 1px solid #7dd3fc; border-radius: 8px; padding: 4px 10px; }
+/* 离屏工作画布（用于降采样） */
+.work { position: fixed; left: -9999px; top: 0; width: 1px; height: 1px; overflow: hidden; }
+.work-c { width: 1px; height: 1px; }

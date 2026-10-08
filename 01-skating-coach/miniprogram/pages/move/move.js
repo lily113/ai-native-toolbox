@@ -1,5 +1,4 @@
 const store = require('../../utils/store');
-const { CATS } = require('../../utils/const');
 
 Page({
   data: {
@@ -38,9 +37,35 @@ Page({
     }));
     this.setData({
       name: m.name,
-      catName: CATS[m.category] ? CATS[m.category].name : '其他',
+      catName: store.catName(store.validCat(m.category)),
       movePoints: (m.points || []).slice(),
       drills: drills
+    });
+  },
+
+  // 改所属分类（分类 id 变，动作 id 不变，历史记录照旧能对上）
+  pickCat() {
+    const cats = store.cats();
+    const m = store.moveById(this.data.id);
+    if (!m) return;
+    const cur = store.validCat(m.category);
+    const itemList = cats.map(c => (c.id === cur ? '✓ ' : '') + c.name + (c.box ? '（串/组）' : ''));
+    wx.showActionSheet({
+      itemList: itemList,
+      success: res => {
+        const t = cats[res.tapIndex];
+        if (!t || t.id === cur) return;
+        const moves = store.ensureMoves();
+        const it = moves.filter(x => x.id === this.data.id)[0];
+        if (!it) return;
+        it.category = t.id;
+        let max = -1;
+        moves.forEach(x => { if (x.id !== it.id && x.category === t.id && typeof x.sort === 'number' && x.sort > max) max = x.sort; });
+        it.sort = max + 1;
+        store.saveMoves(moves);
+        this.reload();
+        wx.showToast({ title: '已移到「' + t.name + '」' });
+      }
     });
   },
 

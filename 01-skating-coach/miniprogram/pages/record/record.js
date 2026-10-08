@@ -56,7 +56,7 @@ function lenText(mins) {
   return '共 ' + Math.floor(mins / 60) + ' 小时' + (mins % 60 ? ' ' + (mins % 60) + ' 分' : '') + '（' + mins + ' 分钟）';
 }
 
-const { CATS, EXAM_KINDS, LESSON_FORMS } = require('../../utils/const');
+const { EXAM_KINDS, LESSON_FORMS, TYPES, MODES } = require('../../utils/const');
 
 Page({
   data: {
@@ -66,6 +66,8 @@ Page({
     mode: 'self',
     duration: '90',
     durOptions: [60, 90, 120, 150],
+    durOptionsIce: [60, 90, 120, 150],
+    durOptionsLand: [30, 45, 60, 90, 120],
     timeStart: '',
     timeEnd: '',
     timeHint: '',
@@ -131,20 +133,29 @@ Page({
 
   initMoves(rec) {
     const lib = store.ensureMoves();
+    const catMap = store.catMap();
     const selMoves = (rec && Array.isArray(rec.moves)) ? rec.moves : [];
     const selDrills = (rec && Array.isArray(rec.drills)) ? rec.drills : [];
-    const movesList = lib.map(m => ({
-      id: m.id,
-      name: m.name,
-      catName: CATS[m.category] ? CATS[m.category].name : '其他',
-      checked: selMoves.indexOf(m.id) > -1,
-      drills: (m.drills || []).slice()
-        .sort((a, b) => (Number(b.c) || 0) - (Number(a.c) || 0))
-        .map(d => ({
-          id: d.id, name: d.name, detail: d.detail || '',
-          checked: selDrills.indexOf(d.id) > -1
-        }))
-    }));
+    const movesList = lib.map(m => {
+      // 「串/组」类分类：勾选动作即带出它下面全部组合
+      const cid = store.validCat(m.category);
+      const box = !!(catMap[cid] && catMap[cid].box);
+      const checked = selMoves.indexOf(m.id) > -1;
+      return {
+        id: m.id,
+        name: m.name,
+        box: box,
+        catName: (catMap[cid] || {}).name || '其他',
+        checked: checked,
+        drills: (m.drills || []).slice()
+          .sort((a, b) => (Number(b.c) || 0) - (Number(a.c) || 0))
+          .map(d => ({
+            id: d.id, name: d.name, detail: d.detail || '',
+            // 不改动历史记录的实际勾选：只有用户点这个动作时才整组带出
+            checked: selDrills.indexOf(d.id) > -1
+          }))
+      };
+    });
     // 统计最近使用（按历史记录里每次用到的日期）
     const lastUse = {}, lastUseDrill = {};
     const cut = store.dateKey(new Date(Date.now() - 60 * 86400000));
@@ -179,14 +190,20 @@ Page({
 
   toggleMove(e) {
     const id = e.currentTarget.dataset.id;
-    const list = this.data.movesList.map(m =>
+    let list = this.data.movesList.map(m =>
       m.id === id ? Object.assign({}, m, { checked: !m.checked }) : m
     );
+    // 「串/组」类动作：勾选即带出该动作下全部组合（取消勾选则整组取消）
+    const cur = list.filter(m => m.id === id)[0];
+    if (cur && cur.box && (cur.drills || []).length) {
+      list = list.map(m => m.id !== id ? m : Object.assign({}, m, {
+        drills: m.drills.map(d => Object.assign({}, d, { checked: cur.checked }))
+      }));
+    }
     const selMoveIds = list.filter(m => m.checked).map(m => m.id);
-    // 未被勾选动作下的组合也一并清除
-    const selDrillIds = this.data.selDrillIds.filter(did =>
-      list.some(m => m.checked && m.drills.some(d => d.id === did))
-    );
+    // 组合：只保留「已勾选动作 + 该组合自身也勾选」的（未勾选动作下的组合一并清除）
+    const selDrillIds = [];
+    list.forEach(m => { if (m.checked) m.drills.forEach(d => { if (d.checked) selDrillIds.push(d.id); }); });
     this.setData({ movesList: list, selMoveIds: selMoveIds, selDrillIds: selDrillIds }, () => { this.refreshMoves(); this.syncContent(); });
   },
 
@@ -450,9 +467,64 @@ Page({
 
 
 
+  // ---------- 复制上次这条训练（只复制“设置 + 勾选 + 顺序”，不复制日期/时间/笔记文字） ----------
+  copyLast() {
+    const recs = store.loadRecords();
+    if (!recs.length) { wx.showToast({ title: '还没有历史记录', icon: 'none' }); return; }
+    const sameType = recs.filter(r => r.type === this.data.type);
+    const pool = sameType.length ? sameType : recs;
+    let src = pool[0];
+    pool.forEach(r => { if (String(r.date) >= String(src.date)) src = r; });   // 日期最新（同日取后录入的）
+    const NM = (TYPES[src.type] || {}).name || src.type;
+    const MM = (MODES[src.mode] || {}).name || src.mode;
+    wx.showModal({
+      title: '复制上次训练',
+      content: '来源：' + src.date + '（' + NM + ' · ' + MM + '）\n' +
+        '动作 ' + (src.moves || []).length + ' 个 · 组合 ' + (src.drills || []).length + ' 个 · 考级 ' + (src.examPicks || []).length + ' 项\n\n' +
+        '将复制：类型 / 方式 / 时长 / 节数 / 上课形式 + 勾选与顺序\n' +
+        '（日期、时间、笔记文字保留当前这条的）',
+      confirmText: '复制',
+      success: r => { if (r.confirm) this.applyCopy(src); }
+    });
+  },
+
+  applyCopy(src) {
+    const dur = Number(src.duration) || (src.type === 'land' ? 60 : 90);
+    const base = (src.type === 'land' ? this.data.durOptionsLand : this.data.durOptionsIce) || [];
+    const opts = base.slice();
+    if (dur && opts.indexOf(dur) < 0) opts.push(dur);
+    opts.sort((a, b) => a - b);
+    this.setData({
+      type: src.type,
+      mode: MODES[src.mode] ? src.mode : 'self',
+      units: Number(src.units) || 2,
+      lessonForm: src.lessonForm || 'one',
+      duration: String(dur),
+      durOptions: opts,
+      content: ''                                   // 笔记文字不复制，稍后由勾选重新生成
+    }, () => {
+      if (src.type === 'rehab') {                   // 兼容旧类型
+        const t = this.data.types.slice();
+        if (!t.some(x => x.k === 'rehab')) t.push({ k: 'rehab', e: '💪 康复（旧）' });
+        this.setData({ types: t });
+      }
+      this.initMoves(src);
+      this.initExams(src);
+      if (this.data.mode === 'lesson') this.syncLessonDuration();
+      setTimeout(() => this.syncContent(), 30);     // 等初始化回调完成后再生成笔记条目
+      wx.showToast({ title: '已复制上次训练' });
+    });
+  },
+
   setType(e) {
     const k = e.currentTarget.dataset.k;
-    this.setData({ type: k, mode: k === 'ice' ? this.data.mode : 'lesson' });
+    // 陆地/上冰都支持「自己训练 / 上课」，切换类型不再强制方式；时长档位按类型给
+    const isLand = k === 'land';
+    const opts = (isLand ? this.data.durOptionsLand : this.data.durOptionsIce).slice();
+    const cur = Number(this.data.duration);
+    if (opts.indexOf(cur) < 0) opts.push(cur);
+    opts.sort((a, b) => a - b);
+    this.setData({ type: k, durOptions: opts });
   },
   setMode(e) {
     this.setData({ mode: e.currentTarget.dataset.k });

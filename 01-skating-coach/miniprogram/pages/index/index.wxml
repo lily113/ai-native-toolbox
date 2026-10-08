@@ -20,9 +20,17 @@
     <view class="cal-cell {{item.other ? 'other' : ''}} {{item.today ? 'today' : ''}} {{item.sel ? 'sel' : ''}} {{!item.other && item.wd >= 5 ? 'wknd' : ''}}"
           wx:for="{{cells}}" wx:key="index" bindtap="selectDay" data-key="{{item.key}}">
       <text class="day-num">{{item.day}}</text>
-      <view class="dot" wx:if="{{item.has}}"></view>
+      <view class="dots" wx:if="{{item.has}}">
+        <view class="dot dot-lesson" wx:if="{{item.lesson}}"></view>
+        <view class="dot dot-self" wx:if="{{item.self}}"></view>
+      </view>
     </view>
   </view>
+
+    <view class="cal-legend">
+      <view class="lg-item"><view class="dot dot-lesson"></view><text>上课</text></view>
+      <view class="lg-item"><view class="dot dot-self"></view><text>自己训练</text></view>
+    </view>
 
   <view class="monthcard">
     <text class="mc-label">本月</text>
@@ -77,5 +85,6 @@
     <view class="quick-item" bindtap="goMoves"><view class="quick-icon">⛸️</view><view class="quick-label">动作库</view></view>
     <view class="quick-item" bindtap="goMilestone"><view class="quick-icon">🏆</view><view class="quick-label">纪念日</view></view>
     <view class="quick-item" bindtap="goCoach"><view class="quick-icon">🤖</view><view class="quick-label">AI 教练</view></view>
+    <view class="quick-item" bindtap="goPose"><view class="quick-icon">🩻</view><view class="quick-label">姿态自查</view></view>
   </view>
 </view>
