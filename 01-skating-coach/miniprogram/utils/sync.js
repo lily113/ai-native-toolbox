@@ -3,12 +3,14 @@ const util = require('./util');
 
 const CFG_KEY = 'planner_sync_meta_v1';
 let pushTimer = null, busy = false, pulling = false, applying = false, lastLocalEditTs = 0;
+// ⚠️ lastLocalEditTs 必须落盘：只放内存的话，重启后「本机刚改过、但还没推上去」的记录会被
+//    当成旧数据，拉取合并时被云端旧版覆盖回去 = 静默丢改动。
 
 function cfg() {
   try {
     const v = wx.getStorageSync(CFG_KEY);
-    return (v && typeof v === 'object') ? v : { auto: true, seenTs: 0 };
-  } catch (e) { return { auto: true, seenTs: 0 }; }
+    return (v && typeof v === 'object') ? v : { auto: true, seenTs: 0, lastEdit: 0 };
+  } catch (e) { return { auto: true, seenTs: 0, lastEdit: 0 }; }
 }
 function saveCfg(c) { try { wx.setStorageSync(CFG_KEY, c); } catch (e) {} }
 function openid() {
@@ -133,6 +135,7 @@ function pull(manual) {
         applying = true;
         try {
           store.save(store.KEYS.records, mergeArrays(store.loadRecords(), data.records, localNewer));
+          try { store.migrateMergeNotes(); } catch (e) {}
           store.save(store.KEYS.templates, mergeArrays(store.load(store.KEYS.templates) || [], data.templates, localNewer));
           store.save(store.KEYS.moves, store.dedupeMoves(mergeArrays(store.ensureMoves(), data.moves, localNewer)));
           if (Array.isArray(data.cats) && data.cats.length) {
@@ -172,11 +175,16 @@ function schedule(delay) {
 function onAfterSave() {
   if (applying) return;
   lastLocalEditTs = Date.now();
+  const c = cfg();
+  c.lastEdit = lastLocalEditTs;
+  saveCfg(c);
   schedule();
 }
 
 function init() {
   store.setAfterSave(onAfterSave);
+  // 恢复上次运行的「本机最后改动时间」，否则重启后本机未推送的改动会被云端旧版盖掉
+  lastLocalEditTs = Number(cfg().lastEdit) || 0;
   if (isDevtools()) return;  // 开发者工具里不做自动同步（可用设置页的手动按钮）
   ensureOpenid().then(() => { if (cfg().auto) setTimeout(() => pull(false), 800); });
 }

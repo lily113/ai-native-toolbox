@@ -56,6 +56,18 @@ function lenText(mins) {
   return '共 ' + Math.floor(mins / 60) + ' 小时' + (mins % 60 ? ' ' + (mins % 60) + ' 分' : '') + '（' + mins + ' 分钟）';
 }
 
+// 打开记录编辑时，把残留的旧字段（课后总结 / 备注）并进笔记框。
+// 否则保存时这两个字段会被写成空串——那是真的丢字（网页版导出/云端旧数据里都可能有）。
+function mergeLegacyNotes(rec) {
+  let c = String((rec && rec.content) || '');
+  if (!rec) return c;
+  [rec.lessonSummary, rec.notes].forEach(x => {
+    const t = x && String(x).trim();
+    if (t && c.indexOf(t) === -1) c = c ? (c + '\n' + t) : t;
+  });
+  return c;
+}
+
 const { EXAM_KINDS, LESSON_FORMS, TYPES, MODES } = require('../../utils/const');
 
 Page({
@@ -116,7 +128,7 @@ Page({
       startIdx: timeToSlots((rec && rec.time ? String(rec.time).split('-')[0] : '') || ''),
       endIdx: timeToSlots((rec && rec.time ? String(rec.time).split('-')[1] : '') || ''),
       durOptions: (function (dv) { const base = [60, 90, 120, 150]; if (dv && base.indexOf(Number(dv)) < 0) base.push(Number(dv)); return base.sort(function (a, b) { return a - b; }); })(rec ? rec.duration : 90),
-      content: rec ? rec.content : '',
+      content: rec ? mergeLegacyNotes(rec) : '',
       units: rec ? (Number(rec.units) || 2) : 2,
       lessonForm: rec ? (rec.lessonForm || 'one') : ((store.load(store.KEYS.meta) || {}).lastLessonForm || 'one')
     });
