@@ -4,22 +4,31 @@ const util = require('./util');
 const CFG_KEY = 'planner_sync_meta_v1';
 let pushTimer = null, busy = false, pulling = false, applying = false, lastLocalEditTs = 0;
 let retryTimer = null, retryDelay = 5000, lastPushFailed = false;
+const RETRY_STEPS = [5000, 15000, 45000, 120000, 180000, 300000, 600000];
 // 本机有改动、但还没成功推上去（用于启动/切回前台时补推）
 function pendingPush() {
   const c = cfg();
   return (Number(c.lastEdit) || 0) > (Number(c.seenTs) || 0);
 }
-// 上传失败 → 指数退避重试（5s → 15s → 45s → 120s），别再静默放弃
+// 上传失败 → 退避重试，别再静默放弃。次数记在本地（retryN），
+// 关掉小程序再打开也会接着重试；设置页还有一个「立即重试上传」按钮兜底。
 function scheduleRetry() {
   if (retryTimer) return;
   if (!cfg().auto || isDevtools()) return;
+  const c0 = cfg();
+  const n = Number(c0.retryN) || 0;
+  if (n >= RETRY_STEPS.length) return;         // 试满 7 次就不自动试了，靠手动按钮 / 下次改动
+  const wait = RETRY_STEPS[Math.min(n, RETRY_STEPS.length - 1)];
   retryTimer = setTimeout(() => {
     retryTimer = null;
+    const c = cfg();
+    c.retryN = (Number(c.retryN) || 0) + 1;
+    saveCfg(c);
     push(false).then(() => {
-      if (lastPushFailed) { retryDelay = Math.min(retryDelay * 3, 120000); scheduleRetry(); }
-      else { retryDelay = 5000; }
+      if (lastPushFailed) scheduleRetry();
+      else { const c2 = cfg(); c2.retryN = 0; saveCfg(c2); }
     });
-  }, retryDelay);
+  }, wait);
 }
 // ⚠️ lastLocalEditTs 必须落盘：只放内存的话，重启后「本机刚改过、但还没推上去」的记录会被
 //    当成旧数据，拉取合并时被云端旧版覆盖回去 = 静默丢改动。
@@ -101,6 +110,87 @@ function mergeArrays(local, remote, localWins) {
   return out;
 }
 
+// ---------- 分块上传/下载 ----------
+// 为什么要分块：一次 set 写整个 payload（713 条记录 ≈ 236KB）在手机网络上容易 time out，
+// 而且云数据库单文档上限 1MB。改成「一串小块 + 最后写清单」：
+//   · 每块 ≤ 16000 字符（中文约 48KB），失败只重发那一块；
+//   · 清单（planner_data 主文档）最后写，所以传一半失败不会破坏云端那份；
+//   · 数据再涨也不会撞 1MB 上限。
+const CHUNK_COL = 'planner_data_chunks';
+const CHUNK_CHARS = 16000;
+const SINGLE_LIMIT = 20000;        // 字符数小于它就还按老样子写单文档（兼容老数据）
+function chunkCol() { return wx.cloud.database().collection(CHUNK_COL); }
+function chunkId(oid, gen, i) { return oid + '__' + gen + '__' + i; }
+function splitChunks(str) {
+  const out = [];
+  for (let i = 0; i < str.length; i += CHUNK_CHARS) out.push(str.slice(i, i + CHUNK_CHARS));
+  return out.length ? out : [''];
+}
+function setChunk(oid, gen, i, str, tries) {
+  return chunkCol().doc(chunkId(oid, gen, i)).set({ data: { gen: gen, i: i, data: str, at: Date.now() } })
+    .catch(e => (tries > 1) ? new Promise(r => setTimeout(r, 1500)).then(() => setChunk(oid, gen, i, str, tries - 1)) : Promise.reject(e));
+}
+// 读云端那份，兼容两种布局：老的单文档 { payload } / 新的分块 { chunked, gen, n }
+function readRemote(oid) {
+  return wx.cloud.database().collection('planner_data').doc(oid).get()
+    .then(res => res.data || null)
+    .catch(() => null)
+    .then(doc => {
+      if (!doc) return null;
+      const ts = Number(doc.ts) || 0;
+      if (doc.payload) return { ts: ts, payload: doc.payload, layout: 'single' };
+      if (!doc.chunked) return { ts: ts, payload: '', layout: 'empty' };
+      const n = Number(doc.n) || 0;
+      if (!n || n > 200) return { ts: ts, payload: '', layout: 'broken' };
+      const jobs = [];
+      for (let i = 0; i < n; i++) {
+        jobs.push(chunkCol().doc(chunkId(oid, doc.gen, i)).get()
+          .then(r => (r.data && typeof r.data.data === 'string') ? r.data.data : null)
+          .catch(() => null));
+      }
+      return Promise.all(jobs).then(parts => {
+        if (parts.some(x => x === null)) return { ts: ts, payload: '', layout: 'broken' };
+        return { ts: ts, payload: parts.join(''), layout: 'chunked' };
+      });
+    });
+}
+// 上传成功后清掉上一代分块（留着只占空间，回滚靠 planner_history 快照）
+function dropOldChunks(oid, gen, n) {
+  if (!gen || !n) return Promise.resolve();
+  const jobs = [];
+  for (let i = 0; i < n; i++) jobs.push(chunkCol().doc(chunkId(oid, gen, i)).remove().catch(() => {}));
+  return Promise.all(jobs);
+}
+let fallbackNote = '';        // 分块不可用时退回单文档，成功后仍要在设置页留一句提示
+function writePayload(oid, payload, ts) {
+  const col = wx.cloud.database().collection('planner_data');
+  const prev = cfg().lastChunk || null;
+  if (payload.length > SINGLE_LIMIT) {
+    const parts = splitChunks(payload);
+    return parts.reduce((chain, str, i) => chain.then(() => setChunk(oid, ts, i, str, 3)), Promise.resolve())
+      .then(() => col.doc(oid).set({ data: { chunked: true, gen: ts, n: parts.length, size: payload.length, ts: ts } }))
+      .then(() => {
+        const c2 = cfg(); c2.lastChunk = { gen: ts, n: parts.length }; saveCfg(c2);
+        if (prev && prev.gen !== ts) return dropOldChunks(oid, prev.gen, prev.n);
+      })
+      .catch(e => {
+        // 兜底：云环境里还没建 planner_data_chunks 集合（或分块被权限挡住）→ 退回老的单文档写法，
+        // 至少别因为配置少一步就完全传不上去。
+        const msg = String((e && (e.errMsg || e.message)) || '');
+        fallbackNote = /not exist|collection|permission|denied/i.test(msg)
+          ? '分块上传不可用（' + msg + '）。请到云开发控制台新建集合 planner_data_chunks（权限选「仅创建者可读写」）——建好后上传会更稳，也能支持更多数据。'
+          : '';
+        return col.doc(oid).set({ data: { payload: payload, ts: ts } });
+      });
+  }
+  // 小数据：还是单文档（和以前完全一样）
+  return col.doc(oid).set({ data: { payload: payload, ts: ts } })
+    .then(() => {
+      const c2 = cfg(); c2.lastChunk = null; saveCfg(c2);
+      if (prev) return dropOldChunks(oid, prev.gen, prev.n);
+    });
+}
+
 // ---------- 云端历史快照 + 上传前体检 ----------
 const HIST = 'planner_history';
 function histCol() { return wx.cloud.database().collection(HIST); }
@@ -158,18 +248,18 @@ function push(manual) {
     if (!c.auto && !manual) return;
     if (!manual && isDevtools()) return;
     busy = true;
-    const db = wx.cloud.database();
-    const col = db.collection('planner_data');
-    return col.doc(oid).get()
-      .then(res => res.data)
-      .catch(() => null)
+    return readRemote(oid)
       .then(remoteDoc => {
         const localPayload = payloadString();
         const localS = statsOf(localPayload);
-        const finish = remoteDoc => {
+        const finish = () => {
           const ts = Date.now();
-          return col.doc(oid).set({ data: { payload: payloadString(), ts: ts } })
-            .then(() => { c.seenTs = ts; saveCfg(c); markOk('push'); lastPushFailed = false; })
+          return writePayload(oid, payloadString(), ts)
+            .then(() => {
+              const c3 = cfg(); c3.seenTs = ts; c3.retryN = 0; saveCfg(c3);
+              markOk('push'); lastPushFailed = false;
+              if (fallbackNote) { const c4 = cfg(); c4.lastError = fallbackNote; c4.lastErrorAt = Date.now(); saveCfg(c4); fallbackNote = ''; }
+            })
             .catch(e => { markErr('push', e); lastPushFailed = true; if (manual) notifyFail('上传', e); });
         };
         if (remoteDoc && remoteDoc.payload) {
@@ -201,14 +291,15 @@ function pull(manual) {
     const c = cfg();
     if (!c.auto && !manual) return;
     pulling = true;
-    return wx.cloud.database().collection('planner_data').doc(oid).get()
-      .then(res => {
-        const d = res.data || {};
-        const ts = Number(d.ts) || 0;
+    return readRemote(oid)
+      .then(remote => {
+        if (!remote) return;
+        const ts = Number(remote.ts) || 0;
         const seen = Number(c.seenTs) || 0;
+        if (remote.layout === 'broken') { markErr('pull', { message: '云端数据不完整（分块缺失），请重新上传一次' }); return; }
         if (!ts || ts <= seen) return;
         let data;
-        try { data = JSON.parse(d.payload); } catch (e) { return; }
+        try { data = JSON.parse(remote.payload); } catch (e) { return; }
         if (!data || typeof data !== 'object') return;
         const localNewer = lastLocalEditTs > seen;
         const localBefore = store.loadRecords().length;   // 拉之前本机有几条
@@ -280,6 +371,19 @@ function init() {
       });
     }
   } catch (e) {}
+  // 网络恢复 → 本机还有没推上去的改动就立刻补推（以前只有切回前台才补）
+  try {
+    if (wx.onNetworkStatusChange) {
+      wx.onNetworkStatusChange(res => {
+        if (!res || !res.isConnected) return;
+        if (!cfg().auto || isDevtools()) return;
+        if (!pendingPush()) return;
+        const c2 = cfg(); c2.retryN = 0; saveCfg(c2);
+        lastPushFailed = false;
+        setTimeout(() => { push(false).then(() => { if (lastPushFailed) scheduleRetry(); }); }, 2000);
+      });
+    }
+  } catch (e) {}
   // 启动时如果上次没推成功，等拉取结束再补推一次
   setTimeout(() => {
     if (!cfg().auto || isDevtools()) return;
@@ -290,4 +394,17 @@ function init() {
 function getAuto() { return !!cfg().auto; }
 function setAuto(on) { const c = cfg(); c.auto = !!on; saveCfg(c); }
 
-module.exports = { init, push, pull, getAuto, setAuto, listHistory, saveHistory, statsOf, stats };
+// 给设置页用：拿云端那份（自动处理分块），并给出上传体积
+function remoteInfo() {
+  return ensureOpenid().then(oid => {
+    if (!oid) return null;
+    return readRemote(oid).then(r => {
+      if (!r) return null;
+      const s = statsOf(r.payload);
+      return { ts: r.ts, layout: r.layout, records: s.records, bytes: r.payload ? r.payload.length : 0 };
+    });
+  });
+}
+function localSize() { return payloadString().length; }
+
+module.exports = { init, push, pull, getAuto, setAuto, listHistory, saveHistory, statsOf, stats, remoteInfo, localSize };
