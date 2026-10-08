@@ -6,6 +6,8 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 exports.main = async () => {
   const { OPENID } = cloud.getWXContext();
   const owner = String(process.env.OWNER_OPENID || '').trim();
+  // 打日志是为了配 OWNER_OPENID 时能直接从「云函数 → 日志」里看到并复制这个 openid
+  console.log('[login] OPENID=' + OPENID + ' ownerConfigured=' + (!!owner) + ' isOwner=' + (!!owner && OPENID === owner));
   return {
     openid: OPENID,
     isOwner: !!owner && OPENID === owner,
