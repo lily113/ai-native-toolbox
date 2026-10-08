@@ -10,6 +10,7 @@ Page({
     iceBase: 0,
     lessonBase: 0,
     openid: '',
+    aiStatus: '检查中…',
     syncStatus: '未配置',
     auto: false,
     showImport: false,
@@ -24,6 +25,7 @@ Page({
   onShow() {
     const meta = store.load(store.KEYS.meta) || {};
     this.setData(this.guardInfo());
+    this.refreshAiStatus();
     this.setData({
       goal: meta.weeklyIceGoal || 0,
       iceBase: Number(meta.iceBase) || 0,
@@ -37,6 +39,42 @@ Page({
 
   onReady() {
     this.fetchOpenid();
+  },
+
+  // 复制 openid：配云函数的 OWNER_OPENID 环境变量时直接粘，不用手打 28 位
+  copyOpenid() {
+    if (!this.data.openid) { wx.showToast({ title: '还没取到身份', icon: 'none' }); return; }
+    wx.setClipboardData({
+      data: this.data.openid,
+      success: () => wx.showToast({ title: '已复制，粘到云函数的 OWNER_OPENID' })
+    });
+  },
+
+  // AI 教练当前对谁开放（真实判定在云函数里，这里只是显示）
+  refreshAiStatus() {
+    const app = getApp();
+    const apply = () => {
+      const g = (app && app.globalData) || {};
+      let s;
+      if (g.ownerConfigured === false) s = '未开放：云函数还没配 OWNER_OPENID';
+      else if (g.isOwner) s = '已开放（仅你自己能用）';
+      else if (g.ownerConfigured === true) s = '已关闭（你不是配置里的本人）';
+      else s = '检查中…';
+      this.setData({ aiStatus: s });
+    };
+    apply();
+    try {
+      wx.cloud.callFunction({ name: 'login' }).then(r => {
+        const res = (r && r.result) || {};
+        if (app && app.globalData) {
+          if (res.openid) app.globalData.openid = res.openid;
+          app.globalData.isOwner = !!res.isOwner;
+          app.globalData.ownerConfigured = !!res.ownerConfigured;
+        }
+        if (res.openid) this.setData({ openid: res.openid });
+        apply();
+      }).catch(() => {});
+    } catch (e) {}
   },
 
   // 升级自检状态：上次换版本时有没有少记录 / 少文字，以及本机有没有升级前快照
