@@ -42,10 +42,9 @@ cats = store.cats();
 moves = store.ensureMoves();
 const m1 = moves.filter(m => m.id === 'm1')[0];
 const m2 = moves.filter(m => m.id === 'm2')[0];
-ok(!!m1 && m1.category === 'step', '老动作分类不变（步法）');
-ok(!!m2 && m2.name === '常规热身' && m2.category === 'warm', '旧「热身」→「常规热身」且归入热身分类');
-ok(moves.filter(m => m.name === '热身').length === 0, '没有留下重名的「热身」');
-ok(moves.filter(m => m.name === '常规热身').length === 1, '「常规热身」只有一条');
+ok(!!m1 && m1.category === 'step', '老动作分类一字未改（步法）');
+ok(!!m2 && m2.name === '热身', '老动作名字一字未改（不做「热身 → 常规热身」这种自动改名）');
+ok(moves.filter(m => m.name === '膝关节激活').length === 0, '老用户不会被塞预置动作');
 ok(moves.filter(m => m.name === '前压步').length === 1, '没有把已有动作重复插入');
 
 console.log('③ 改名 / 新增 / 删除（带动作迁移）/ 排序');
@@ -58,14 +57,18 @@ const nb = store.cats();
 nb.splice(nb.length - 1, 0, { id: 'cNEW', name: '体能', box: false });
 store.saveCats(nb);
 ok(store.catName('cNEW') === '体能' && store.cats().length === before + 1, '新增分类生效且排在兜底分类前');
-// 删除 topic（里面有 3 个动作）→ 模拟页面的迁移逻辑
-const del = store.cats().filter(c => c.id === 'topic')[0];
-const all = store.ensureMoves();
+// 删除 topic（先手动放 3 个动作进去，因为老用户的动作库不会被自动塞预置）→ 模拟页面的迁移逻辑
+let all = store.ensureMoves();
+let put = 0;
+all.forEach(m => { if (put < 3 && m.category === 'step') { m.category = 'topic'; put++; } });
+store.saveMoves(all);
+const inTopic = store.ensureMoves().filter(m => m.category === 'topic').length;
 let moved = 0;
+all = store.ensureMoves();
 all.forEach(m => { if (m.category === 'topic') { m.category = 'other'; moved++; } });
 store.saveMoves(all);
 store.saveCats(store.cats().filter(c => c.id !== 'topic'));
-ok(moved === 3, '删除分类时 3 个动作被迁移');
+ok(inTopic === 3 && moved === 3, '删除分类时 3 个动作被迁移（放进去了 ' + inTopic + ' 个）');
 ok(store.catName('topic') === '其他', '已删分类名回落到「其他」');
 ok(store.validCat('topic') === 'other', '已删分类不再是合法分类');
 ok(store.cats()[store.cats().length - 1].id === 'other', '兜底分类仍在最后');

@@ -359,8 +359,13 @@ function catsUntouched() {
   return true;
 }
 
-// 一次性迁移：补齐默认分类 + 预置「串/组」动作 + 把旧「热身」动作规范成「常规热身」
+// 一次性迁移：只补默认分类表。
+// ⚠️ 原则：**绝不改动用户已有数据**。
+//   - 分类表是新键（只增不改），随便建；
+//   - 预置动作**只给全新安装**补（老用户库里已经有自己的动作，硬塞进去只会造成重复和困惑，
+//     而且改名/挪动老动作属于"动用户数据"，不做——想归类可以在「动作库 → 整理」里两下搞定）。
 function migrateCatsV1(list) {
+  const hadMoves = Array.isArray(load(KEYS.moves));   // 迁移前就有动作库 = 老用户
   // ① 补齐默认分类（插在兜底分类之前，保持默认顺序）
   const have = {};
   list.forEach(c => { have[c.id] = 1; });
@@ -370,14 +375,12 @@ function migrateCatsV1(list) {
     const item = { id: d.id, name: d.name };
     if (at >= 0) list.splice(at, 0, item); else list.push(item);
   });
-  // ② 动作库：旧「热身」→「常规热身」并归到热身分类；再补预置动作（不覆盖同名动作）
+  if (hadMoves) return;                                // 老用户：到此为止，一根手指都不碰他的数据
+  // ② 全新安装：补一批预置动作，让专题练习/热身这两栏一开始就不是空的
   let moves = null;
-  try { moves = load(KEYS.moves); } catch (e) { moves = null; }
-  if (!Array.isArray(moves)) { try { moves = ensureMoves(); } catch (e) { moves = null; } }
+  try { moves = ensureMoves(); } catch (e) { moves = null; }
   if (!Array.isArray(moves)) return;
   const byName = n => moves.filter(m => m && m.name === n)[0];
-  const hot = byName('热身');
-  if (hot && !byName('常规热身')) { hot.name = '常规热身'; hot.category = 'warm'; }
   CAT_SEED_MOVES.forEach(s => {
     if (byName(s.name)) return;
     let max = -1;
@@ -486,8 +489,21 @@ function ensureMoves() {
     meta.movesStdV1 = true;
     save(KEYS.meta, meta);
   }
-  if (changed || deduped.length !== moves.length) save(KEYS.moves, deduped);
-  return deduped;
+  // ⚠️ 去重是"同名同分类只留一条"。但历史记录里可能正引用着被丢掉的那条 id，
+  //    静默丢掉 = 那条记录在首页卡片上失去这个动作（文字还在，但结构没了）。
+  //    所以：被记录引用的动作一律救回来（库里顶多多一条重名，也不会让历史记录断链）。
+  let out = deduped;
+  const dropped = deduped.length !== moves.length;
+  if (dropped) {
+    const used = {};
+    loadRecords().forEach(r => (r.moves || []).forEach(id => { used[id] = 1; }));
+    const has = {};
+    deduped.forEach(m => { has[m.id] = 1; });
+    const rescued = moves.filter(m => m && m.id && used[m.id] && !has[m.id]);
+    if (rescued.length) out = deduped.concat(rescued);
+  }
+  if (changed || dropped) save(KEYS.moves, out);
+  return out;
 }
 function saveMoves(moves) { save(KEYS.moves, moves); }
 function moveById(id) { return ensureMoves().filter(m => m.id === id)[0] || null; }
