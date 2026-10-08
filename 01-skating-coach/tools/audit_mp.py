@@ -53,13 +53,60 @@ def page_pairs():
     return out
 
 
+REGEX_TRIGGER = set('(,=:[!&|?{};+-*%~^<>')
+REGEX_KEYWORDS = {'return', 'typeof', 'case', 'in', 'of', 'do', 'else', 'instanceof',
+                  'delete', 'void', 'new', 'yield', 'await'}
+
+
+def strip_regex(js):
+    """去掉正则字面量：/\r/g 这种不剥掉的话，标志位 g、字符类里的 \s 会被当成变量名"""
+    out, i, n = [], 0, len(js)
+    last_ch, last_word = '', ''
+    while i < n:
+        c = js[i]
+        if c == '/' and (last_ch in REGEX_TRIGGER or last_ch == '' or last_word in REGEX_KEYWORDS):
+            j, in_class, end = i + 1, False, -1
+            while j < n:
+                d = js[j]
+                if d == '\\':
+                    j += 2
+                    continue
+                if d == '\n':
+                    break
+                if d == '[':
+                    in_class = True
+                elif d == ']':
+                    in_class = False
+                elif d == '/' and not in_class:
+                    end = j
+                    break
+                j += 1
+            if end > 0:
+                k = end + 1
+                while k < n and js[k].isalpha():
+                    k += 1
+                out.append(' ' * (k - i))
+                i = k
+                last_ch, last_word = ' ', ''
+                continue
+        out.append(c)
+        if not c.isspace():
+            if c.isalnum() or c in '_$':
+                last_word = (last_word + c) if (last_ch.isalnum() or last_ch in '_$') else c
+            else:
+                last_word = ''
+            last_ch = c
+        i += 1
+    return ''.join(out)
+
+
 def strip_code(js):
     js = re.sub(r'/\*[\s\S]*?\*/', ' ', js)
     js = re.sub(r'(^|[^:])\/\/[^\n]*', r'\1 ', js)
     js = re.sub(r'`(?:\\.|[^`\\])*`', '``', js)
     js = re.sub(r"'(?:\\.|[^'\\])*'", "''", js)
     js = re.sub(r'"(?:\\.|[^"\\])*"', '""', js)
-    return js
+    return strip_regex(js)
 
 
 def defined_methods(js):
@@ -275,16 +322,21 @@ def declared_names(js):
                 if mm:
                     names.add(mm.group(1))
     names |= set(re.findall(r'\bfunction\s+([A-Za-z_$][\w$]*)', js))
-    for m in re.findall(r'function\s*[A-Za-z_$\w]*\s*\(([^)]*)\)', js):
-        for p in m.split(','):
-            p = p.strip()
-            if p:
-                names.add(re.sub(r'=.*$', '', p).strip())
+    # 参数一律"见到就算已声明"（多收无害：只会少报，不会误报）
+    def collect_params(params):
+        names.update(re.findall(r'[A-Za-z_$][\w$]*', params))
+    for m in re.finditer(r'function\s*[A-Za-z_$\w]*\s*\(([^()]*)\)', js):
+        collect_params(m.group(1))
+    for m in re.finditer(r'\(([^()]*)\)\s*=>', js):
+        collect_params(m.group(1))
     for m in re.finditer(r'([A-Za-z_$][\w$]*)\s*=>', js):
         names.add(m.group(1))
     for m in re.finditer(r'catch\s*\(\s*([A-Za-z_$][\w$]*)', js):
         names.add(m.group(1))
-    names |= set(re.findall(r'^  ([A-Za-z_$][\w$]*)\s*\(', js, re.M))
+    # 页面方法：两格缩进的 名字(参数) {
+    for m in re.finditer(r'^\s{2}([A-Za-z_$][\w$]*)\s*\(([^()]*)\)', js, re.M):
+        names.add(m.group(1))
+        collect_params(m.group(2))
     return names
 
 
@@ -370,6 +422,46 @@ def audit_syntax():
     say('⑧ 标签闭合 / 花括号 / JSON', bad)
 
 
+# ---------- ⑨ 用到但从未声明的标识符（含小写变量）----------
+# 踩过的坑：TIME_FROM / platform 这类"写错/漏定义"的变量，语法检查查不出、
+# 大写常量检查也查不出，最后是页面一打开就崩才发现的。
+JS_GLOBALS = {'wx', 'console', 'require', 'module', 'exports', 'getApp', 'Page', 'App',
+              'Component', 'Behavior', 'getCurrentPages', 'globalThis', 'this', 'arguments',
+              'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Math', 'JSON',
+              'Date', 'Object', 'Array', 'String', 'Number', 'Boolean', 'Promise', 'RegExp',
+              'Map', 'Set', 'Symbol', 'Error', 'TypeError', 'isNaN', 'isFinite', 'parseInt',
+              'parseFloat', 'encodeURIComponent', 'decodeURIComponent', 'Infinity', 'NaN',
+              'undefined', 'null', 'true', 'false', 'void', 'typeof', 'new', 'delete',
+              'instanceof', 'in', 'of', 'return', 'if', 'else', 'for', 'while', 'do',
+              'switch', 'case', 'break', 'continue', 'function', 'var', 'let', 'const',
+              'try', 'catch', 'finally', 'throw', 'class', 'extends', 'super', 'yield',
+              'await', 'async', 'static', 'get', 'set'}
+
+
+def audit_undef_vars():
+    bad = 0
+    for jsf, _ in page_pairs():
+        js = strip_code(read(jsf))
+        declared = declared_names(js)
+        # 只看"裸值"用法：前面不是 . 也不是 \w，后面不是 : 也不是 (
+        hit = {}
+        for m in re.finditer(r'(?<![\w.$])([A-Za-z_$][\w$]*)\s*([:,)\];}]|$)', js):
+            name = m.group(1)
+            nxt = m.group(2)
+            if name in JS_GLOBALS or name in declared or name.isupper():
+                continue
+            if nxt == ':':
+                continue                      # 对象键
+            if nxt == '(':
+                continue                      # 函数调用（漏定义函数由 ① / ② 那两项管）
+            line = js[:m.start()].count('\n') + 1
+            hit.setdefault(name, line)
+        if hit:
+            bad += 1
+            print('     ❌ %s 用到但没声明的变量: %s' % (jsf, ', '.join('%s(第%d行)' % (k, v) for k, v in sorted(hit.items()))))
+    say('⑨ 未声明变量（含小写）', bad)
+
+
 if __name__ == '__main__':
     print('自检目录: %s' % os.getcwd())
     audit_handlers()
@@ -380,6 +472,7 @@ if __name__ == '__main__':
     audit_consts()
     audit_wxml_calls()
     audit_syntax()
+    audit_undef_vars()
     total = sum(b for _, b in RESULTS)
     print('\n合计问题: %d' % total)
     sys.exit(1 if total else 0)

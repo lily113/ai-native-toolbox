@@ -61,13 +61,17 @@ Page({
   onUnload() { this.cleanup(); },
 
   checkSupport() {
-    let sdk = '0';
-    try { sdk = wx.getSystemInfoSync().SDKVersion || '0'; } catch (e) {}
+    let sdk = '0', plat = '';
+    try {
+      const si = wx.getSystemInfoSync() || {};
+      sdk = si.SDKVersion || '0';
+      plat = si.platform || si.system || '';
+    } catch (e) {}
     let tip = '';
     if (typeof wx.createVKSession !== 'function') tip = '当前环境不支持人体检测（VisionKit）：请用真机预览，开发者工具不支持';
     else if (cmpVer(sdk, MIN_SDK_BODY) < 0) tip = '需要基础库 ≥ ' + MIN_SDK_BODY + '（当前 ' + sdk + '）';
     else if (typeof wx.createVideoDecoder !== 'function') tip = '当前环境不支持视频逐帧解码（需基础库 ≥ ' + MIN_SDK_DEC + '）';
-    this._sdk = sdk; this._platform = platform;
+    this._sdk = sdk; this._platform = plat;
     this.setData({ supported: !tip, blockTip: tip });
   },
 
