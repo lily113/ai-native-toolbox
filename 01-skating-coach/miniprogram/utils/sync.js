@@ -3,6 +3,24 @@ const util = require('./util');
 
 const CFG_KEY = 'planner_sync_meta_v1';
 let pushTimer = null, busy = false, pulling = false, applying = false, lastLocalEditTs = 0;
+let retryTimer = null, retryDelay = 5000, lastPushFailed = false;
+// 本机有改动、但还没成功推上去（用于启动/切回前台时补推）
+function pendingPush() {
+  const c = cfg();
+  return (Number(c.lastEdit) || 0) > (Number(c.seenTs) || 0);
+}
+// 上传失败 → 指数退避重试（5s → 15s → 45s → 120s），别再静默放弃
+function scheduleRetry() {
+  if (retryTimer) return;
+  if (!cfg().auto || isDevtools()) return;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    push(false).then(() => {
+      if (lastPushFailed) { retryDelay = Math.min(retryDelay * 3, 120000); scheduleRetry(); }
+      else { retryDelay = 5000; }
+    });
+  }, retryDelay);
+}
 // ⚠️ lastLocalEditTs 必须落盘：只放内存的话，重启后「本机刚改过、但还没推上去」的记录会被
 //    当成旧数据，拉取合并时被云端旧版覆盖回去 = 静默丢改动。
 
@@ -36,7 +54,8 @@ function stats() {
     error: c.lastError || '',
     errorAt: Number(c.lastErrorAt) || 0,
     restored: Number(c.lastRestored) || 0,
-    restoredAt: Number(c.lastRestoredAt) || 0
+    restoredAt: Number(c.lastRestoredAt) || 0,
+    pending: pendingPush()          // 本机有改动还没推上去
   };
 }
 // 本机原本是空的、这次拉回来了数据 → 明确告诉用户，并让当前页面刷新
@@ -150,8 +169,8 @@ function push(manual) {
         const finish = remoteDoc => {
           const ts = Date.now();
           return col.doc(oid).set({ data: { payload: payloadString(), ts: ts } })
-            .then(() => { c.seenTs = ts; saveCfg(c); markOk('push'); })
-            .catch(e => { markErr('push', e); if (manual) notifyFail('上传', e); });
+            .then(() => { c.seenTs = ts; saveCfg(c); markOk('push'); lastPushFailed = false; })
+            .catch(e => { markErr('push', e); lastPushFailed = true; if (manual) notifyFail('上传', e); });
         };
         if (remoteDoc && remoteDoc.payload) {
           const remoteS = statsOf(remoteDoc.payload);
@@ -166,8 +185,11 @@ function push(manual) {
         }
         return finish();
       })
-      .catch(e => { markErr('push', e); })
-      .then(() => { busy = false; }, () => { busy = false; });
+      .catch(e => { markErr('push', e); lastPushFailed = true; })
+      .then(() => {
+        busy = false;
+        if (lastPushFailed) scheduleRetry();
+      }, () => { busy = false; });
   }).catch(() => {});
 }
 
@@ -249,6 +271,20 @@ function init() {
   lastLocalEditTs = Number(cfg().lastEdit) || 0;
   if (isDevtools()) return;  // 开发者工具里不做自动同步（可用设置页的手动按钮）
   ensureOpenid().then(() => { if (cfg().auto) setTimeout(() => pull(false), 800); });
+  // 切回前台 / 网络恢复后：本机还有没推上去的改动就补推一次
+  try {
+    if (wx.onAppShow) {
+      wx.onAppShow(() => {
+        if (!cfg().auto || isDevtools()) return;
+        if (pendingPush()) { lastPushFailed = false; retryDelay = 5000; push(false).then(() => { if (lastPushFailed) scheduleRetry(); }); }
+      });
+    }
+  } catch (e) {}
+  // 启动时如果上次没推成功，等拉取结束再补推一次
+  setTimeout(() => {
+    if (!cfg().auto || isDevtools()) return;
+    if (pendingPush()) push(false).then(() => { if (lastPushFailed) scheduleRetry(); });
+  }, 3500);
 }
 
 function getAuto() { return !!cfg().auto; }

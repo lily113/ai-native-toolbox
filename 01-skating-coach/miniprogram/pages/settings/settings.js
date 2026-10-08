@@ -57,6 +57,7 @@ Page({
     const tail = [];
     if (st.pushAt) tail.push('上次上传 ' + fmt(st.pushAt));
     if (st.pullAt) tail.push('上次拉取 ' + fmt(st.pullAt));
+    if (st.pending) tail.push('⚠️ 有改动还没传上去');
     this.setData({
       syncErr: st.error ? (st.error + (st.errorAt ? '（' + fmt(st.errorAt) + '）' : '')) : '',
       dataWhere: '本机 ' + local + ' 条 · 云端 ' + (this.data.cloudCount === undefined ? '?' : this.data.cloudCount) + ' 条'
@@ -68,10 +69,19 @@ Page({
     wx.cloud.database().collection('planner_data').doc(oid).get()
       .then(res => {
         const s2 = sync.statsOf((res.data || {}).payload || '');
+        const localN = store.loadRecords().length;
+        const behind = localN - s2.records;
+        const meta0 = store.load(store.KEYS.meta) || {};
+        const lastExp = Number(meta0.lastExportAt) || 0;
+        const days = lastExp ? Math.floor((Date.now() - lastExp) / 86400000) : -1;
+        const expTip = (days < 0) ? '⚠️ 还没导出过备份，建议现在导出一份' :
+          (days > 30 ? '⚠️ 已经 ' + days + ' 天没导出备份了' : '');
         this.setData({
           cloudCount: s2.records,
-          dataWhere: '本机 ' + store.loadRecords().length + ' 条 · 云端 ' + s2.records + ' 条'
+          dataWhere: '本机 ' + localN + ' 条 · 云端 ' + s2.records + ' 条'
+            + (behind > 5 ? '（⚠️ 云端比本机少 ' + behind + ' 条，建议点上方「上传」）' : '')
             + (tail.length ? ' · ' + tail.join(' · ') : '')
+            + (expTip ? '\n' + expTip : '')
         });
       })
       .catch(() => {
@@ -209,6 +219,12 @@ Page({
       const dir = (wx.env && wx.env.USER_DATA_PATH) ? wx.env.USER_DATA_PATH : '';
       path = dir + '/' + name;
       wx.getFileSystemManager().writeFileSync(path, data, 'utf-8');
+      // 记下导出时间（用于「多久没备份」提醒）
+      try {
+        const meta = store.load(store.KEYS.meta) || {};
+        meta.lastExportAt = Date.now();
+        store.save(store.KEYS.meta, meta);
+      } catch (e) {}
       wx.hideLoading();
     } catch (e) {
       wx.hideLoading();
