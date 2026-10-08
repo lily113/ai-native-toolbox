@@ -42,3 +42,4 @@
 .danger-zone { margin-top: 14px; padding-top: 12px; border-top: 1px dashed #fecaca; }
 .danger-zone .muted { line-height: 1.7; }
 .ghost-btn.danger { background: #fee2e2; color: #b91c1c; }
+.ver-line { margin: 22px 0 8px; text-align: center; color: #94a3b8; font-size: 12px; }
