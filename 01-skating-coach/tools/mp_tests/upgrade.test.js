@@ -11,7 +11,21 @@ function ok(cond, msg) { console.log((cond ? '  ✓ ' : '  ✗ ') + msg); if (!c
 
 // ---------- 假 wx（真机：platform=ios，所以自动同步会生效）+ 假云数据库 ----------
 const mem = {};
-const cloud = { doc: null, sets: 0, history: [], removes: 0 };
+const cloud = { doc: null, sets: 0, history: [], removes: 0, docs: {} };
+// 云端那份的完整内容：可能是老的单文档 { payload }，也可能是新的分块 { chunked, gen, n }
+function remotePayload() {
+  if (cloud.doc && typeof cloud.doc.payload === 'string') return cloud.doc.payload;
+  if (cloud.doc && cloud.doc.chunked) {
+    let out = '';
+    for (let i = 0; i < (cloud.doc.n || 0); i++) {
+      const c = cloud.docs['planner_data/oPHONE__' + cloud.doc.gen + '__' + i];
+      out += (c && typeof c.data === 'string') ? c.data : '';
+    }
+    return out;
+  }
+  return '';
+}
+function setRemote(obj) { cloud.doc = JSON.parse(JSON.stringify(obj)); }
 function chain(resolve) {
   const p = Promise.resolve(resolve);
   p.orderBy = () => p; p.skip = () => p; p.limit = () => p; p.where = () => p; p.get = () => p;
@@ -28,11 +42,20 @@ global.wx = {
     init: () => {},
     callFunction: () => Promise.resolve({ result: { openid: 'oPHONE' } }),
     database: () => ({
-      collection: () => ({
-        doc: () => ({
-          get: () => (cloud.doc ? chain({ data: cloud.doc }) : Promise.reject(new Error('not exist'))),
-          set: o => { cloud.sets++; cloud.doc = JSON.parse(JSON.stringify(o.data)); return Promise.resolve({}); },
-          remove: () => { cloud.removes++; return Promise.resolve({}); }
+      collection: name => ({
+        doc: id => ({
+          // 只有"清单文档"（id = 自己的 openid）用 cloud.doc；分块文档按 id 取
+          get: () => (id === 'oPHONE' && cloud.doc) ? chain({ data: cloud.doc })
+            : (cloud.docs[name + '/' + id] ? chain({ data: cloud.docs[name + '/' + id] })
+              : Promise.reject(new Error('not exist'))),
+          set: o => {
+            cloud.sets++;
+            const copy = JSON.parse(JSON.stringify(o.data));
+            cloud.docs[name + '/' + id] = copy;
+            if (name === 'planner_data' && id === 'oPHONE') cloud.doc = copy;   // 只有清单文档代表"云端那份"
+            return Promise.resolve({});
+          },
+          remove: () => { cloud.removes++; delete cloud.docs[name + '/' + id]; return Promise.resolve({}); }
         }),
         add: o => { cloud.history.push(o.data); return Promise.resolve({}); },
         orderBy: () => chain({ data: cloud.history.slice() }),
@@ -251,7 +274,7 @@ const oldPayload = JSON.stringify({
   records: beforeRecs.slice(0, 50), moves: moves, milestones: milestones,
   meta: { weeklyIceGoal: 5, iceBase: 400 }, exams: exams
 });   // 旧 payload：只有 50 条记录、没有 cats、基线也旧
-cloud.doc = { payload: oldPayload, ts: editAt - 60000 };
+setRemote({ payload: oldPayload, ts: editAt - 60000 });
 const localBefore = store.loadRecords().length;
 sync.init();
 
@@ -268,15 +291,18 @@ sync.init();
 
   await waitFor(() => cloud.sets > 0, 8000);   // 等自动上传跑完
   for (let i = 0; i < 3 && cloud.sets === 0; i++) { await sync.push(true); await sleep(600); }
-  const up = JSON.parse(cloud.doc.payload);
+  const up = JSON.parse(remotePayload());
   ok(cloud.sets > 0, '确实上传了（set 次数 ' + cloud.sets + '）');
   ok(up.records.length === store.loadRecords().length, '云端记录数 = 本机记录数：' + up.records.length);
   ok(up.records.length >= beforeRecs.length, '云端记录数不少于升级前的 ' + beforeRecs.length);
   ok(!!cloud.history.length, '上传前把云端旧版存进了历史快照（可回滚），共 ' + cloud.history.length + ' 份');
   ok(Array.isArray(up.cats) && up.cats.length === 6, '新 payload 带上分类表');
   ok(up.records.every(r => !r.notes && !r.lessonSummary), '上传的记录里没有隐形字段（文字都在 content）');
-  const size = cloud.doc.payload.length;
+  const size = remotePayload().length;
   ok(size < 1024 * 1024, 'payload 体积 ' + (size / 1024).toFixed(1) + ' KB，在 1MB 云文档上限内');
+ok(cloud.doc.chunked ? /^\d+$/.test(String(cloud.doc.n)) : true, cloud.doc.chunked
+   ? ('大数据走分块上传：' + cloud.doc.n + ' 块（每块 ≤48KB，手机网络不容易超时）')
+   : '数据量小 → 单文档上传');
 
   console.log('\n⑦.5 假设某个版本迁移出错（删了记录 / 吞了文字），保险能不能兜住');
 const goodRecs = JSON.parse(JSON.stringify(mem[K.records]));
@@ -304,10 +330,10 @@ ok(store.loadRecords().every(r => r.id) && store.ensureMoves().length > 0, '动�
 mem[K.records] = JSON.parse(JSON.stringify(goodRecs));
 
 console.log('\n⑧ 反方向：云端更新时，本机数据也不能被删');
-  const cloudNewer = JSON.parse(cloud.doc.payload);
+  const cloudNewer = JSON.parse(remotePayload());
   cloudNewer.records = cloudNewer.records.slice(0, 5);      // 云端"更新"但只有 5 条
   cloudNewer.ts = undefined;
-  cloud.doc = { payload: JSON.stringify(cloudNewer), ts: Date.now() + 60000 };
+  setRemote({ payload: JSON.stringify(cloudNewer), ts: Date.now() + 60000 });
   mem['planner_sync_meta_v1'] = { auto: true, seenTs: 0, lastEdit: editAt };
   delete require.cache[require.resolve(MP + '/utils/sync.js')];
   const sync2 = require(MP + '/utils/sync.js');

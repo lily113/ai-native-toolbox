@@ -292,7 +292,9 @@ function restoreUpgradeSnapshot() {
     return merged === r.content ? r : Object.assign({}, r, { content: merged });
   });
   saveRecords(mergeByIdLocal(cur, (p.records || []).map(normalizeRecord)));
-  save(KEYS.moves, dedupeMoves(mergeByIdLocal(rawArr(KEYS.moves), p.moves)));
+  const mLib3 = mergeMoveLibraries(rawArr(KEYS.moves), p.moves);
+  save(KEYS.moves, mLib3.moves);
+  try { remapMoveRefs(mLib3.moveMap, mLib3.drillMap); } catch (e) {}
   save(KEYS.milestones, mergeByIdLocal(rawArr(KEYS.milestones), p.milestones));
   save(KEYS.templates, mergeByIdLocal(rawArr(KEYS.templates), p.templates));
   if (Array.isArray(p.cats) && p.cats.length) _catCache = null;
@@ -424,15 +426,122 @@ function catMap() {
   return m;
 }
 
-function dedupeMoves(moves) {
-  const seen = {};
-  return (Array.isArray(moves) ? moves : []).filter(m => {
-    if (!m || !m.name) return false;
-    const k = m.name + '|' + (m.category || 'other');
-    if (seen[k]) return false;
-    seen[k] = true;
-    return true;
+function normName(x) { return String(x == null ? '' : x).replace(/\s+/g, '').toLowerCase(); }
+function cloneMove(m) {
+  return {
+    id: m.id || uid(),
+    name: m.name,
+    category: validCat ? validCat(m.category) : (m.category || 'other'),
+    sort: (typeof m.sort === 'number') ? m.sort : 0,
+    c: (typeof m.c === 'number') ? m.c : 0,
+    points: Array.isArray(m.points) ? m.points.slice() : [],
+    detail: m.detail || '',
+    drills: (Array.isArray(m.drills) ? m.drills : []).map(d => Object.assign({}, d))
+  };
+}
+// 把 b 的组合/要点并进 a（同名组合算同一个；绝不因为"另一边更少/更旧"就丢掉组合）
+function absorbMove(a, b, drillMap) {
+  const keep = cloneMove(a);
+  const byId = {}, byName = {};
+  keep.drills.forEach(d => { if (d.id) byId[d.id] = d; byName[normName(d.name)] = d; });
+  (Array.isArray(b.drills) ? b.drills : []).forEach(d => {
+    if (!d || !d.name) return;
+    const k = normName(d.name);
+    const hit = (d.id && byId[d.id]) || byName[k];
+    if (hit) {
+      // 同一个组合：两边的 id 都算有效（记录里引用的那个 id 要能映射过来）
+      if (d.id && hit.id && d.id !== hit.id && drillMap) drillMap[d.id] = hit.id;
+      if (!hit.detail && d.detail) hit.detail = d.detail;
+      if ((!hit.points || !hit.points.length) && d.points && d.points.length) hit.points = d.points.slice();
+      if (!hit.c && d.c) hit.c = d.c;
+      return;
+    }
+    const copy = Object.assign({}, d, { id: d.id || uid() });
+    keep.drills.push(copy);
+    byId[copy.id] = copy; byName[k] = copy;
   });
+  const pts = keep.points.slice();
+  (Array.isArray(b.points) ? b.points : []).forEach(x => { if (x && pts.indexOf(x) < 0) pts.push(x); });
+  keep.points = pts;
+  ['detail'].forEach(f => { if (!keep[f] && b[f]) keep[f] = b[f]; });
+  if (!keep.c && b.c) keep.c = b.c;
+  return keep;
+}
+// 合并两份动作库：同 id 或同名同分类就合成一条（组合取并集）。
+// 返回 moveMap / drillMap：被并掉的那条的 id 指向留下的那条，供记录改引用。
+function mergeMoveLibraries(local, incoming) {
+  const moveMap = {}, drillMap = {};
+  const stat = { added: 0, merged: 0, drillsAdded: 0 };
+  const out = [], byId = {}, byName = {};
+  const keyOf = m => normName(m.name) + '|' + (m.category || 'other');
+  const put = m => {
+    const c = cloneMove(m);
+    out.push(c);
+    if (c.id) byId[c.id] = c;
+    byName[keyOf(c)] = c;
+    stat.added++;
+    return c;
+  };
+  (Array.isArray(local) ? local : []).forEach(m => { if (m && m.name) put(m); });
+  stat.added = 0;                       // local 那一份不算"新增"
+  (Array.isArray(incoming) ? incoming : []).forEach(m => {
+    if (!m || !m.name) return;
+    const hit = (m.id && byId[m.id]) || byName[keyOf(m)];
+    if (!hit) { put(m); return; }
+    stat.merged++;
+    if (m.id && hit.id && m.id !== hit.id) moveMap[m.id] = hit.id;
+    // 同名组合的 id 也要映射（记录里可能引用的是另一条上的 id）
+    (m.drills || []).forEach(d => {
+      if (!d || !d.id) return;
+      const same = hit.drills.filter(x => normName(x.name) === normName(d.name))[0];
+      if (same && same.id && same.id !== d.id) drillMap[d.id] = same.id;
+    });
+    const beforeN = hit.drills.length;
+    const merged = absorbMove(hit, m, drillMap);
+    if (merged.drills.length > beforeN) stat.drillsAdded += merged.drills.length - beforeN;
+    const i = out.indexOf(hit);
+    out[i] = merged;
+    if (merged.id) byId[merged.id] = merged;
+    byName[keyOf(merged)] = merged;
+  });
+  return { moves: out, moveMap: moveMap, drillMap: drillMap, stat: stat };
+}
+// 老名字保留：去重（现在是"合并"而不是"丢掉"）
+function dedupeMoves(moves) {
+  return mergeMoveLibraries([], moves).moves;
+}
+// 记录里的动作/组合引用跟着合并后的 id 走（moves / drills / itemOrder）
+function remapMoveRefs(moveMap, drillMap) {
+  const mk = Object.keys(moveMap || {}), dk = Object.keys(drillMap || {});
+  if (!mk.length && !dk.length) return 0;
+  const uniq = a => a.filter((x, i) => a.indexOf(x) === i);
+  let touched = 0;
+  const recs = loadRecords().map(r => {
+    let changed = false;
+    const mv = (r.moves || []).map(id => {
+      if (moveMap[id]) { changed = true; return moveMap[id]; }
+      return id;
+    });
+    const dr = (r.drills || []).map(id => {
+      if (drillMap[id]) { changed = true; return drillMap[id]; }
+      return id;
+    });
+    const ord = (r.itemOrder || []).map(k => {
+      if (String(k).indexOf('m:') !== 0) return k;
+      const rest = String(k).slice(2);
+      const parts = rest.split('::d:');
+      const m2 = moveMap[parts[0]] || parts[0];
+      const d2 = parts[1] ? (drillMap[parts[1]] || parts[1]) : null;
+      const outK = 'm:' + m2 + (d2 ? '::d:' + d2 : '');
+      if (outK !== k) changed = true;
+      return outK;
+    });
+    if (!changed) return r;
+    touched++;
+    return Object.assign({}, r, { moves: uniq(mv), drills: uniq(dr), itemOrder: uniq(ord) });
+  });
+  if (touched) saveRecords(recs);
+  return touched;
 }
 // 合法分类 id（不在当前分类表里的一律落到兜底分类）
 function validCat(c) {
@@ -473,7 +582,12 @@ function ensureMoves() {
     if (typeof m.sort !== 'number') m.sort = n - 1;
     if (typeof m.c !== 'number') m.c = 0;
   });
-  const deduped = dedupeMoves(moves);
+  const mLib = mergeMoveLibraries(moves, []);
+  const deduped = mLib.moves;
+  if (Object.keys(mLib.moveMap).length || Object.keys(mLib.drillMap).length) {
+    // 重名动作合并后，历史记录里的引用改指到留下的那条（不会断链，也不会少组合）
+    try { remapMoveRefs(mLib.moveMap, mLib.drillMap); } catch (e) {}
+  }
   const meta = load(KEYS.meta) || {};
   if (!meta.movesStdV1) {
     const existing = {};
@@ -489,20 +603,14 @@ function ensureMoves() {
     meta.movesStdV1 = true;
     save(KEYS.meta, meta);
   }
-  // ⚠️ 去重是"同名同分类只留一条"。但历史记录里可能正引用着被丢掉的那条 id，
-  //    静默丢掉 = 那条记录在首页卡片上失去这个动作（文字还在，但结构没了）。
-  //    所以：被记录引用的动作一律救回来（库里顶多多一条重名，也不会让历史记录断链）。
-  let out = deduped;
-  const dropped = deduped.length !== moves.length;
-  if (dropped) {
-    const used = {};
-    loadRecords().forEach(r => (r.moves || []).forEach(id => { used[id] = 1; }));
-    const has = {};
-    deduped.forEach(m => { has[m.id] = 1; });
-    const rescued = moves.filter(m => m && m.id && used[m.id] && !has[m.id]);
-    if (rescued.length) out = deduped.concat(rescued);
-  }
-  if (changed || dropped) save(KEYS.moves, out);
+  // ⚠️ 早期版本这里是"同名同分类只留第一条、其余直接丢掉"——**被丢掉那条的组合一起没了**，
+  //    用户看到的就是"外勾步下面的组合不见了"。现在改成合并：组合/要点取并集，
+  //    被并掉那条的 id 通过 remapMoveRefs 改写到留下的那条，历史记录不会断链。
+  const out = deduped;
+  // ⚠️ 只在真的发生了合并/新增组合/字段迁移时才写盘：
+  //    每次加载都写盘会触发保存钩子 → 被当成"有改动" → 自动上传空转。
+  const st = mLib.stat || {};
+  if (changed || st.merged || st.added || st.drillsAdded || out.length !== moves.length) save(KEYS.moves, out);
   return out;
 }
 function saveMoves(moves) { save(KEYS.moves, moves); }
@@ -680,7 +788,7 @@ module.exports = {
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS,
-  ensureMoves, saveMoves, moveById, drillById, dedupeMoves,
+  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey
 };

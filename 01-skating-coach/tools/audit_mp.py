@@ -39,7 +39,15 @@ def read(p):
 
 
 def all_js():
-    return [f for f in walk('**/*.js') if 'cloudfunctions' not in f and 'node_modules' not in f]
+    # 测试脚本（tools/mp_tests/*.test.js）不是小程序代码：它们自己定义 ok()、用 __dirname，
+    # 扫进去只会报假警。真正的小程序文件才做静态检查。
+    def skip(f):
+        if 'cloudfunctions' in f or 'node_modules' in f:
+            return True
+        if f.endswith('.test.js') or '/mp_tests/' in f.replace(os.sep, '/'):
+            return True
+        return False
+    return [f for f in walk('**/*.js') if not skip(f)]
 
 
 def page_pairs():
