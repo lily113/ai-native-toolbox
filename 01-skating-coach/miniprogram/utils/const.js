@@ -1,6 +1,6 @@
 // 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
-const APP_VERSION = '2026.10.08.2';
+const APP_VERSION = '2026.10.08.3';
 
 // ---------- 对外发布的功能开关 ----------
 // 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
@@ -134,7 +134,8 @@ const SYL_SECTIONS = {
   steps: [
     { key: 'intro', name: '步法简介' },
     { key: 'key-steps', name: '重点步法说明' },
-    { key: 'test', name: '测试标准明细' }
+    { key: 'test', name: '测试标准明细' },
+    { key: 'detail', name: '本级步法明细' }
   ],
   free: [
     { key: 'content', name: '测试内容' },
