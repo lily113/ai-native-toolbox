@@ -148,10 +148,22 @@ Page({
           .sort((a, b) => (Number(b.c) || 0) - (Number(a.c) || 0))
           .map(d => ({
             id: d.id, name: d.name, detail: d.detail || '',
-            // 不改动历史记录的实际勾选：只有用户点这个动作时才把组合一起带出
             checked: selDrills.indexOf(d.id) > -1
           }))
       };
+    });
+    // ── 兼容旧记录：把「动作」与「组合」的勾选状态对齐（父框状态一律由组合算出来）──
+    // ① 动作被记录了、但它下面的组合一个都没记 → 按旧的「整组」语义视为全部组合
+    //    （预置动作刚进来时还没有组合，那时勾的就是"整个动作"）
+    movesList.forEach(m => {
+      if (!m.checked || !m.drills.length) return;
+      if (m.drills.some(d => d.checked)) return;
+      m.drills.forEach(d => { d.checked = true; });
+    });
+    // ② 组合被记录了、动作却没勾（早期 bug 存下来的）→ 反推把动作勾上，别让这条数据渲染不出来
+    movesList.forEach(m => {
+      if (m.checked || !m.drills.length) return;
+      if (m.drills.some(d => d.checked)) m.checked = true;
     });
     // 统计最近使用（按历史记录里每次用到的日期）
     const lastUse = {}, lastUseDrill = {};
@@ -164,7 +176,25 @@ Page({
       m.lastUse = lastUse[m.id] || '';
       m.recent = !!m.lastUse && m.lastUse >= cut;
     });
-    this.setData({ movesList: movesList, selMoveIds: selMoves, selDrillIds: selDrills }, () => this.refreshMoves());
+    this.setData({
+      movesList: movesList,
+      selMoveIds: movesList.filter(m => m.checked).map(m => m.id),
+      selDrillIds: this.pickedDrillIds(movesList)
+    }, () => this.refreshMoves());
+  },
+
+  // 已勾选的组合 id（只有被勾选动作下的组合才算数）
+  pickedDrillIds(list) {
+    const out = [];
+    (list || []).forEach(m => { if (m.checked) m.drills.forEach(d => { if (d.checked) out.push(d.id); }); });
+    return out;
+  },
+  // 父框状态由子项算出来：全选 ✓ / 部分 − / 未选 空
+  markSel(list) {
+    return list.map(m => Object.assign({}, m, {
+      allOn: !!m.checked && (!m.drills.length || m.drills.every(d => d.checked)),
+      partOn: !!m.checked && m.drills.length > 0 && !m.drills.every(d => d.checked)
+    }));
   },
   // 搜索 / 最近使用 → 生成展示用列表
   refreshMoves() {
@@ -179,7 +209,7 @@ Page({
     if (recent || q) {
       list = list.slice().sort((a, b) => String(b.lastUse || '').localeCompare(String(a.lastUse || '')));
     }
-    this.setData({ viewMoves: list });
+    this.setData({ viewMoves: this.markSel(list) });
   },
   onMoveQuery(e) { this.setData({ moveQuery: e.detail.value }, () => this.refreshMoves()); },
   clearMoveQuery() { this.setData({ moveQuery: '' }, () => this.refreshMoves()); },
@@ -197,11 +227,11 @@ Page({
         drills: m.drills.map(d => Object.assign({}, d, { checked: cur.checked }))
       }));
     }
-    const selMoveIds = list.filter(m => m.checked).map(m => m.id);
-    // 组合：只保留「已勾选动作 + 该组合自身也勾选」的（未勾选动作下的组合一并清除）
-    const selDrillIds = [];
-    list.forEach(m => { if (m.checked) m.drills.forEach(d => { if (d.checked) selDrillIds.push(d.id); }); });
-    this.setData({ movesList: list, selMoveIds: selMoveIds, selDrillIds: selDrillIds }, () => { this.refreshMoves(); this.syncContent(); });
+    this.setData({
+      movesList: list,
+      selMoveIds: list.filter(m => m.checked).map(m => m.id),
+      selDrillIds: this.pickedDrillIds(list)
+    }, () => { this.refreshMoves(); this.syncContent(); });
   },
 
   toggleDrill(e) {
@@ -210,14 +240,14 @@ Page({
     const list = this.data.movesList.map(m => {
       if (m.id !== mid) return m;
       const drills = m.drills.map(d => d.id === did ? Object.assign({}, d, { checked: !d.checked }) : d);
-      // 单独勾某个组合时，顺手把所属动作勾上（这样「只练这一个组合」也能直接生效）
-      const anyOn = drills.some(d => d.checked);
-      return Object.assign({}, m, { drills: drills, checked: anyOn ? true : m.checked });
+      // 有组合的动作：勾选状态完全跟着组合走——勾了任一个才算被记录，全取消就不算
+      return Object.assign({}, m, { drills: drills, checked: drills.some(d => d.checked) });
     });
-    const selMoveIds = list.filter(m => m.checked).map(m => m.id);
-    const selDrillIds = [];
-    list.forEach(m => { if (m.checked) m.drills.forEach(d => { if (d.checked) selDrillIds.push(d.id); }); });
-    this.setData({ movesList: list, selMoveIds: selMoveIds, selDrillIds: selDrillIds }, () => { this.refreshMoves(); this.syncContent(); });
+    this.setData({
+      movesList: list,
+      selMoveIds: list.filter(m => m.checked).map(m => m.id),
+      selDrillIds: this.pickedDrillIds(list)
+    }, () => { this.refreshMoves(); this.syncContent(); });
   },
 
   // 初始化「考级备考」勾选（只到「级别 + 类型」粒度）

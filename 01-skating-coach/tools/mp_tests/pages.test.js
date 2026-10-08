@@ -162,6 +162,32 @@ ok(recPage.data.selDrillIds.length === 2, '单独取消 1 个 → 剩 2 个，�
 ok(recPage.data.content.split('\n').length === 3, '笔记跟着变成 标题 + 2 行');
 ok(recPage.data.content.indexOf(firstDrill.name) === -1, '被取消的组合不在笔记里');
 
+console.log('⑧ 父框状态由组合算出来（全选 ✓ / 部分 − / 全空不算记录）');
+recPage.initMoves(null);
+recPage.data.content = '';
+recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
+let row = recPage.data.viewMoves.filter(m => m.id === boxMove.id)[0];
+ok(row.allOn === true && row.partOn === false, '全选 → 父框打勾');
+recPage.toggleDrill({ currentTarget: { dataset: { mid: boxMove.id, did: 'bd1' } } });
+row = recPage.data.viewMoves.filter(m => m.id === boxMove.id)[0];
+ok(row.partOn === true && row.allOn === false, '只取消 1 个 → 父框显示 −（部分选中）');
+recPage.data.movesList.filter(m => m.id === boxMove.id)[0].drills
+  .filter(d => d.checked)
+  .forEach(d => recPage.toggleDrill({ currentTarget: { dataset: { mid: boxMove.id, did: d.id } } }));
+ok(recPage.data.selMoveIds.indexOf(boxMove.id) < 0, '组合全取消 → 这个动作也不算记录了');
+ok(recPage.data.selDrillIds.length === 0 && recPage.data.content === '', '笔记里这行一起消失');
+row = recPage.data.viewMoves.filter(m => m.id === boxMove.id)[0];
+ok(row.allOn === false && row.partOn === false, '父框回到空（不再出现"父勾子空"）');
+
+console.log('⑨ 兼容旧记录：动作与组合的勾选状态自动对齐');
+const examPicks = [], itemOrder = [];
+recPage.initMoves({ moves: [boxMove.id], drills: [], examPicks: examPicks, itemOrder: itemOrder });
+ok(recPage.data.selDrillIds.length === 3, '老记录只记了动作 → 按「整组」语义补齐 3 个组合，实际 ' + recPage.data.selDrillIds.length);
+recPage.initMoves({ moves: [], drills: ['jd1'], examPicks: examPicks, itemOrder: itemOrder });
+ok(recPage.data.selMoveIds.indexOf(jumpMove.id) > -1 && recPage.data.selDrillIds.join(',') === 'jd1',
+   '老记录只记了组合（早期 bug 存的）→ 反推把所属动作勾上');
+recPage.initMoves(null);
+
 console.log('④ 分类被删掉后，标签自动回到「全部」');
 const cats = store.cats().filter(c => c.id !== 'topic');
 store.saveCats(cats);

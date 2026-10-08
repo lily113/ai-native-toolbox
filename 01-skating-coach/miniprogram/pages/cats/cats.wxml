@@ -8,7 +8,7 @@
     <view class="tip-l">分类只决定动作库怎么分组。动作按 id 关联记录，所以改名、排序、删除都不会动到历史训练记录。</view>
   </view>
 
-  <view class="rule-hint">勾选规则所有分类一样：训练记录里<b>点动作名</b> = 连同它下面的组合一起勾上；只想练其中几个组合，就<b>单独点组合</b>。分类这里不用管勾选方式。</view>
+  <view class="rule-hint">勾选规则所有分类一样：训练记录里<b>点动作名</b> = 全选 / 取消它下面的组合；只想练其中几个就<b>单独点组合</b>（动作前面会显示 −）。分类这里不用管勾选方式。</view>
 
   <view class="list">
     <view class="row" wx:for="{{list}}" wx:key="id">
