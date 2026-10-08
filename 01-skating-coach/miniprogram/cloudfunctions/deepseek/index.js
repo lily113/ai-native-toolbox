@@ -306,6 +306,16 @@ function callDeepSeek(messages, key) {
 }
 
 exports.main = async (event) => {
+  // 对外发布时 AI 教练只给开发者本人用：非本人直接拒绝，且**不会调用 DeepSeek**（不产生费用）。
+  // 未配置 OWNER_OPENID 时一律关闭（失败时保守），配置方法见 01-skating-coach/开放给他人.md
+  try {
+    const owner = String(process.env.OWNER_OPENID || '').trim();
+    const { OPENID } = cloud.getWXContext();
+    if (!owner) return { answer: 'AI 教练暂未开放（云函数未配置 OWNER_OPENID 环境变量）' };
+    if (OPENID !== owner) return { answer: 'AI 教练目前仅开发者本人可用 🙂 训练记录、动作库、考级等功能都可以正常用。' };
+  } catch (e) {
+    return { answer: 'AI 教练暂未开放（鉴权失败）' };
+  }
   const mode = (event && event.mode) === 'note' ? 'note' : 'coach';
   const q = String((event && event.question) || '').trim();
   if (!q) return { answer: '请说点什么' };

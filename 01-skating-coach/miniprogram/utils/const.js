@@ -2,6 +2,11 @@
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
 const APP_VERSION = '2026.10.08.1';
 
+// ---------- 对外发布的功能开关 ----------
+// 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
+// 要放出来：把这里改成 true，并在 app.json 的 pages 里恢复 "pages/pose/pose"。
+const POSE_ENABLED = false;
+
 const TYPES = {
   ice:   { name: '上冰', emoji: '⛸️' },
   land:  { name: '陆地', emoji: '🏋️' },
@@ -209,7 +214,7 @@ const SYLLABUS = [
 ];
 
 module.exports = {
-  APP_VERSION, TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
+  APP_VERSION, POSE_ENABLED, TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
   DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
   MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS
 };
