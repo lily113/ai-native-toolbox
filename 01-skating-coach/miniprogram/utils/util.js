@@ -17,11 +17,30 @@ function buildPayload() {
     records: store.loadRecords(),
     templates: store.load(store.KEYS.templates) || [],
     moves: store.load(store.KEYS.moves) || [],
+    cats: store.cats(),
     milestones: store.load(store.KEYS.milestones) || [],
     exams: store.ensureExams(),
     meta: meta,
     aiUserKb: store.load(store.KEYS.aiKbUser) || ''
   };
+}
+
+// 分类表合并：以远端顺序为骨架；同 id 冲突按 localWins 取舍；本地独有的保留
+function mergeCats(local, remote, localWins) {
+  const L = Array.isArray(local) ? local : [];
+  const R = Array.isArray(remote) ? remote : [];
+  if (!R.length) return L;
+  const idx = {};
+  L.forEach(c => { if (c && c.id) idx[c.id] = c; });
+  const out = [];
+  R.forEach(c => {
+    if (!c || !c.id) return;
+    const l = idx[c.id];
+    if (l) { delete idx[c.id]; out.push(localWins ? Object.assign({}, c, l) : Object.assign({}, l, c)); }
+    else out.push({ id: c.id, name: c.name || c.id, box: !!c.box });
+  });
+  out.push.apply(out, L.filter(c => c && c.id && idx[c.id]));
+  return out;
 }
 
 function applyPayload(d) {
@@ -32,6 +51,10 @@ function applyPayload(d) {
   store.saveRecords(mergeById(store.loadRecords(), inc));
   store.save(store.KEYS.templates, mergeById(store.load(store.KEYS.templates) || [], d.templates));
   store.save(store.KEYS.moves, mergeById(store.load(store.KEYS.moves) || [], d.moves));
+  // 分类表：本机分类还没动过 → 用备份里的（恢复自定义分类名）；动过 → 保留本机
+  if (Array.isArray(d.cats) && d.cats.length) {
+    store.saveCats(mergeCats(store.cats(), d.cats, !store.catsUntouched()));
+  }
   store.save(store.KEYS.milestones, mergeById(store.load(store.KEYS.milestones) || [], d.milestones));
   if (Array.isArray(d.exams)) {
     try { store.save('figure_skating_planner_exams_backup_v1', { at: Date.now(), exams: store.ensureExams() }); } catch (e) {}
@@ -119,4 +142,4 @@ function mergeMeta(local, incoming, localWins) {
   return out;
 }
 
-module.exports = { mergeById, buildPayload, applyPayload, daysUntil, countdownText, mergeExams, mergeMeta };
+module.exports = { mergeById, mergeCats, buildPayload, applyPayload, daysUntil, countdownText, mergeExams, mergeMeta };

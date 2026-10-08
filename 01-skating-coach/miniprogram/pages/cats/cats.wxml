@@ -1,0 +1,37 @@
+<view class="page">
+  <view class="tip-card">
+    <view class="tip-t">分类怎么分</view>
+    <view class="tip-l">· 单一技术动作 → 步法 / 旋转 / 跳跃</view>
+    <view class="tip-l">· 通用准备活动 → 热身</view>
+    <view class="tip-l">· 把多个动作串起来、或解决某个跨类问题（膝韵律、胯、变刃）→ 专题练习，名字带「串 / 练习 / 组合」后缀</view>
+    <view class="tip-l">· 兜底的「其他」固定排最后，不能删除</view>
+    <view class="tip-l">分类只决定动作库怎么分组。动作按 id 关联记录，所以改名、排序、删除都不会动到历史训练记录。</view>
+  </view>
+
+  <view class="box-hint">开启「勾选即带整组」的分类，在训练记录里勾一下该动作就会带出它下面的全部组合（适合「…串 / …组」这类容器动作）。</view>
+
+  <view class="list">
+    <view class="row" wx:for="{{list}}" wx:key="id">
+      <view class="row-main">
+        <view class="row-name" bindtap="rename" data-id="{{item.id}}">
+          {{item.name}}<text class="row-pen">✎</text>
+          <text class="row-fixed" wx:if="{{item.fixed}}">兜底</text>
+        </view>
+        <view class="row-sub">{{item.n}} 个动作</view>
+        <view class="row-box" bindtap="toggleBox" data-id="{{item.id}}">
+          <view class="cb {{item.box ? 'on' : ''}}">{{item.box ? '✓' : ''}}</view>
+          <text class="row-box-t">勾选即带整组</text>
+        </view>
+      </view>
+      <view class="row-ops">
+        <view class="op {{item.first || item.fixed ? 'off' : ''}}" bindtap="up" data-id="{{item.id}}">↑</view>
+        <view class="op {{item.last || item.fixed ? 'off' : ''}}" bindtap="down" data-id="{{item.id}}">↓</view>
+        <view class="op danger {{item.fixed ? 'off' : ''}}" bindtap="del" data-id="{{item.id}}">×</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="muted foot">共 {{total}} 个动作分布在 {{list.length}} 个分类里</view>
+  <button class="btn" bindtap="add">＋ 新建分类</button>
+  <view class="tip">点分类名可改名；↑↓ 调顺序；× 删除（分类里有动作时会先让你选移到哪）。</view>
+</view>

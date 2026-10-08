@@ -1,0 +1,109 @@
+<view class="pose">
+  <!-- 环境不支持 -->
+  <view class="card block" wx:if="{{!supported}}">
+    <view class="block-t">此环境不可用</view>
+    <view class="block-s">{{blockTip}}</view>
+  </view>
+
+  <block wx:else>
+    <!-- ① 选视频 -->
+    <view class="card">
+      <view class="card-t">① 选择视频</view>
+      <view class="card-s">相册里的训练片段（建议侧面机位、距 2.5–3.5 米、10–15 秒、只练一个动作）</view>
+      <view class="row">
+        <button class="btn" bindtap="pickVideo" disabled="{{analyzing}}">{{videoPath ? '重新选择视频' : '选择视频'}}</button>
+        <view class="info" wx:if="{{videoInfo}}">{{videoInfo}}</view>
+      </view>
+      <view class="row" wx:if="{{videoPath}}">
+        <view class="seg-label">采样精度</view>
+        <view class="seg">
+          <view class="seg-btn {{step == item ? 'active' : ''}}" wx:for="{{stepOptions}}" wx:key="*this"
+                bindtap="setStep" data-v="{{item}}">{{item == 1 ? '每帧(精)' : (item == 2 ? '隔1帧(推荐)' : '隔2帧(快)')}}</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ② 校准 -->
+    <view class="card">
+      <view class="card-t">② 校准关键点 {{calibrated ? '（已完成）' : '（首次必做）'}}</view>
+      <view class="card-s">先点「开始分析」取一帧，再点「校准关键点」，按提示依次点选关节（约 1 分钟）</view>
+      <view class="row">
+        <button class="btn ghost" bindtap="startCalib" disabled="{{calibrating}}">校准关键点</button>
+        <button class="btn ghost" wx:if="{{calibrating}}" bindtap="cancelCalib">取消</button>
+      </view>
+      <view class="calib-box" wx:if="{{calibrating}}">
+        <canvas type="2d" id="calib" class="calib-canvas" bindtap="onCanvasTap"></canvas>
+        <view class="calib-tip">{{calibText}}</view>
+        <view class="calib-sub">黄点是检测到的关键点（带编号），点选对应的身体位置即可</view>
+      </view>
+    </view>
+
+    <!-- ③ 分析 -->
+    <view class="card">
+      <view class="card-t">③ 分析</view>
+      <view class="row">
+        <button class="btn {{analyzing ? 'stop' : ''}}" bindtap="{{analyzing ? 'stop' : 'analyze'}}">{{analyzing ? '停止' : '开始分析'}}</button>
+        <button class="btn ghost" bindtap="testOne" disabled="{{analyzing}}">测试一帧</button>
+        <view class="info">已解码 {{decoded}} 帧 · 检出 {{detected}} 帧{{cfgName ? ' · 配置 ' + cfgName : ''}}</view>
+      </view>
+      <view class="row">
+        <view class="tag {{downscale ? 'on' : ''}}" bindtap="toggleDownscale">高分辨率降采样{{downscale ? '：开' : '：关'}}</view>
+      </view>
+      <view class="diag" wx:if="{{diag.length}}">
+        <view class="diag-line" wx:for="{{diag}}" wx:key="index">{{item}}</view>
+        <view class="diag-copy" bindtap="copyDiag">复制诊断信息</view>
+      </view>
+      <view class="bar-wrap" wx:if="{{analyzing}}"><view class="bar-in" style="width:{{progress}}%"></view></view>
+      <view class="fmt" wx:if="{{formatNote}}">{{formatNote}}</view>
+      <view class="row" wx:if="{{!heightCm}}">
+        <view class="seg-label">身高（cm，用于把比例换算成厘米）</view>
+        <input class="inp" type="number" value="{{heightCm}}" bindblur="setHeight" placeholder="如 160" />
+      </view>
+    </view>
+
+    <!-- ④ 结果 -->
+    <block wx:if="{{checks.length}}">
+      <view class="card">
+        <view class="card-t">④ 客观指标与检查项</view>
+        <view class="chk" wx:for="{{checks}}" wx:key="k">
+          <view class="chk-top">
+            <text class="chk-name">{{item.name}}</text>
+            <text class="chk-badge {{item.state}}">{{item.text}}</text>
+          </view>
+          <view class="chk-val">{{item.value}}<text class="chk-sub">（{{item.sub}}）</text></view>
+          <view class="chk-hint">{{item.hint}}</view>
+        </view>
+        <view class="stat-row" wx:for="{{stats}}" wx:key="name">
+          <text class="stat-k">{{item.name}}</text><text class="stat-v">{{item.value}}</text>
+        </view>
+      </view>
+
+      <view class="card">
+        <view class="card-t">曲线</view>
+        <view class="row">
+          <view class="tag {{chartKey === 'legGap' ? 'on' : ''}}" bindtap="switchChart" data-k="legGap">浮足高度</view>
+          <view class="tag {{chartKey === 'kneeL' ? 'on' : ''}}" bindtap="switchChart" data-k="kneeL">左膝角</view>
+          <view class="tag {{chartKey === 'trunk' ? 'on' : ''}}" bindtap="switchChart" data-k="trunk">上身前倾</view>
+          <view class="tag {{chartKey === 'cog' ? 'on' : ''}}" bindtap="switchChart" data-k="cog">重心偏移</view>
+        </view>
+        <view class="chart-t">{{chartTitle}}</view>
+        <canvas type="2d" id="chart" class="chart"></canvas>
+      </view>
+    </block>
+  </block>
+
+  <view class="work">
+    <canvas type="2d" id="work1" class="work-c"></canvas>
+    <canvas type="2d" id="work2" class="work-c"></canvas>
+  </view>
+
+  <view class="tips">
+    <view class="tip-t">能看什么 / 不能看什么</view>
+    <view class="tip-l">✅ 能看：浮足高度、两腿夹角、膝角、上身前倾/压平、重心前后偏移、单足保持时长、节奏</view>
+    <view class="tip-l">❌ 不能看：<text class="b">用刃（内/外刃）</text>、跳跃高度、快速旋转圈数、定级判定</view>
+    <view class="tip-t warn">免责</view>
+    <view class="tip-l warn">识别的是「关节在画面里的位置」，只作<text class="b">自查参考</text>，不代表技术是否达标。</view>
+    <view class="tip-t">隐私</view>
+    <view class="tip-l">视频只在本机分析，<text class="b">不上传、不保存</text>；帧数据用完即丢。</view>
+  </view>
+</view>
