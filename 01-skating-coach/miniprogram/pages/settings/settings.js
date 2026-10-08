@@ -170,10 +170,18 @@ Page({
     const lessonUnits = recs.filter(r => r.mode === 'lesson').reduce((n, r) => n + (Number(r.units) || 1), 0);
     const dates = recs.map(r => r.date).sort();
     const meta = store.load(store.KEYS.meta) || {};
+    // 云文档上限 1MB：顺手把真实上传体积算出来，上传/发布前能确认还剩多少余量
+    let sizeTxt = '';
+    try {
+      const kb = JSON.stringify(util.buildPayload()).length / 1024;
+      sizeTxt = '\n\n云端体积：' + (kb >= 1024 ? (kb / 1024).toFixed(2) + ' MB' : kb.toFixed(1) + ' KB')
+        + ' / 1024 KB' + (kb > 900 ? '  ⚠️ 接近上限，建议先导出备份' : '');
+    } catch (e) { sizeTxt = ''; }
     const txt = '总记录 ' + recs.length + ' 条（' + (dates[0] || '—') + ' ~ ' + (dates[dates.length - 1] || '—') + '）\n\n'
       + lines.join('\n')
       + '\n\n所有上课记录的节数合计 = ' + lessonUnits
       + '\n基线：上冰 ' + (Number(meta.iceBase) || 0) + ' · 上课 ' + (Number(meta.lessonBase) || 0)
+      + sizeTxt
 
     wx.showModal({ title: '数据概览', content: txt, showCancel: false });
   },

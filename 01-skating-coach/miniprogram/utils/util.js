@@ -49,6 +49,8 @@ function applyPayload(d) {
   // 导入前先把本机记录备份一份（万一有问题可一键恢复）
   try { store.save('figure_skating_planner_records_backup_v1', { at: Date.now(), records: store.loadRecords() }); } catch (e) {}
   store.saveRecords(mergeById(store.loadRecords(), inc));
+  // 导入的记录可能带着 notes / lessonSummary（网页版字段）：立刻并进 content，别让它变成隐形数据
+  try { store.migrateMergeNotes(); } catch (e) {}
   store.save(store.KEYS.templates, mergeById(store.load(store.KEYS.templates) || [], d.templates));
   store.save(store.KEYS.moves, mergeById(store.load(store.KEYS.moves) || [], d.moves));
   // 分类表：本机分类还没动过 → 用备份里的（恢复自定义分类名）；动过 → 保留本机

@@ -133,10 +133,12 @@ function migrateLessonForm() {
   return n;
 }
 
-// 一次性迁移：把「课后总结 / 备注」并入「训练内容」，统一为一个笔记框
+// 把「课后总结 / 备注」并入「训练内容」，统一为一个笔记框。
+// ⚠️ 每次启动、以及每次导入/拉取之后都要跑：网页版(PWA)的记录至今仍是 content + notes +
+//    lessonSummary 三个字段，导入进来的 notes/课后总结在小程序里既看不见、又会被编辑器
+//    保存时清成空串 → 那就是真的丢字。这个迁移只「并没并过的」，重复跑是安全的。
 function migrateMergeNotes() {
   const meta = load(KEYS.meta) || {};
-  if (meta.recordMergeV1) return;
   const recs = loadRecords();
   let changed = false;
   recs.forEach(r => {
@@ -150,8 +152,8 @@ function migrateMergeNotes() {
     changed = true;
   });
   if (changed) save(KEYS.records, recs);
-  meta.recordMergeV1 = true;
-  save(KEYS.meta, meta);
+  if (!meta.recordMergeV1) { meta.recordMergeV1 = true; save(KEYS.meta, meta); }
+  return changed;
 }
 function sumMinutes(list) { return list.reduce((s, r) => s + (Number(r.duration) || 0), 0); }
 
@@ -361,14 +363,90 @@ function normalizeExam(e) {
   }
   return e;
 }
+// 旧版把整份考纲塞进本地（预置项）；现在考纲改为代码内置。
+// ⚠️ 直接删这些外壳会连带删掉用户当时写在里面的要点，所以先把内容搬进「我的」条目再丢壳。
+function examLegacyShell(e) {
+  if (!e) return false;
+  if (e.id && String(e.id).indexOf('preset_') === 0) return true;
+  return !!(e.key && syllabusByKey(e.key) && e.sections);
+}
+function examHasUserContent(e) {
+  if (!e) return false;
+  if (e.date) return true;
+  if (e.note && String(e.note).trim()) return true;
+  if (Array.isArray(e.images) && e.images.length) return true;
+  if (Array.isArray(e.myItems) && e.myItems.length) return true;
+  if (Array.isArray(e.mySections) && e.mySections.length) return true;
+  const ie = e.itemExtra || {};
+  return Object.keys(ie).some(k => {
+    const v = ie[k] || {};
+    return (v.points && v.points.length) || (v.mistakes && v.mistakes.length) || v.note || v.moveId;
+  });
+}
+// 把旧壳里的要点搬进「我的」条目：能对上内置条目 key 的进 itemExtra，其余进 myItems
+function harvestExamSections(old, target) {
+  if (!old || !target || !Array.isArray(old.sections)) return 0;
+  const sy = old.key ? syllabusByKey(old.key) : null;
+  const known = {};
+  if (sy) (sy.sections || []).forEach(s => (s.items || []).forEach(it => { known[it.key] = 1; }));
+  if (!target.itemExtra || typeof target.itemExtra !== 'object') target.itemExtra = {};
+  if (!Array.isArray(target.myItems)) target.myItems = [];
+  let moved = 0;
+  old.sections.forEach(sec => {
+    const items = (sec && Array.isArray(sec.items)) ? sec.items : [];
+    items.forEach(it => {
+      if (!it) return;
+      const pts = []
+        .concat(Array.isArray(it.points) ? it.points : [])
+        .concat(Array.isArray(it.mistakes) ? it.mistakes : [])
+        .concat(it.note ? [it.note] : [])
+        .map(x => String(x == null ? '' : x).trim())
+        .filter(x => x.length);
+      if (!pts.length) return;
+      const key = String(it.key || '').trim();
+      if (key && known[key]) {
+        const cur = target.itemExtra[key] || { points: [], mistakes: [], note: '', moveId: '' };
+        if (!Array.isArray(cur.points)) cur.points = [];
+        pts.forEach(p => { if (cur.points.indexOf(p) < 0) cur.points.push(p); });
+        target.itemExtra[key] = cur;
+      } else {
+        const title = String(it.title || key || '旧版要点').trim();
+        const dup = target.myItems.filter(x => x && x.title === title)[0];
+        if (dup) {
+          pts.forEach(p => { if ((dup.points || []).indexOf(p) < 0) dup.points.push(p); });
+        } else {
+          target.myItems.push({ id: uid(), sectionKey: 'my-points', title: title, points: pts, mistakes: [], note: '', moveId: '' });
+        }
+      }
+      moved++;
+    });
+  });
+  return moved;
+}
 function ensureExams() {
   let arr = load(KEYS.exams);
   if (!Array.isArray(arr)) arr = [];
   let changed = false;
-  // 迁移：删掉旧版把整份考纲塞进本地的预置项（改为代码内置）
-  const before = arr.length;
-  arr = arr.filter(e => e && !(e.id && String(e.id).indexOf('preset_') === 0) && !(e.key && syllabusByKey(e.key) && e.sections));
-  if (arr.length !== before) changed = true;
+  // ① 先抢救旧壳里的用户内容，再删壳（认不出归属、且确实有内容的，宁可留着也不删）
+  const shells = arr.filter(examLegacyShell);
+  if (shells.length) {
+    shells.forEach(old => {
+      if (!old.key || !syllabusByKey(old.key)) return;
+      let target = arr.filter(x => x && x !== old && x.key === old.key && !x.sections)[0];
+      if (!target) {
+        const sy = syllabusByKey(old.key);
+        target = { key: sy.key, id: uid(), kind: sy.kind, level: sy.level, date: '', note: '', images: [], itemExtra: {}, mySections: [], myItems: [] };
+        arr.push(target);
+      }
+      harvestExamSections(old, target);
+    });
+    arr = arr.filter(e => {
+      if (!examLegacyShell(e)) return true;
+      if (e.key && syllabusByKey(e.key)) return false;   // 内容已搬到「我的」条目
+      return examHasUserContent(e);                      // 认不出归属：有内容就留着
+    });
+    changed = true;
+  }
   // 迁移：旧「我的易错」分节下的条目并入「我的要点」，避免内容丢失
   arr.forEach(e => {
     if (e && Array.isArray(e.myItems)) {
