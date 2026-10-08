@@ -77,6 +77,10 @@
     <view class="field">
       <view class="field-label">训练笔记（可选）</view>
       <textarea class="textarea note" value="{{content}}" data-k="content" bindinput="input" auto-height placeholder="勾选动作/考级会自动写入条目；这里可补充要点、教练的话、身体状态、下次目标…" maxlength="-1"></textarea>
+      <view class="orphan-tip" wx:if="{{orphanCount}}">
+        <text>有 {{orphanCount}} 行条目和当前勾选对不上（动作/考级已删除或没勾上），取消勾选删不掉</text>
+        <text class="orphan-do" bindtap="cleanOrphans">清理这几行</text>
+      </view>
       <view class="sel-block" wx:if="{{orderRows.length > 1}}">
         <view class="sel-head">已选 · 用 ↑ ↓ 调整顺序（动作 = 整组移动；动作内的组合 = 组内移动）</view>
         <view class="sel-list">
@@ -104,6 +108,10 @@
         <input class="mv-input" value="{{moveQuery}}" bindinput="onMoveQuery" placeholder="搜索动作或组合…" confirm-type="search" />
         <view class="mv-clear" wx:if="{{moveQuery}}" bindtap="clearMoveQuery">×</view>
         <view class="mv-recent {{recentOnly ? 'on' : ''}}" bindtap="toggleRecent">最近用过</view>
+        <view class="mv-recent {{onlyPicked ? 'on' : ''}}" bindtap="toggleOnlyPicked">只看已勾选{{selMoveIds.length ? " " + selMoveIds.length : ""}}</view>
+      </view>
+      <view class="mv-picked" wx:if="{{selMoveIds.length || selExamIds.length}}">
+        这条记录已勾选：{{selMoveIds.length}} 个动作 · {{selDrillIds.length}} 个组合 · {{selExamIds.length}} 个考级
       </view>
       <view class="mv-list" wx:if="{{viewMoves.length}}">
         <view class="mv" wx:for="{{viewMoves}}" wx:for-item="mv" wx:key="id">
@@ -121,15 +129,22 @@
           </view>
         </view>
       </view>
-      <view class="muted" wx:else>没有匹配的动作{{moveQuery ? "，换个关键词试试" : "，可先到「动作库」添加动作"}}。</view>
+      <view class="muted" wx:else>{{onlyPicked ? "" : "没有匹配的动作，"}}{{emptyHint}}。</view>
     </view>
 
-    <view class="field" wx:if="{{examList.length}}">
+    <view class="field">
       <view class="field-label">考级备考（可选）</view>
-      <view class="dr" wx:for="{{examList}}" wx:for-item="ex" wx:key="id"
-            bindtap="toggleExam" data-id="{{ex.id}}">
-        <view class="dr-check {{ex.checked ? 'on' : ''}}">{{ex.checked ? '✓' : ''}}</view>
-        <view class="dr-name">{{ex.label}}</view>
+      <block wx:if="{{examList.length}}">
+        <view class="dr" wx:for="{{examList}}" wx:for-item="ex" wx:key="id"
+              bindtap="toggleExam" data-id="{{ex.id}}">
+          <view class="dr-check {{ex.checked ? 'on' : ''}}">{{ex.checked ? '✓' : ''}}</view>
+          <view class="dr-name">{{ex.label}}</view>
+        </view>
+        <view class="muted">只列出你在「考级」页 ☆ 关注过的级别。</view>
+      </block>
+      <view class="muted" wx:else>
+        这里只放你关注的级别。到「考级」页点 ☆ 关注后就会出现在这里。
+        <text class="lnk" bindtap="goExams">去考级页</text>
       </view>
     </view>
 

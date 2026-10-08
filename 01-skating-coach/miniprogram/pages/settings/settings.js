@@ -34,7 +34,9 @@ Page({
       iceBase: Number(meta.iceBase) || 0,
       lessonBase: Number(meta.lessonBase) || 0,
       openid: app.globalData.openid,
-      auto: sync.getAuto()
+      auto: sync.getAuto(),
+      ver: require('../../utils/const').APP_VERSION,
+      recN: store.loadRecords().length
     });
     if (app.globalData.openid) this.refreshSync();
     else this.fetchOpenid();

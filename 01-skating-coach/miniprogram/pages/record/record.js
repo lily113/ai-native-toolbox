@@ -88,6 +88,7 @@ Page({
     startIdx: [0, 0],
     endIdx: [0, 0],
     content: '',
+    orphanLines: [], orphanCount: 0,
     units: 2,
     unitOptions: [1, 2, 3, 4],
     lessonForm: 'one',
@@ -103,6 +104,7 @@ Page({
     movesList: [],
     viewMoves: [],
     moveQuery: '',
+    onlyPicked: false,
     recentOnly: false,
     selMoveIds: [],
     selDrillIds: [],
@@ -212,7 +214,9 @@ Page({
   refreshMoves() {
     const q = String(this.data.moveQuery || '').trim().toLowerCase();
     const recent = !!this.data.recentOnly;
+    const only = !!this.data.onlyPicked;
     let list = this.data.movesList.filter(m => {
+      if (only && !m.checked) return false;
       if (recent && !m.recent) return false;
       if (!q) return true;
       if (String(m.name).toLowerCase().indexOf(q) > -1) return true;
@@ -221,7 +225,14 @@ Page({
     if (recent || q) {
       list = list.slice().sort((a, b) => String(b.lastUse || '').localeCompare(String(a.lastUse || '')));
     }
-    this.setData({ viewMoves: this.markSel(list) });
+    // 列表为空时给一句对症的话：勾选筛选 / 搜索 / 动作库为空
+    let emptyHint = '可先到「动作库」添加动作';
+    if (only && !q) emptyHint = '这条记录还没勾选任何动作';
+    else if (q) emptyHint = '换个关键词试试';
+    this.setData({ viewMoves: this.markSel(list), emptyHint: emptyHint });
+  },
+  toggleOnlyPicked() {
+    this.setData({ onlyPicked: !this.data.onlyPicked }, () => this.refreshMoves());
   },
   onMoveQuery(e) { this.setData({ moveQuery: e.detail.value }, () => this.refreshMoves()); },
   clearMoveQuery() { this.setData({ moveQuery: '' }, () => this.refreshMoves()); },
@@ -270,18 +281,46 @@ Page({
     const best = {};
     exams.forEach(ex => {
       const label = ((EXAM_KINDS[ex.kind] || {}).name || '') + ' · ' + ex.level;
-      const score = (ex.key ? 1000 : 0) + (ex.myItems || []).length + Object.keys(ex.itemExtra || {}).length;
+      // 关注(⭐) 优先，其次内置考纲，再次内容多的（否则关注的那条可能被同级别的旧条目挤掉）
+      const score = (ex.star ? 5000 : 0) + (ex.key ? 1000 : 0) + (ex.myItems || []).length + Object.keys(ex.itemExtra || {}).length;
       if (!best[label] || score > best[label].score) best[label] = { label: label, ex: ex, score: score };
     });
     const chosen = Object.keys(best).map(k => best[k]);
-    const examList = chosen.map(b => ({
+    let examList = chosen.map(b => ({
       id: b.ex.id,
       label: b.label,
+      star: !!b.ex.star,
       // 若之前勾选的是同类同级的另一条，也视为已勾选
       checked: exams.some(x => (x.kind === b.ex.kind && x.level === b.ex.level) && picked.indexOf(x.id) > -1)
     }));
+    // ★ 只显示「我关注的（⭐）」和「这条记录已经勾选的」——官方 42 个级别全列出来太灾难了
+    const shownIds = {};
+    examList = examList.filter(x => {
+      if (!x.star && !x.checked) return false;
+      shownIds[x.id] = 1;
+      return true;
+    });
+    // 记录里勾选过、但不在上面这批里的（老数据/重复条目）也要保留，否则那行删不掉
+    (rec && Array.isArray(rec.examPicks) ? rec.examPicks : []).forEach(id => {
+      if (shownIds[id]) return;
+      const ex = exams.filter(x => x && x.id === id)[0];
+      if (!ex) return;
+      examList.push({
+        id: ex.id,
+        label: ((EXAM_KINDS[ex.kind] || {}).name || '') + ' · ' + ex.level,
+        star: !!ex.star,
+        checked: true
+      });
+      shownIds[id] = 1;
+    });
     const ids = examList.filter(x => x.checked).map(x => x.id);
-    this.setData({ examList: examList, selExamIds: ids, selOrder: (rec && Array.isArray(rec.itemOrder)) ? rec.itemOrder.slice() : [] }, () => { if (rec) this.seedGenLines(); else this.syncContent(); });
+    this.setData({ examList: examList, selExamIds: ids, selOrder: (rec && Array.isArray(rec.itemOrder)) ? rec.itemOrder.slice() : [] }, () => {
+      if (rec) { this.seedGenLines(); this.scanOrphans(); } else { this.syncContent(); this.scanOrphans(); }
+    });
+  },
+
+  goExams() {
+    wx.navigateTo({ url: '/packageExam/exams/exams' });
   },
 
   toggleExam(e) {
@@ -289,6 +328,69 @@ Page({
     const examList = this.data.examList.map(x => x.id === id ? Object.assign({}, x, { checked: !x.checked }) : x);
     const ids = examList.filter(x => x.checked).map(x => x.id);
     this.setData({ examList: examList, selExamIds: ids }, () => { this.refreshMoves(); this.syncContent(); });
+  },
+
+  // 找出笔记里"已经不是当前生成结果"的条目行（【…】开头）。
+  // 典型场景：这个动作已经从动作库里删掉了 → 没有勾选框可取消 → 那几行永远删不掉。
+  scanOrphans() {
+    try {
+      const genSet = {};
+      this.buildGenLines().forEach(l => { genSet[l] = true; });
+      // 库里有哪些名字、这条记录当前勾了哪些、库里所有组合名（用来判断一行"像不像自动生成的"）
+      const knownMoves = {}, knownExams = {}, checkedMoves = {}, checkedExams = {}, drillNames = {};
+      store.ensureMoves().forEach(m => {
+        knownMoves[m.name] = true;
+        (m.drills || []).forEach(d => { drillNames[d.name] = true; });
+      });
+      store.ensureExams().forEach(ex => { knownExams[((EXAM_KINDS[ex.kind] || {}).name || '') + ' · ' + ex.level] = true; });
+      (this.data.movesList || []).forEach(m => { if (m.checked) checkedMoves[m.name] = true; });
+      (this.data.examList || []).forEach(ex => { if (ex.checked) checkedExams[ex.label] = true; });
+      const lines = String(this.data.content || '').split('\n');
+      const orphan = lines.filter((l, i) => {
+        const t = l.trim();
+        if (genSet[l]) return false;                 // 就是当前勾选生成的行，正常
+        const m = /^【(.+?)】/.exec(t);
+        if (!m) return false;                        // 不是条目行（普通文字/要点）
+        const n = m[1];
+        // 后面跟着「1. xxx」这类你自己列的点 → 这是你手写的标题，不是自动生成的条目
+        for (let j = i + 1; j < lines.length; j++) {
+          const nx = String(lines[j]).trim();
+          if (!nx) continue;
+          if (/^\d+\s*[.、]/.test(nx)) return false;
+          break;
+        }
+        const rest = t.slice(t.indexOf('】') + 1).trim();
+        // 名字都不在库里了（动作/考级被删）→ 取消勾选也删不掉，交给用户清理
+        if (!knownExams[n] && !knownMoves[n]) return true;
+        if (knownExams[n]) return !checkedExams[n];
+        if (checkedMoves[n]) return false;           // 勾着 → 就是当前生成的行
+        // 没勾选：只有"长得像自动生成"的行才算失效（空尾巴 / 尾巴是库里的组合名），
+        // 你自己写的批注（【动作】后面接一段话）不动它
+        if (!rest) return true;
+        return !!drillNames[rest];
+      });
+      this.setData({ orphanLines: orphan, orphanCount: orphan.length });
+    } catch (e) {}
+  },
+  cleanOrphans() {
+    const orphan = this.data.orphanLines || [];
+    if (!orphan.length) return;
+    const show = orphan.slice(0, 6).join('\n') + (orphan.length > 6 ? '\n…' : '');
+    wx.showModal({
+      title: '清理 ' + orphan.length + ' 行失效条目',
+      content: '这些行对应的动作/考级已经不在你的库里了，无法通过取消勾选删除：\n\n' + show + '\n\n确定从训练笔记里删掉它们吗？（只删笔记里的这几行，不动其它文字）',
+      confirmText: '删除这几行',
+      confirmColor: '#dc2626',
+      success: r => {
+        if (!r.confirm) return;
+        const set = {};
+        orphan.forEach(l => { set[l] = true; });
+        const kept = String(this.data.content || '').split('\n').filter(l => !set[l]);
+        this._genLines = (this._genLines || []).filter(l => !set[l]);
+        this.setData({ content: kept.join('\n') }, () => this.scanOrphans());
+        wx.showToast({ title: '已清理' });
+      }
+    });
   },
 
   // 由当前勾选生成的行（按你调整的顺序）
@@ -373,7 +475,7 @@ Page({
     this._genLines = newGen;
     // 去掉开头的空行（历史遗留），内部空行保留
     const text = out.join('\n').replace(/^(\s*\n)+/, '');
-    this.setData({ content: text });
+    this.setData({ content: text }, () => this.scanOrphans());
   },
 
   // 当前勾选项 → [{key, label}]（key: m:<动作id> / e:<考级id>）

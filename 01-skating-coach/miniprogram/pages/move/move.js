@@ -179,9 +179,22 @@ Page({
   },
 
   delMove() {
+    // 有多少条历史训练记录引用了这个动作？（删掉后那些记录里的条目行就没法通过取消勾选删除了）
+    let used = 0;
+    try {
+      const all0 = store.ensureMoves();
+      const cur = all0.filter(x => x.id === this.data.id)[0] || {};
+      const dIds = (cur.drills || []).map(d => d.id);
+      (store.loadRecords() || []).forEach(rec => {
+        const hitM = (rec.moves || []).indexOf(this.data.id) > -1;
+        const hitD = (rec.drills || []).some(d => dIds.indexOf(d) > -1);
+        if (hitM || hitD) used++;
+      });
+    } catch (e) {}
+    const extra = used ? '\n\n注意：有 ' + used + ' 条历史训练记录用到它，删除后那些记录里对应的条目行需要手动清理。' : '';
     wx.showModal({
       title: '删除动作',
-      content: '确定删除「' + this.data.name + '」？它的练习组合也会一起删除。',
+      content: '确定删除「' + this.data.name + '」？它的练习组合也会一起删除。' + extra,
       confirmColor: '#dc2626',
       success: r => {
         if (!r.confirm) return;
