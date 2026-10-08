@@ -53,6 +53,16 @@ Page({
     this.refreshEntries();
   },
 
+  // 云端刚把数据恢复回来时被调用（sync.js 通知）→ 立刻重画日历，别让用户以为数据没了
+  onDataRestored() {
+    try {
+      this.refreshDay();
+      this.refreshMonth();
+      this.refreshDayMarks();
+      this.refreshEntries();
+    } catch (e) {}
+  },
+
   // 入口可见性 + 新用户引导（每次进首页都刷新一次）
   refreshEntries() {
     const app = getApp();

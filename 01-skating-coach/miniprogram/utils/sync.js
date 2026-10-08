@@ -12,6 +12,46 @@ function cfg() {
     return (v && typeof v === 'object') ? v : { auto: true, seenTs: 0, lastEdit: 0 };
   } catch (e) { return { auto: true, seenTs: 0, lastEdit: 0 }; }
 }
+// ---------- 同步状态：成功/失败都要留痕（以前是 8 处 .catch(()=>{}) 全静默，
+//            用户删掉小程序重开后明明云端有数据，界面上却什么都看不出来） ----------
+function markOk(kind) {
+  const c = cfg();
+  c.lastError = '';
+  c[kind === 'push' ? 'lastPushAt' : 'lastPullAt'] = Date.now();
+  saveCfg(c);
+}
+function markErr(kind, e) {
+  const c = cfg();
+  c.lastError = (kind === 'push' ? '上传' : '拉取') + '失败：' +
+    ((e && (e.errMsg || e.message)) || '未知原因（可能是网络或云环境权限）');
+  c.lastErrorAt = Date.now();
+  saveCfg(c);
+}
+function stats() {
+  const c = cfg();
+  return {
+    auto: !!c.auto,
+    pushAt: Number(c.lastPushAt) || 0,
+    pullAt: Number(c.lastPullAt) || 0,
+    error: c.lastError || '',
+    errorAt: Number(c.lastErrorAt) || 0,
+    restored: Number(c.lastRestored) || 0,
+    restoredAt: Number(c.lastRestoredAt) || 0
+  };
+}
+// 本机原本是空的、这次拉回来了数据 → 明确告诉用户，并让当前页面刷新
+function notifyRestored(n) {
+  const c = cfg();
+  c.lastRestored = n;
+  c.lastRestoredAt = Date.now();
+  saveCfg(c);
+  try { wx.showToast({ title: '已从云端恢复 ' + n + ' 条记录', icon: 'none', duration: 3500 }); } catch (e) {}
+  try {
+    const pages = getCurrentPages() || [];
+    const cur = pages[pages.length - 1];
+    if (cur && typeof cur.onDataRestored === 'function') cur.onDataRestored(n);
+  } catch (e) {}
+}
 function saveCfg(c) { try { wx.setStorageSync(CFG_KEY, c); } catch (e) {} }
 function openid() {
   try { return (getApp().globalData && getApp().globalData.openid) || ''; } catch (e) { return ''; }
@@ -61,6 +101,16 @@ function statsOf(str) {
     };
   } catch (e) { return { records: -1, examItems: -1 }; }
 }
+function notifyFail(kind, e) {
+  const msg = (e && (e.errMsg || e.message)) || '未知原因';
+  try {
+    wx.showModal({
+      title: '⚠️ ' + kind + '失败',
+      content: msg + '\n\n常见原因：网络不通、云环境未开通、数据库集合或权限没配好。\n本机数据不受影响。',
+      showCancel: false
+    });
+  } catch (e2) {}
+}
 function confirmModal(title, content, confirmText) {
   return new Promise(res => {
     wx.showModal({ title: title, content: content, confirmText: confirmText || '确定',
@@ -100,8 +150,8 @@ function push(manual) {
         const finish = remoteDoc => {
           const ts = Date.now();
           return col.doc(oid).set({ data: { payload: payloadString(), ts: ts } })
-            .then(() => { c.seenTs = ts; saveCfg(c); })
-            .catch(() => {});
+            .then(() => { c.seenTs = ts; saveCfg(c); markOk('push'); })
+            .catch(e => { markErr('push', e); if (manual) notifyFail('上传', e); });
         };
         if (remoteDoc && remoteDoc.payload) {
           const remoteS = statsOf(remoteDoc.payload);
@@ -116,7 +166,7 @@ function push(manual) {
         }
         return finish();
       })
-      .catch(() => {})
+      .catch(e => { markErr('push', e); })
       .then(() => { busy = false; }, () => { busy = false; });
   }).catch(() => {});
 }
@@ -139,6 +189,7 @@ function pull(manual) {
         try { data = JSON.parse(d.payload); } catch (e) { return; }
         if (!data || typeof data !== 'object') return;
         const localNewer = lastLocalEditTs > seen;
+        const localBefore = store.loadRecords().length;   // 拉之前本机有几条
         applying = true;
         try {
           store.save(store.KEYS.records, mergeArrays(store.loadRecords(), data.records, localNewer));
@@ -164,9 +215,13 @@ function pull(manual) {
         } finally { applying = false; }
         c.seenTs = ts;
         saveCfg(c);
+        markOk('pull');
+        // 本机原本没有记录、这次从云端拉回来了 → 提示 + 刷新当前页面
+        const added = store.loadRecords().length - localBefore;
+        if (localBefore === 0 && added > 0) notifyRestored(added);
         if (localNewer) schedule(800);
       })
-      .catch(() => {})
+      .catch(e => { markErr('pull', e); if (manual) notifyFail('拉取', e); })
       .finally(() => { pulling = false; });
   }).catch(() => {});
 }
@@ -199,4 +254,4 @@ function init() {
 function getAuto() { return !!cfg().auto; }
 function setAuto(on) { const c = cfg(); c.auto = !!on; saveCfg(c); }
 
-module.exports = { init, push, pull, getAuto, setAuto, listHistory, saveHistory, statsOf };
+module.exports = { init, push, pull, getAuto, setAuto, listHistory, saveHistory, statsOf, stats };

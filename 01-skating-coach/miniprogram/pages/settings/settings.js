@@ -11,6 +11,8 @@ Page({
     lessonBase: 0,
     openid: '',
     aiStatus: '检查中…',
+    dataWhere: '本机 0 条 · 云端 ? 条',
+    syncErr: '',
     syncStatus: '未配置',
     auto: false,
     showImport: false,
@@ -26,6 +28,7 @@ Page({
     const meta = store.load(store.KEYS.meta) || {};
     this.setData(this.guardInfo());
     this.refreshAiStatus();
+    this.refreshDataWhere();
     this.setData({
       goal: meta.weeklyIceGoal || 0,
       iceBase: Number(meta.iceBase) || 0,
@@ -39,6 +42,42 @@ Page({
 
   onReady() {
     this.fetchOpenid();
+  },
+
+  // 「数据在哪」：本机多少条、云端多少条、上次同步时间、上次失败原因 —— 一眼看出云端有没有备份
+  refreshDataWhere() {
+    const st = sync.stats ? sync.stats() : {};
+    const local = store.loadRecords().length;
+    const fmt = t => {
+      if (!t) return '从未';
+      const d = new Date(t);
+      const p = n => (n < 10 ? '0' + n : '' + n);
+      return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    };
+    const tail = [];
+    if (st.pushAt) tail.push('上次上传 ' + fmt(st.pushAt));
+    if (st.pullAt) tail.push('上次拉取 ' + fmt(st.pullAt));
+    this.setData({
+      syncErr: st.error ? (st.error + (st.errorAt ? '（' + fmt(st.errorAt) + '）' : '')) : '',
+      dataWhere: '本机 ' + local + ' 条 · 云端 ' + (this.data.cloudCount === undefined ? '?' : this.data.cloudCount) + ' 条'
+        + (tail.length ? ' · ' + tail.join(' · ') : '')
+    });
+    // 真正去云端问一次（1 次读操作），拿到"云端到底有没有备份"
+    const oid = app.globalData.openid || this.data.openid;
+    if (!oid) return;
+    wx.cloud.database().collection('planner_data').doc(oid).get()
+      .then(res => {
+        const s2 = sync.statsOf((res.data || {}).payload || '');
+        this.setData({
+          cloudCount: s2.records,
+          dataWhere: '本机 ' + store.loadRecords().length + ' 条 · 云端 ' + s2.records + ' 条'
+            + (tail.length ? ' · ' + tail.join(' · ') : '')
+        });
+      })
+      .catch(() => {
+        this.setData({ cloudCount: 0 });
+        this.setData({ dataWhere: '本机 ' + store.loadRecords().length + ' 条 · 云端读取失败（见下方提示）' });
+      });
   },
 
   // 复制 openid：配云函数的 OWNER_OPENID 环境变量时直接粘，不用手打 28 位
@@ -515,6 +554,7 @@ Page({
   },
 
   cloudUpload() {
+    // 上传成功后刷新「数据在哪」
     if (this.isDevtools()) {
       wx.showModal({
         title: '⚠️ 开发者工具中上传',
@@ -529,7 +569,13 @@ Page({
   doCloudUpload() {
     this.setData({ syncStatus: '⏳ 上传中…' });
     sync.push(true).then(() => {
-      this.setData({ syncStatus: '✅ 已上传到云（自动同步' + (this.data.auto ? '已开' : '未开') + '）' });
+      const st = sync.stats ? sync.stats() : {};
+      this.setData({
+        syncStatus: st.error
+          ? '⚠️ 上传失败，看下面红字'
+          : '✅ 已上传 ' + store.loadRecords().length + ' 条到云（自动同步' + (this.data.auto ? '已开' : '未开') + '）'
+      });
+      this.refreshDataWhere();
     });
   },
   cloudPull() {
@@ -547,8 +593,11 @@ Page({
   doCloudPull() {
     this.setData({ syncStatus: '⏳ 拉取合并中…' });
     sync.pull(true).then(() => {
-      this.setData({ syncStatus: '✅ 已与云端同步' });
+      const n = store.loadRecords().length;
+      const st = sync.stats ? sync.stats() : {};
+      this.setData({ syncStatus: (n ? '✅ 本机现在 ' + n + ' 条' : '⚠️ 云端没有可用数据') + (st.error ? '' : '') });
       this.refreshSync();
+      this.refreshDataWhere();
     });
   },
 
