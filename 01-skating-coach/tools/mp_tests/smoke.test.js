@@ -65,6 +65,11 @@ pages.forEach(p => {
     if (typeof page.onShow === 'function') page.onShow();
     if (typeof page.onReady === 'function') page.onReady();
     ok(true, p + '（' + Object.keys(captured).filter(k => typeof captured[k] === 'function' && k !== 'setData').length + ' 个方法）');
+    // 首页：空数据（= 新用户）必须显示上手引导卡
+    if (p === 'pages/index/index') {
+      ok(page.data.firstRun === true, '新用户（0 条记录）首页显示上手引导卡');
+      ok(page.data.poseOn === false, '姿态自查入口关闭时首页不显示它');
+    }
   } catch (e) { ok(false, p + ' → onLoad/onShow 抛错: ' + e.message); }
 });
 
