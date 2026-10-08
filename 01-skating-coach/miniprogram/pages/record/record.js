@@ -137,21 +137,18 @@ Page({
     const selMoves = (rec && Array.isArray(rec.moves)) ? rec.moves : [];
     const selDrills = (rec && Array.isArray(rec.drills)) ? rec.drills : [];
     const movesList = lib.map(m => {
-      // 「整组」：单个动作的设置优先，缺省跟随所属分类；勾选动作即带出它下面全部组合
       const cid = store.validCat(m.category);
-      const box = store.boxModeOf(m, catMap) === 'on';
       const checked = selMoves.indexOf(m.id) > -1;
       return {
         id: m.id,
         name: m.name,
-        box: box,
         catName: (catMap[cid] || {}).name || '其他',
         checked: checked,
         drills: (m.drills || []).slice()
           .sort((a, b) => (Number(b.c) || 0) - (Number(a.c) || 0))
           .map(d => ({
             id: d.id, name: d.name, detail: d.detail || '',
-            // 不改动历史记录的实际勾选：只有用户点这个动作时才整组带出
+            // 不改动历史记录的实际勾选：只有用户点这个动作时才把组合一起带出
             checked: selDrills.indexOf(d.id) > -1
           }))
       };
@@ -193,9 +190,9 @@ Page({
     let list = this.data.movesList.map(m =>
       m.id === id ? Object.assign({}, m, { checked: !m.checked }) : m
     );
-    // 「串/组」类动作：勾选即带出该动作下全部组合（取消勾选则整组取消）
+    // 点动作名 = 连同它下面的组合一起勾上（取消勾选则一起取消），所有分类一致
     const cur = list.filter(m => m.id === id)[0];
-    if (cur && cur.box && (cur.drills || []).length) {
+    if (cur && (cur.drills || []).length) {
       list = list.map(m => m.id !== id ? m : Object.assign({}, m, {
         drills: m.drills.map(d => Object.assign({}, d, { checked: cur.checked }))
       }));
@@ -212,13 +209,15 @@ Page({
     const did = e.currentTarget.dataset.did;
     const list = this.data.movesList.map(m => {
       if (m.id !== mid) return m;
-      return Object.assign({}, m, {
-        drills: m.drills.map(d => d.id === did ? Object.assign({}, d, { checked: !d.checked }) : d)
-      });
+      const drills = m.drills.map(d => d.id === did ? Object.assign({}, d, { checked: !d.checked }) : d);
+      // 单独勾某个组合时，顺手把所属动作勾上（这样「只练这一个组合」也能直接生效）
+      const anyOn = drills.some(d => d.checked);
+      return Object.assign({}, m, { drills: drills, checked: anyOn ? true : m.checked });
     });
+    const selMoveIds = list.filter(m => m.checked).map(m => m.id);
     const selDrillIds = [];
     list.forEach(m => { if (m.checked) m.drills.forEach(d => { if (d.checked) selDrillIds.push(d.id); }); });
-    this.setData({ movesList: list, selDrillIds: selDrillIds }, () => { this.refreshMoves(); this.syncContent(); });
+    this.setData({ movesList: list, selMoveIds: selMoveIds, selDrillIds: selDrillIds }, () => { this.refreshMoves(); this.syncContent(); });
   },
 
   // 初始化「考级备考」勾选（只到「级别 + 类型」粒度）

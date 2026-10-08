@@ -2,7 +2,7 @@
 .tip-t { font-size: 14px; font-weight: 800; color: var(--ice-800); margin-bottom: 6px; }
 .tip-l { font-size: 12.5px; color: #475569; line-height: 1.6; }
 
-.box-hint { font-size: 12.5px; color: #0369a1; background: var(--ice-100); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; line-height: 1.6; }
+.rule-hint { font-size: 12.5px; color: #0369a1; background: var(--ice-100); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; line-height: 1.6; }
 
 .list { background: #fff; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
 .row { display: flex; align-items: center; padding: 12px; border-bottom: 1px solid #eef6fc; }

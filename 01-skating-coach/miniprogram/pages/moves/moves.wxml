@@ -31,7 +31,7 @@
           <view class="pick-cb {{item.picked ? 'on' : ''}}">{{item.picked ? '✓' : ''}}</view>
         </view>
         <view class="move-body">
-          <view class="move-name">{{item.name}}<text class="box-badge" wx:if="{{item.box}}">整组</text></view>
+          <view class="move-name">{{item.name}}</view>
           <view class="move-meta">
             <text class="cat-badge">{{item.catName}}</text>
             <text class="drill-cnt">{{item.drillCount}} 个组合</text>
@@ -50,7 +50,7 @@
                     direction="vertical" y="{{item.y}}" style="height:{{ROW_H}}px"
                     bindchange="onDragSort" data-id="{{item.id}}">
         <view class="sr-name">{{item.name}}</view>
-        <view class="sr-meta">{{item.catName}}<text class="sr-cnt"> · {{item.drillCount}} 组合</text><text class="sr-cnt" wx:if="{{item.box}}"> · 整组</text></view>
+        <view class="sr-meta">{{item.catName}}<text class="sr-cnt"> · {{item.drillCount}} 组合</text></view>
         <view class="sr-handle">≡</view>
       </movable-view>
     </movable-area>

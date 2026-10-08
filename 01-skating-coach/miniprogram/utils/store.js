@@ -172,12 +172,12 @@ function normalizeCats(arr) {
     if (seen[id]) return;
     seen[id] = 1;
     if (id === CAT_FALLBACK && nm) fbName = nm;
-    out.push({ id: id, name: nm || id, box: !!c.box });
+    out.push({ id: id, name: nm || id });
   });
   const at = out.findIndex(c => c.id === CAT_FALLBACK);
   if (at >= 0) out.splice(at, 1);
   if (!fbName) fbName = (DEFAULT_CATS.filter(c => c.id === CAT_FALLBACK)[0] || {}).name || '其他';
-  out.push({ id: CAT_FALLBACK, name: fbName, box: false });
+  out.push({ id: CAT_FALLBACK, name: fbName });
   return out;
 }
 
@@ -187,7 +187,7 @@ function catsUntouched() {
   if (l.length !== DEFAULT_CATS.length) return false;
   for (let i = 0; i < l.length; i++) {
     const a = l[i], b = DEFAULT_CATS[i];
-    if (a.id !== b.id || a.name !== b.name || !!a.box !== !!b.box) return false;
+    if (a.id !== b.id || a.name !== b.name) return false;
   }
   return true;
 }
@@ -200,7 +200,7 @@ function migrateCatsV1(list) {
   DEFAULT_CATS.forEach(d => {
     if (have[d.id]) return;
     const at = list.findIndex(c => c.id === CAT_FALLBACK);
-    const item = { id: d.id, name: d.name, box: !!d.box };
+    const item = { id: d.id, name: d.name };
     if (at >= 0) list.splice(at, 0, item); else list.push(item);
   });
   // ② 动作库：旧「热身」→「常规热身」并归到热身分类；再补预置动作（不覆盖同名动作）
@@ -273,21 +273,6 @@ function validCat(c) {
   if (ids.indexOf(CAT_FALLBACK) < 0) ids.push(CAT_FALLBACK);
   return ids.indexOf(c) > -1 ? c : CAT_FALLBACK;
 }
-function isBoxCat(c) {
-  if (_catCache && _catCache.indexOf(c) < 0) return false;
-  const t = catMap()[c];
-  return !!(t && t.box);
-}
-// 「整组」解析：单个动作可以覆盖分类默认
-//   m.boxMode = 'on' / 'off'  → 该动作自己说了算
-//   m.boxMode 缺省            → 跟随所属分类的 box 设置
-function boxModeOf(m, cmap) {
-  const v = m && m.boxMode;
-  if (v === 'on' || v === 'off') return v;
-  const map = cmap || catMap();
-  const c = map[validCat(m && m.category)];
-  return (c && c.box) ? 'on' : 'off';
-}
 
 // ---------- 动作库（与网页版同一数据结构，可 JSON 互导） ----------
 function ensureMoves() {
@@ -301,11 +286,14 @@ function ensureMoves() {
     save(KEYS.moves, moves);
     return moves;
   }
+  let changed = false;
   moves.forEach(m => {
     if (!Array.isArray(m.drills)) m.drills = [];
     if (!Array.isArray(m.points)) m.points = [];      // 动作级「共性要点」
     // 迁移：给旧组合补创建时间（用很小的序号，保证一定旧于新加的）
     m.drills.forEach((d, i) => { if (d && typeof d.c !== 'number') d.c = i + 1; });
+    // 「整组」开关已废弃（改成所有分类统一规则），清掉残留字段
+    if (m.boxMode !== undefined) { delete m.boxMode; changed = true; }
   });
   // 迁移：补 sort（同类内顺序）/ c（创建时间，缺省视为较旧）
   const catCnt = {};
@@ -331,7 +319,7 @@ function ensureMoves() {
     meta.movesStdV1 = true;
     save(KEYS.meta, meta);
   }
-  if (deduped.length !== moves.length) save(KEYS.moves, deduped);
+  if (changed || deduped.length !== moves.length) save(KEYS.moves, deduped);
   return deduped;
 }
 function saveMoves(moves) { save(KEYS.moves, moves); }
@@ -411,7 +399,7 @@ function newExam(kind, level) {
 module.exports = {
   KEYS, load, save, setAfterSave, pad, dateKey, todayKey, keyToDate, uid,
   normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes, migrateLessonForm, recordLines,
-  cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat, isBoxCat, boxModeOf,
+  cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves,
   ensureMilestones, saveMilestones,

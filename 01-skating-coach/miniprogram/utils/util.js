@@ -37,7 +37,7 @@ function mergeCats(local, remote, localWins) {
     if (!c || !c.id) return;
     const l = idx[c.id];
     if (l) { delete idx[c.id]; out.push(localWins ? Object.assign({}, c, l) : Object.assign({}, l, c)); }
-    else out.push({ id: c.id, name: c.name || c.id, box: !!c.box });
+    else out.push({ id: c.id, name: c.name || c.id });
   });
   out.push.apply(out, L.filter(c => c && c.id && idx[c.id]));
   return out;

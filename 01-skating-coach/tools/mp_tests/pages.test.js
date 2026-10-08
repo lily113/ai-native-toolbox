@@ -90,13 +90,14 @@ const added = store.ensureMoves().filter(m => m.name === '测试新动作')[0];
 ok(!!added && added.category === 'topic', '新动作落在专题练习分类');
 
 // ---------- record 页 ----------
-console.log('⑤ record 页：串/组动作勾选即带整组');
-const recPage = loadPage('/Users/chloe/dsh_workspace/figure-skating-mp/pages/record/record.js');
+console.log('⑤ record 页：点动作名 = 连它下面的组合一起勾（所有分类一致）');
+const recPage = loadPage(MP + '/pages/record/record.js');
 recPage.data.moveQuery = '';
 recPage.data.recentOnly = false;
-// 造一个「专题练习」下的容器动作，带 3 个组合
+// 造两个多组合动作：一个在「专题练习」，一个在「跳跃」——规则应当完全一样
 let lib = store.ensureMoves();
 const boxMove = lib.filter(m => m.name === '变刃步伐串')[0];
+const jumpMove = lib.filter(m => m.category === 'jump')[0];
 lib.forEach(m => {
   if (m.id === boxMove.id) {
     m.category = 'topic';   // 前面的用例把它挪走了，这里放回「专题练习」
@@ -106,16 +107,19 @@ lib.forEach(m => {
       { id: 'bd3', name: '连续变刃过桩 ×10', c: 3 }
     ];
   }
+  if (m.id === jumpMove.id) {
+    m.drills = [
+      { id: 'jd1', name: '陆地起跳模仿 ×20', c: 1 },
+      { id: 'jd2', name: '冰上两周单跳 ×10', c: 2 }
+    ];
+  }
 });
 store.saveMoves(lib);
 recPage.initMoves(null);
-const boxRow = recPage.data.movesList.filter(m => m.id === boxMove.id)[0];
-ok(boxRow.box === true, '该动作被识别为「整组」类');
-ok(boxRow.drills.length === 3 && boxRow.drills.every(d => !d.checked), '初始都没勾选');
 recPage.data.content = '';
 recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
 ok(recPage.data.selMoveIds.indexOf(boxMove.id) > -1, '动作被勾选');
-ok(recPage.data.selDrillIds.length === 3, '3 个组合被一起带出，实际 ' + recPage.data.selDrillIds.length);
+ok(recPage.data.selDrillIds.length === 3, '专题练习的动作：3 个组合一起带出，实际 ' + recPage.data.selDrillIds.length);
 ok(recPage.data.content.indexOf('【变刃步伐串】') === 0, '训练笔记生成了标题行');
 ok(recPage.data.content.split('\n').length === 4, '一行标题 + 3 行组合');
 ok(['　1. ', '　2. ', '　3. '].every(t => recPage.data.content.indexOf(t) > -1)
@@ -123,44 +127,40 @@ ok(['　1. ', '　2. ', '　3. '].every(t => recPage.data.content.indexOf(t) > -
    '三个组合都按序号逐行写入');
 console.log('     生成内容:\n' + recPage.data.content.split('\n').map(l => '       ' + l).join('\n'));
 recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
-ok(recPage.data.selDrillIds.length === 0 && recPage.data.content === '', '取消勾选后整组一起撤销');
-
-console.log('⑥ record 页：普通分类仍是单个勾选');
-const jumpMove = store.ensureMoves().filter(m => m.category === 'jump')[0];
+ok(recPage.data.selDrillIds.length === 0 && recPage.data.content === '', '取消勾选后组合一起撤销');
+recPage.data.content = '';
 recPage.toggleMove({ currentTarget: { dataset: { id: jumpMove.id } } });
-ok(recPage.data.selDrillIds.length === 0, '普通动作勾选不会自动勾组合');
-ok(recPage.data.content.indexOf('【' + jumpMove.name + '】') > -1, '普通动作也写进笔记');
+ok(recPage.data.selDrillIds.length === 2, '跳跃的动作也一样：2 个组合一起带出，实际 ' + recPage.data.selDrillIds.length);
+ok(recPage.data.content.split('\n').length === 3, '跳跃动作也是 标题 + 2 行');
 recPage.toggleMove({ currentTarget: { dataset: { id: jumpMove.id } } });
+recPage.data.content = '';
+const noDrillMove = store.ensureMoves().filter(m => !(m.drills || []).length && m.category === 'jump')[0];
+recPage.initMoves(null);
+recPage.toggleMove({ currentTarget: { dataset: { id: noDrillMove.id } } });
+ok(recPage.data.selDrillIds.length === 0 && recPage.data.content === '【' + noDrillMove.name + '】',
+   '没有组合的动作就是一行动作名，不受影响');
 
-console.log('⑦ 整组：带出后仍能单独取消某个组合');
+console.log('⑥ 单独点组合 = 只按单独勾的来（并自动勾上所属动作）');
+recPage.initMoves(null);
+recPage.data.content = '';
+recPage.toggleDrill({ currentTarget: { dataset: { mid: boxMove.id, did: 'bd1' } } });
+ok(recPage.data.selMoveIds.indexOf(boxMove.id) > -1, '点组合会把所属动作勾上（否则勾了不生效）');
+ok(recPage.data.selDrillIds.length === 1 && recPage.data.selDrillIds[0] === 'bd1', '只有这一个组合，实际 ' + recPage.data.selDrillIds.join(','));
+ok(recPage.data.content.indexOf('【变刃步伐串】前外刃变后内刃 ×20') === 0, '笔记是单组合合并一行');
+ok(recPage.data.content.split('\n').length === 1, '只有一行');
+recPage.toggleDrill({ currentTarget: { dataset: { mid: boxMove.id, did: 'bd1' } } });
+ok(recPage.data.selDrillIds.length === 0, '再点一次取消掉它');
+
+console.log('⑦ 带出整组后仍能单独取消某个组合');
+recPage.initMoves(null);
+recPage.data.content = '';
 recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
-ok(recPage.data.selDrillIds.length === 3, '先整组带出 3 个');
+ok(recPage.data.selDrillIds.length === 3, '先带出 3 个');
 const firstDrill = recPage.data.movesList.filter(m => m.id === boxMove.id)[0].drills[0];
 recPage.toggleDrill({ currentTarget: { dataset: { mid: boxMove.id, did: firstDrill.id } } });
 ok(recPage.data.selDrillIds.length === 2, '单独取消 1 个 → 剩 2 个，实际 ' + recPage.data.selDrillIds.length);
 ok(recPage.data.content.split('\n').length === 3, '笔记跟着变成 标题 + 2 行');
 ok(recPage.data.content.indexOf(firstDrill.name) === -1, '被取消的组合不在笔记里');
-recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
-
-console.log('⑧ 整组：单个动作可以覆盖分类默认');
-lib = store.ensureMoves();
-lib.forEach(m => { if (m.id === boxMove.id) m.boxMode = 'off'; });
-store.saveMoves(lib);
-recPage.initMoves(null);
-ok(recPage.data.movesList.filter(m => m.id === boxMove.id)[0].box === false,
-   '专题练习里的这个动作被单独关掉整组 → box = false');
-recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
-ok(recPage.data.selDrillIds.length === 0, '关掉后勾动作不再自动带组合');
-lib = store.ensureMoves();
-lib.forEach(m => { if (m.id === boxMove.id) m.boxMode = 'on'; });
-store.saveMoves(lib);
-recPage.initMoves(null);
-ok(recPage.data.movesList.filter(m => m.id === boxMove.id)[0].box === true, '单独打开整组也生效');
-lib = store.ensureMoves();
-lib.forEach(m => { if (m.id === boxMove.id) delete m.boxMode; });
-store.saveMoves(lib);
-recPage.initMoves(null);
-ok(recPage.data.movesList.filter(m => m.id === boxMove.id)[0].box === true, '删掉覆盖项 → 回到跟随分类（整组）');
 
 console.log('④ 分类被删掉后，标签自动回到「全部」');
 const cats = store.cats().filter(c => c.id !== 'topic');
