@@ -38,6 +38,9 @@
     </view>
     <view class="kv"><text class="kv-label">AI 教练</text><text class="kv-val">{{aiStatus}}</text></view>
     <view class="kv"><text class="kv-label">上次同步</text><text class="kv-val">{{syncStatus}}</text></view>
+    <view class="kv"><text class="kv-label">数据在哪</text><text class="kv-val">{{dataWhere}}</text></view>
+    <view class="sync-err" wx:if="{{syncErr}}">⚠️ {{syncErr}}</view>
+    <view class="muted dev-note">删除小程序会清空本机数据；重新打开时会自动从云端恢复（前提是之前上传成功过）。所以别只依赖本机，重要数据请定期「导出为文件」。</view>
     <view class="auto-row">
       <view class="auto-info">
         <view class="auto-title">自动同步</view>
