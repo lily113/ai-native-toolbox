@@ -28,6 +28,9 @@ const names = moves.map(m => m.name);
 ok(names.indexOf('变刃步伐串') > -1, '预置「变刃步伐串」已加入');
 ok(moves.filter(m => m.category === 'topic').length === 3, '专题练习预置 3 个动作');
 ok(moves.filter(m => m.category === 'warm').length === 3, '热身预置 3 个动作');
+ok(moves.length === 30, '全新安装动作总数 = 默认 24 + 预置 6 = 30，实际 ' + moves.length);
+ok(['常规热身', '膝关节激活', '髋部激活', '变刃步伐串', '膝关节韵律练习', '胯的练习']
+   .every(n => names.indexOf(n) > -1), '6 个预置动作都在：' + ['常规热身', '膝关节激活', '髋部激活', '变刃步伐串', '膝关节韵律练习', '胯的练习'].join('、'));
 ok(names.indexOf('后内结环跳') > -1, '原有默认动作仍在');
 ok(store.validCat('topic') === 'topic' && store.validCat('nope') === 'other', 'validCat 兜底');
 
