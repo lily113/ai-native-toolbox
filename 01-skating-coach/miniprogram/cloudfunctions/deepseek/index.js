@@ -6,6 +6,11 @@ const KB = require('./kb_data');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
+// 开发者本人的 openid：**两种方式任选**
+//   ① 云函数环境变量 OWNER_OPENID（推荐）
+//   ② 不想折腾环境变量，就把 openid 直接填在下面这行引号里，然后重新部署 deepseek
+const OWNER_OPENID_FALLBACK = '';
+
 // ============================================================
 // 知识库检索：按「项目(discipline) + 赛季」过滤 + 关键词打分
 // 数据来源：滑冰官方资料/生成云函数知识库.py 生成的 kb_data.js
@@ -314,9 +319,16 @@ exports.main = async (event) => {
   // 对外发布时 AI 教练只给开发者本人用：非本人直接拒绝，且**不会调用 DeepSeek**（不产生费用）。
   // 未配置 OWNER_OPENID 时一律关闭（失败时保守），配置方法见 01-skating-coach/开放给他人.md
   try {
-    const owner = String(process.env.OWNER_OPENID || '').trim();
+    const owner = String(process.env.OWNER_OPENID || OWNER_OPENID_FALLBACK || '').trim();
     const { OPENID } = cloud.getWXContext();
-    if (!owner) return { answer: 'AI 教练暂未开放（云函数未配置 OWNER_OPENID 环境变量）' };
+    if (!owner) {
+      // 只列变量名（不列值），一眼看出是"没配上"还是"键名写错了"
+      const near = Object.keys(process.env).filter(k => /owner|openid/i.test(k));
+      console.log('[deepseek] OWNER_OPENID 缺失，相关变量名:', near.join(',') || '(无)');
+      return { answer: 'AI 教练暂未开放：没读到 OWNER_OPENID。\n函数看到的相关变量名：'
+        + (near.length ? near.join('、') : '（一个都没有）')
+        + '\n把 openid 填到 index.js 顶部的 OWNER_OPENID_FALLBACK 里再重新部署，最省事。' };
+    }
     if (OPENID !== owner) return { answer: 'AI 教练目前仅开发者本人可用 🙂 训练记录、动作库、考级等功能都可以正常用。' };
   } catch (e) {
     console.error('[deepseek] 鉴权异常', e && e.message);
