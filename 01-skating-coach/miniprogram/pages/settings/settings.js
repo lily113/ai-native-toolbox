@@ -65,13 +65,19 @@ Page({
       dataWhere: '本机 ' + local + ' 条 · 云端 ' + (this.data.cloudCount === undefined ? '?' : this.data.cloudCount) + ' 条'
         + (tail.length ? ' · ' + tail.join(' · ') : '')
     });
-    // 真正去云端问一次（1 次读操作），拿到"云端到底有没有备份"
+    // 真正去云端问一次（自动处理分块），拿到"云端到底有没有备份"
     const oid = app.globalData.openid || this.data.openid;
     if (!oid) return;
-    wx.cloud.database().collection('planner_data').doc(oid).get()
-      .then(res => {
-        const s2 = sync.statsOf((res.data || {}).payload || '');
+    sync.remoteInfo()
+      .then(info => {
+        if (!info) throw new Error('no remote');
+        if (info.layout === 'broken') {
+          this.setData({ cloudCount: -1, dataWhere: '本机 ' + store.loadRecords().length + ' 条 · ⚠️ 云端数据不完整（上次传到一半），请点「上传」重传一次' });
+          return;
+        }
+        const s2 = { records: info.records };
         const localN = store.loadRecords().length;
+        const sizeKb = Math.round(sync.localSize() / 1024);
         const behind = localN - s2.records;
         const meta0 = store.load(store.KEYS.meta) || {};
         const lastExp = Number(meta0.lastExportAt) || 0;
@@ -80,7 +86,7 @@ Page({
           (days > 30 ? '⚠️ 已经 ' + days + ' 天没导出备份了' : '');
         this.setData({
           cloudCount: s2.records,
-          dataWhere: '本机 ' + localN + ' 条 · 云端 ' + s2.records + ' 条'
+          dataWhere: '本机 ' + localN + ' 条（约 ' + sizeKb + 'KB）· 云端 ' + s2.records + ' 条'
             + (behind > 5 ? '（⚠️ 云端比本机少 ' + behind + ' 条，建议点上方「上传」）' : '')
             + (tail.length ? ' · ' + tail.join(' · ') : '')
             + (expTip ? '\n' + expTip : '')
@@ -93,6 +99,30 @@ Page({
   },
 
   // 复制 openid：配云函数的 OWNER_OPENID 环境变量时直接粘，不用手打 28 位
+  // 上传失败时的一键重试：不用等自动退避，也不用再改一次数据
+  retryUpload() {
+    const c = sync.stats();
+    if (!c.pending) { wx.showToast({ title: '本机没有未上传的改动', icon: 'none' }); return; }
+    wx.showLoading({ title: '正在上传…', mask: true });
+    // 兜底：万一网络卡住没回调，最多 45 秒也要把转圈关掉
+    const guard = setTimeout(() => { try { wx.hideLoading(); } catch (e) {} }, 45000);
+    Promise.resolve()
+      .then(() => sync.push(true))
+      .then(() => new Promise(r => setTimeout(r, 600)))
+      .then(() => {
+        clearTimeout(guard);
+        wx.hideLoading();
+        const st = sync.stats();
+        if (st.error && st.pending) {
+          wx.showModal({ title: '还是没传上去', content: st.error + '\n\n本机数据没受影响，云端那份也还是完整的。\n可以换个网络（比如连上 Wi-Fi）后再点一次。', showCancel: false });
+        } else {
+          wx.showToast({ title: '已上传到云端' });
+        }
+        this.onShow();
+      })
+      .catch(() => { clearTimeout(guard); wx.hideLoading(); wx.showToast({ title: '上传失败，稍后再试', icon: 'none' }); });
+  },
+
   copyOpenid() {
     if (!this.data.openid) { wx.showToast({ title: '还没取到身份', icon: 'none' }); return; }
     wx.setClipboardData({
