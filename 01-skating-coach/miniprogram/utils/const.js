@@ -120,9 +120,60 @@ const EXAM_SECTIONS = {
   dance: ['我的要点']
 };
 
+// ---------- 内置考纲骨架 ----------
+// ⚠️ 版权与做法（重要，改这里之前先读）：
+//   《国家花样滑冰等级测试大纲（第2版）》由 中国花样滑冰协会 审定、**人民体育出版社**出版
+//   （ISBN 978-7-5009-6516-9，版权页写明「版权所有·侵权必究」），是受著作权保护的出版物。
+//   所以这个 App **只内置「结构」**——级别、官方分节名称、以及用户自己写的内容；
+//   **不复制官方正文**（要点、评判说明等正文一律留空，由用户自己在「我的要点」里记）。
+//   官方原文请查阅纸质书或官方渠道。
+const SYLLABUS_SOURCE = '《国家花样滑冰等级测试大纲（第2版）》· 中国花样滑冰协会 审定 · 人民体育出版社';
+
+// 每个项目的官方分节名称（取自原书目录，只有"节的名字"，没有正文）
+const SYL_SECTIONS = {
+  steps: [
+    { key: 'intro', name: '步法简介' },
+    { key: 'key-steps', name: '重点步法说明' },
+    { key: 'test', name: '测试标准明细' }
+  ],
+  free: [
+    { key: 'content', name: '测试内容' },
+    { key: 'pass', name: '评判标准 · 通过标准' },
+    { key: 'fail', name: '评判标准 · 未通过标准' }
+  ],
+  dance: [
+    { key: 'goal', name: '目的和任务' },
+    { key: 'content', name: '测试内容' },
+    { key: 'test', name: '测试标准明细' }
+  ]
+};
+const CN_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+
+// 生成一个级别的骨架条目：官方分节全部留空 + 一个可编辑的「我的要点」
+function sylLevel(kind, level, note) {
+  const sections = (SYL_SECTIONS[kind] || []).map(sec => ({
+    key: sec.key, name: sec.name, userAdd: false, items: []
+  }));
+  sections.push({ key: 'my-points', name: '我的要点', userAdd: true, items: [] });
+  return {
+    key: kind + '-' + (note || level),
+    kind: kind,
+    level: level,
+    source: SYLLABUS_SOURCE,
+    sections: sections
+  };
+}
+function sylRange(kind, levels) {
+  return levels.map(lv => sylLevel(kind, lv, lv));
+}
+
 // 内置考纲（只读）：内容摘自《国家花样滑冰等级测试大纲（第2版）》相应页，仅供备考参考，请以官方原文为准。
 // 使用固定 key，用户个性化内容按 key 关联，因此用户不需要（也不能）编辑考纲本体。
 const SYLLABUS = [
+  // 以下为「只有结构、没有正文」的骨架：级别齐全，正文留空给你自己填
+  ...sylRange('free', CN_NUM.map(n => n + '级')),
+  ...sylRange('steps', ['基础级', '一级', '二级', '三级']),
+
   {
     key: 'steps-4',
     kind: 'steps',
@@ -210,7 +261,9 @@ const SYLLABUS = [
       },
       { key: 'my-points', name: '我的要点', userAdd: true, items: [] }
     ]
-  }
+  },
+  ...sylRange('steps', ['五级', '六级', '七级', '八级', '九级', '十级']),
+  ...sylRange('dance', CN_NUM.slice(0, 6).map(n => n + '级'))
 ];
 
 module.exports = {

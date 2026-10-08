@@ -12,7 +12,7 @@
       <view class="ec-cd" wx:if="{{it.cdText}}">⏳ {{it.cdText}}</view>
       <view class="ec-meta">
         <text wx:if="{{it.date}}">📅 {{it.date}}</text>
-        <text>📝 {{it.itemCount}} 条</text>
+        <text wx:if="{{it.itemCount}}">📝 {{it.itemCount}} 条</text>
         <text wx:if="{{it.myCount}}">★ 我的 {{it.myCount}}</text>
         <text wx:if="{{it.imgCount}}">📷 {{it.imgCount}}</text>
       </view>
