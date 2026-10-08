@@ -470,7 +470,18 @@ Page({
       wx.showToast({ title: '已开启自动同步' });
       setTimeout(() => sync.pull(false), 600);
     } else {
-      wx.showToast({ title: '已关闭自动同步' });
+      wx.showModal({
+        title: '⚠️ 关闭自动同步的后果',
+        content: '关闭后：本机改动不会再上传云端。\n\n一旦删除小程序或换手机，本机数据会被清空，而云端只有关闭之前的版本，之后记的内容会丢。\n\n建议保持开启；如果确实要关，请定期「导出为文件」备份。',
+        confirmText: '仍要关闭',
+        cancelText: '保持开启',
+        success: r => {
+          if (r.confirm) { wx.showToast({ title: '已关闭，记得定期导出备份', icon: 'none', duration: 3000 }); return; }
+          sync.setAuto(true);
+          this.setData({ auto: true });
+          wx.showToast({ title: '已保持开启' });
+        }
+      });
     }
   },
 
@@ -617,15 +628,31 @@ Page({
     });
   },
 
+  // 清空本机数据：两步确认 + 明确「云端那份还在」+ 清完给出恢复入口提示
   clearData() {
+    const n = store.loadRecords().length;
     wx.showModal({
-      title: '清空',
-      content: '确定清空本机所有训练数据？',
+      title: '⚠️ 清空本机数据',
+      content: '本机现有 ' + n + ' 条记录。\n\n这只清本机，云端那份不受影响——清完可以点「从云端恢复」拉回来。\n\n但云端只有你**上次成功上传**的版本，之后的改动会丢。建议先「导出为文件」。',
+      confirmText: '继续',
       success: r => {
         if (!r.confirm) return;
-        Object.keys(store.KEYS).forEach(k => wx.removeStorageSync(store.KEYS[k]));
-        wx.showToast({ title: '已清空' });
-        this.onShow();
+        wx.showModal({
+          title: '最后确认',
+          content: '真的要清空本机所有数据吗？',
+          confirmText: '确认清空',
+          confirmColor: '#dc2626',
+          success: r2 => {
+            if (!r2.confirm) return;
+            Object.keys(store.KEYS).forEach(k => wx.removeStorageSync(store.KEYS[k]));
+            wx.showModal({
+              title: '已清空本机数据',
+              showCancel: false,
+              content: '本机记录已清空。\n\n云端那份还在：到「云同步 → ☁️ 从云端恢复（合并）」可以拉回来。'
+            });
+            this.onShow();
+          }
+        });
       }
     });
   }
