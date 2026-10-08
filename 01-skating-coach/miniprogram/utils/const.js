@@ -1,6 +1,6 @@
 // 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
-const APP_VERSION = '2026.10.08.3';
+const APP_VERSION = '2026.10.08.4';
 
 // ---------- 对外发布的功能开关 ----------
 // 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
@@ -107,17 +107,23 @@ const LESSON_FORMS = {
 };
 
 // ---------- 考级备考 ----------
+// 级别划分依据《国家花样滑冰等级测试大纲（第2版）》第一章 总则：
+//   单人滑：步法表演节目 基础级至10级，自由滑 1至10级
+//   成人单人滑：步法表演节目 1至6级，自由滑 1至6级
+//   冰上舞蹈：1至6级        双人滑：1至3级
 const EXAM_KINDS = {
   free:  { name: '自由滑' },
   steps: { name: '步法' },
-  // ↓ 为冰舞考级预置（官方等级测试含「冰上舞蹈」三级~六级）
-  dance: { name: '冰上舞蹈' }
-  // 若以后练双人滑，加一行即可：pair: { name: '双人滑' }
+  dance: { name: '冰上舞蹈' },
+  adult: { name: '成人' },
+  pair:  { name: '双人滑' }
 };
 const EXAM_SECTIONS = {
   free: ['我的要点'],
   steps: ['我的要点'],
-  dance: ['我的要点']
+  dance: ['我的要点'],
+  adult: ['我的要点'],
+  pair: ['我的要点']
 };
 
 // ---------- 内置考纲骨架 ----------
@@ -130,6 +136,8 @@ const EXAM_SECTIONS = {
 const SYLLABUS_SOURCE = '《国家花样滑冰等级测试大纲（第2版）》· 中国花样滑冰协会 审定 · 人民体育出版社';
 
 // 每个项目的官方分节名称（取自原书目录，只有"节的名字"，没有正文）
+// ⚠️ key 必须全是 ASCII：列表页跳转详情页时会把 id（= sy_ + key）拼进 navigateTo 的 URL，
+//    中文/非 ASCII 参数会被转坏 → 详情页找不到 → 报「考级不存在」。level 才是给人看的中文名。
 const SYL_SECTIONS = {
   steps: [
     { key: 'intro', name: '步法简介' },
@@ -146,34 +154,40 @@ const SYL_SECTIONS = {
     { key: 'goal', name: '目的和任务' },
     { key: 'content', name: '测试内容' },
     { key: 'test', name: '测试标准明细' }
+  ],
+  pair: [
+    { key: 'goal', name: '目的和任务' },
+    { key: 'content', name: '测试内容' },
+    { key: 'test', name: '测试要求' }
   ]
 };
 const CN_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
 
 // 生成一个级别的骨架条目：官方分节全部留空 + 一个可编辑的「我的要点」
-function sylLevel(kind, level, note) {
-  const sections = (SYL_SECTIONS[kind] || []).map(sec => ({
+//   kind    = 归到哪个项目（决定列表分组）
+//   secKind = 用哪套官方分节名称（成人沿用单人滑的分节）
+function sylLevel(kind, level, key, secKind) {
+  const sections = (SYL_SECTIONS[secKind || kind] || []).map(sec => ({
     key: sec.key, name: sec.name, userAdd: false, items: []
   }));
   sections.push({ key: 'my-points', name: '我的要点', userAdd: true, items: [] });
-  return {
-    key: kind + '-' + (note || level),
-    kind: kind,
-    level: level,
-    source: SYLLABUS_SOURCE,
-    sections: sections
-  };
+  return { key: key, kind: kind, level: level, source: SYLLABUS_SOURCE, sections: sections };
 }
-function sylRange(kind, levels) {
-  return levels.map(lv => sylLevel(kind, lv, lv));
+// pairs = [[显示用的级别名, ASCII key], ...]
+function sylRange(kind, pairs, secKind) {
+  return pairs.map(p => sylLevel(kind, p[0], p[1], secKind));
 }
+// 一~十级的中文名
+const CN_LEVELS = CN_NUM.map(n => n + '级');
 
 // 内置考纲（只读）：内容摘自《国家花样滑冰等级测试大纲（第2版）》相应页，仅供备考参考，请以官方原文为准。
 // 使用固定 key，用户个性化内容按 key 关联，因此用户不需要（也不能）编辑考纲本体。
 const SYLLABUS = [
-  // 以下为「只有结构、没有正文」的骨架：级别齐全，正文留空给你自己填
-  ...sylRange('free', CN_NUM.map(n => n + '级')),
-  ...sylRange('steps', ['基础级', '一级', '二级', '三级']),
+  // 单人滑 · 自由滑 1–10 级（书名与级别依据：第一章 总则）
+  ...sylRange('free', CN_LEVELS.map((lv, i) => [lv, 'free-' + (i + 1)])),
+  // 单人滑 · 步法表演节目：基础级 + 1–10 级（四级是你自己转录的那份，见下面 legacy）
+  sylLevel('steps', '基础级', 'steps-0'),
+  ...sylRange('steps', [['一级', 'steps-1'], ['二级', 'steps-2'], ['三级', 'steps-3']]),
 
   {
     key: 'steps-4',
@@ -263,8 +277,15 @@ const SYLLABUS = [
       { key: 'my-points', name: '我的要点', userAdd: true, items: [] }
     ]
   },
-  ...sylRange('steps', ['五级', '六级', '七级', '八级', '九级', '十级']),
-  ...sylRange('dance', CN_NUM.slice(0, 6).map(n => n + '级'))
+  ...sylRange('steps', [['五级', 'steps-5'], ['六级', 'steps-6'], ['七级', 'steps-7'],
+                       ['八级', 'steps-8'], ['九级', 'steps-9'], ['十级', 'steps-10']]),
+  // 冰上舞蹈 1–6 级
+  ...sylRange('dance', CN_LEVELS.slice(0, 6).map((lv, i) => [lv, 'dance-' + (i + 1)])),
+  // 成人单人滑：自由滑 1–6 级、步法表演节目 1–6 级（分节沿用单人滑那套）
+  ...sylRange('adult', CN_LEVELS.slice(0, 6).map((lv, i) => ['自由滑 · ' + lv, 'adult-f' + (i + 1)]), 'free'),
+  ...sylRange('adult', CN_LEVELS.slice(0, 6).map((lv, i) => ['步法 · ' + lv, 'adult-s' + (i + 1)]), 'steps'),
+  // 双人滑 1–3 级
+  ...sylRange('pair', [['一级', 'pair-1'], ['二级', 'pair-2'], ['三级', 'pair-3']])
 ];
 
 module.exports = {

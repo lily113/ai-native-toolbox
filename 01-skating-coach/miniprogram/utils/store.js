@@ -641,6 +641,25 @@ function ensureExams() {
       changed = true;
     }
   });
+  // 迁移：清掉「曾经内置、后来改了 key」的空白壳（早期版本用中文 key 生成过 sy_free-一级 这类）。
+  // 只删既不在当前考纲里、又完全没内容的；用户写过东西的一律保留。
+  const known = {};
+  SYLLABUS.forEach(sy => { known[sy.key] = 1; });
+  arr = arr.filter(e => {
+    if (!e || !e.key || known[e.key]) return true;        // 自建考级(key='')或当前内置 → 保留
+    const hasContent = !!e.date || !!e.star ||
+      (e.note && String(e.note).trim()) ||
+      (Array.isArray(e.images) && e.images.length) ||
+      (Array.isArray(e.myItems) && e.myItems.length) ||
+      (Array.isArray(e.mySections) && e.mySections.length) ||
+      Object.keys(e.itemExtra || {}).some(k => {
+        const v = e.itemExtra[k] || {};
+        return (v.points || []).length || (v.mistakes || []).length || v.note || v.moveId;
+      });
+    if (hasContent) return true;                          // 有内容 → 留着
+    changed = true;
+    return false;                                        // 空白壳 → 清掉
+  });
   arr.forEach(e => {
     const b = JSON.stringify(e);
     normalizeExam(e);

@@ -14,3 +14,17 @@
 
 .restore { margin-top: 14px; text-align: center; font-size: 12px; color: #64748B; padding: 6px 0; }
 .eg-cnt { font-size: 11px; color: #94a3b8; font-weight: 500; }
+
+/* 我的考级 / 全部级别 */
+.tip-b { color: #0c4a6e; font-weight: 700; }
+.mine-head { display: flex; align-items: baseline; justify-content: space-between; margin: 12px 2px 8px; }
+.mine-title { font-size: 15px; font-weight: 800; color: #0c4a6e; }
+.mine-sub { font-size: 12px; color: #94a3b8; }
+.mine-empty { background: #fff; border: 1px dashed #cfe8f7; border-radius: 14px; padding: 12px 14px; font-size: 12.5px; color: #64748B; line-height: 1.7; margin-bottom: 10px; }
+.ec-kind { font-size: 12px; font-weight: 600; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 2px 8px; margin-right: 8px; }
+.ec-star { font-size: 19px; line-height: 1; color: #cbd5e1; padding: 2px 4px; flex: none; }
+.ec-star.on { color: #f59e0b; }
+.all-toggle { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #cfe8f7; border-radius: 14px; padding: 12px 14px; margin: 14px 0 10px; }
+.at-chev { font-size: 13px; color: #0284c7; width: 14px; }
+.at-name { font-size: 15px; font-weight: 700; color: #0c4a6e; }
+.at-cnt { font-size: 12px; color: #94a3b8; margin-left: auto; }

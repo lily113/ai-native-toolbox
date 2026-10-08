@@ -1,13 +1,17 @@
 <view class="page">
-  <view class="muted tip">考纲内容为内置（只读）；你可以对每条考纲补充「我的要点 / 我的易犯错误」，也可以自建分节与条目。</view>
+  <view class="muted tip">考纲只内置<text class="tip-b">级别与分节名称</text>（官方正文请查《国家花样滑冰等级测试大纲（第2版）》）；每一级都能补充「我的要点 / 我的易犯错误」，也可以自建分节与条目。</view>
 
-  <block wx:for="{{groups}}" wx:for-item="g" wx:key="kind">
-    <view class="grp-title">{{g.name}}</view>
-    <view class="exam-card" wx:for="{{g.list}}" wx:for-item="it" wx:key="id"
+  <!-- 我的考级：关注过的 / 设了考级日期的级别 -->
+  <view class="mine-head">
+    <text class="mine-title">⭐ 我的考级</text>
+    <text class="mine-sub" wx:if="{{mine.length}}">{{mine.length}} 个</text>
+  </view>
+  <block wx:if="{{mine.length}}">
+    <view class="exam-card" wx:for="{{mine}}" wx:for-item="it" wx:key="id"
           bindtap="open" data-id="{{it.id}}">
       <view class="ec-top">
-        <view class="ec-level">{{it.level}}<text class="ec-tag" wx:if="{{it.builtin}}">内置考纲</text></view>
-        <view class="ec-del" wx:if="{{!it.builtin}}" catchtap="del" data-id="{{it.id}}">删除</view>
+        <view class="ec-level"><text class="ec-kind">{{it.kindName}}</text>{{it.level}}</view>
+        <view class="ec-star on" catchtap="toggleStar" data-id="{{it.id}}">⭐</view>
       </view>
       <view class="ec-cd" wx:if="{{it.cdText}}">⏳ {{it.cdText}}</view>
       <view class="ec-meta">
@@ -18,7 +22,38 @@
       </view>
       <view class="ec-note" wx:if="{{it.note}}">{{it.note}}</view>
     </view>
-    <view class="empty" wx:if="{{!g.list.length}}">还没有{{g.name}}内容</view>
+  </block>
+  <view class="mine-empty" wx:else>
+    还没有关注的级别。到下面「全部级别」里点某一级右边的 ☆，把你要考的那几级收进来——设了考级日期也会自动进来。
+  </view>
+
+  <!-- 全部级别：默认折叠，避免一屏堆几十个级别 -->
+  <view class="all-toggle" bindtap="toggleAll">
+    <text class="at-chev">{{allOn ? '▾' : '▸'}}</text>
+    <text class="at-name">全部级别</text>
+    <text class="at-cnt">{{allCount}} 个</text>
+  </view>
+
+  <block wx:if="{{allOn}}">
+    <block wx:for="{{groups}}" wx:for-item="g" wx:key="kind">
+      <view class="grp-title">{{g.name}}<text class="eg-cnt" wx:if="{{g.list.length}}"> · {{g.list.length}}</text></view>
+      <view class="exam-card" wx:for="{{g.list}}" wx:for-item="it" wx:key="id"
+            bindtap="open" data-id="{{it.id}}">
+        <view class="ec-top">
+          <view class="ec-level">{{it.level}}<text class="ec-tag" wx:if="{{it.builtin}}">内置考纲</text></view>
+          <view class="ec-star {{it.star ? 'on' : ''}}" catchtap="toggleStar" data-id="{{it.id}}">{{it.star ? '⭐' : '☆'}}</view>
+        </view>
+        <view class="ec-cd" wx:if="{{it.cdText}}">⏳ {{it.cdText}}</view>
+        <view class="ec-meta">
+          <text wx:if="{{it.date}}">📅 {{it.date}}</text>
+          <text wx:if="{{it.itemCount}}">📝 {{it.itemCount}} 条</text>
+          <text wx:if="{{it.myCount}}">★ 我的 {{it.myCount}}</text>
+          <text wx:if="{{it.imgCount}}">📷 {{it.imgCount}}</text>
+        </view>
+        <view class="ec-note" wx:if="{{it.note}}">{{it.note}}</view>
+        <view class="ec-del" wx:if="{{!it.builtin}}" catchtap="del" data-id="{{it.id}}">删除</view>
+      </view>
+    </block>
   </block>
 
   <button class="btn" bindtap="add">＋ 新建考级</button>
