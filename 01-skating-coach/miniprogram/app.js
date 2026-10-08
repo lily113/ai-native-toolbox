@@ -31,12 +31,14 @@ App({
         const res = (r && r.result) || {};
         if (res.openid) app.globalData.openid = res.openid;
         app.globalData.isOwner = !!res.isOwner;
+        app.globalData.ownerConfigured = !!res.ownerConfigured;
         if (!res.ownerConfigured) console.warn('未配置 OWNER_OPENID：AI 教练对所有人关闭');
       }).catch(() => {});
     } catch (e) {}
   },
   globalData: {
     openid: '',
-    isOwner: false        // 默认不显示（等 login 云函数确认后才打开）
+    isOwner: false,           // 默认不显示（等 login 云函数确认后才打开）
+    ownerConfigured: null     // null=还没问到；false=云函数没配 OWNER_OPENID
   }
 });

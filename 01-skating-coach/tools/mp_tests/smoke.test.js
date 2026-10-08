@@ -110,6 +110,9 @@ if (!require(MP + '/utils/const').POSE_ENABLED) {
 const syncSrc = readIf(MP + '/utils/sync.js');
 ok(syncSrc.indexOf('_openid: oid') > -1, '历史快照查询按自己的 openid 限定（防跨用户读取）');
 ok(idxWxml.indexOf('firstRun') > -1, '首页有新用户上手引导');
+const setWxml = readIf(MP + '/pages/settings/settings.wxml');
+ok(setWxml.indexOf('copyOpenid') > -1, '设置页：能一键复制 openid（配 OWNER_OPENID 用）');
+ok(setWxml.indexOf('aiStatus') > -1, '设置页：显示 AI 教练对谁开放');
 
 console.log(fail ? ('\n✗ 失败 ' + fail + ' 项 —— 先别发！') : '\n✓ 全部通过：每一页都能加载，启动流程与对外闸门正常');
 process.exit(fail ? 1 : 0);
