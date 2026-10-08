@@ -111,10 +111,96 @@ ok(/store\.mergeMoveLibraries/.test(setJs) && /sync\.listHistory/.test(setJs),
 console.log('⑤ 拉取（云端）也走深合并：云端那份组合更全时能补回本机');
 const cfgK = 'planner_sync_meta_v1';
 mem[cfgK] = { auto: false, seenTs: 0, lastEdit: 0 };
-store.saveMoves([{ id: 'mv_out', name: '外勾步', category: 'step', drills: [] }]);
+store.saveMoves(store.ensureMoves().map(m => m.id === 'mv_out' ? Object.assign({}, m, { drills: [] }) : m));
 const m5 = store.mergeMoveLibraries(store.ensureMoves(), [{ id: 'mv_out', name: '外勾步', category: 'step', drills: [{ id: 'zz', name: '另一种组合' }] }]);
 ok(m5.moves[0].drills.length === 1 && m5.moves[0].drills[0].name === '另一种组合',
    '同 id 的动作：云端多出来的组合被并进来了');
+
+console.log('⑦ 改动作名称：id 不变，历史记录、卡片都不受影响');
+const before = store.ensureMoves().filter(m => m.name === '内勾步')[0];
+const ro = store.renameMove(before.id, '内勾步（改）');
+ok(ro.ok && ro.name === '内勾步（改）', '改名成功：' + JSON.stringify(ro));
+const after = store.ensureMoves().filter(m => m.id === before.id)[0];
+ok(after && after.name === '内勾步（改）', '同一 id 上新名字生效');
+ok(after.drills.length === 1, '改名不影响它的组合（' + after.drills.map(d => d.name).join('/') + '）');
+ok(store.loadRecords()[0].moves.indexOf(before.id) > -1, '记录里的动作引用还是这个 id');
+// 只有一个组合的动作，卡片是"动作名 + 组合同一行"（kind: one），所以名字在 l.name 上
+const cardTxt0 = store.recordLines(store.loadRecords()[0], () => '').map(l => (l.text || '') + ' ' + (l.name || '')).join('|');
+ok(cardTxt0.indexOf('内勾步（改）') > -1, '首页卡片显示的是新名字：' + cardTxt0);
+ok(!store.renameMove(before.id, '   ').ok, '空名字会被拒绝');
+// 改成另一个已存在的动作名 → 合并，不产生两条同名
+const dup = store.renameMove(before.id, '外勾步');
+ok(dup.ok && dup.merged >= 1, '改成同名动作 → 自动合并（并了 ' + (dup.merged || 0) + ' 条）');
+ok(store.ensureMoves().filter(m => m.name === '外勾步').length === 1, '不会出现两条同名动作');
+
+console.log('⑧ 把组合挪到别的动作下（你的例子：变刃步伐串的 2 个组合 → 膝关节韵律练习）');
+store.saveMoves([
+  { id: 'mv_bianren', name: '变刃步伐串', category: 'other', sort: 0, c: 20, drills: [
+    { id: 'bd1', name: '前外刃变后内刃 ×20', c: 1 }, { id: 'bd2', name: '连续变刃过桩 ×10', c: 2 }] },
+  { id: 'mv_xiguan', name: '膝关节韵律练习', category: 'topic', sort: 0, c: 21, drills: [
+    { id: 'kg1', name: '抱膝滑动 ×10', c: 1 }] }
+]);
+store.saveRecords([{
+  id: 'rec_bd', date: '2026-09-26', type: 'ice', mode: 'self', duration: 90,
+  content: '【变刃步伐串】前外刃变后内刃 ×20\n【变刃步伐串】连续变刃过桩 ×10',
+  moves: ['mv_bianren'], drills: ['bd1', 'bd2'],
+  itemOrder: ['m:mv_bianren::d:bd1', 'm:mv_bianren::d:bd2'], examPicks: []
+}]);
+const mo = store.moveDrillsTo(['bd1', 'bd2'], 'mv_xiguan');
+ok(mo.ok && mo.moved === 2, '移动成功：' + JSON.stringify(mo));
+let lib = store.ensureMoves();
+let src = lib.filter(m => m.id === 'mv_bianren')[0];
+let dst = lib.filter(m => m.id === 'mv_xiguan')[0];
+ok(src.drills.length === 0, '原动作下的组合清空（实际 ' + src.drills.length + '）');
+ok(dst.drills.length === 3, '新动作下有 3 个组合：' + dst.drills.map(d => d.name).join(' / '));
+ok(dst.drills.filter(d => d.id === 'bd1' || d.id === 'bd2').length === 2, '组合 id 没变（历史记录不会断链）');
+const recBd = store.loadRecords().filter(r => r.id === 'rec_bd')[0];
+ok(recBd.moves.indexOf('mv_xiguan') > -1, '记录里加上了新动作的引用');
+ok(recBd.moves.indexOf('mv_bianren') < 0, '旧动作的引用被去掉（记录里已经没有它的组合了）');
+ok(recBd.itemOrder.every(k => k.indexOf('mv_xiguan::d:') > -1), 'itemOrder 也跟着改到新动作：' + recBd.itemOrder.join(' , '));
+const card = store.recordLines(recBd, () => '');
+const cardTxt = card.map(l => l.text).join(' | ');
+ok(cardTxt.indexOf('膝关节韵律练习') > -1 && cardTxt.indexOf('前外刃变后内刃 ×20') > -1,
+   '首页卡片把它们显示在新动作下：' + cardTxt.slice(0, 70));
+ok(card.filter(l => l.text.indexOf('变刃步伐串') > -1).length === 0, '卡片上不再出现旧动作名');
+ok(mo.records === 1, '报告更新了 1 条历史记录（实际 ' + mo.records + '）');
+ok(!store.moveDrillsTo(['bd1'], 'mv_xiguan').ok, '重复移动同一个组合会被拒绝（目标已有）');
+
+console.log('⑨ 页面接线：改名弹窗 / 点选组合 / 选目标动作');
+let cap = null; global.Page = o => { cap = o; };
+delete require.cache[require.resolve(MP + '/pages/move/move.js')];
+require(MP + '/pages/move/move.js');
+const pg = Object.create(null); Object.keys(cap).forEach(k => { pg[k] = cap[k]; });
+pg.data = JSON.parse(JSON.stringify(cap.data || {}));
+pg.setData = function (o, cb) { Object.assign(this.data, o); if (cb) cb(); };
+let modalQ = null, modalContent = '';
+global.wx.showModal = o => {
+  modalQ = o;
+  if (o && o.editable) o.success({ confirm: true, content: modalContent });
+  else if (o && o.success) o.success({ confirm: true });
+};
+pg.onLoad({ id: 'mv_xiguan' });
+pg.onShow();
+ok(pg.data.name === '膝关节韵律练习' && pg.data.drills.length === 3, '打开动作页：3 个组合');
+modalContent = '膝环节律练习';
+pg.renameMove();
+ok(modalQ && modalQ.editable === true, '点动作名弹的是可输入的名字弹窗');
+ok(store.ensureMoves().filter(m => m.name === '膝环节律练习').length === 1, '页面改名落到动作库');
+pg.reload();
+pg.toggleDrillSel();
+pg.tapDrill({ currentTarget: { dataset: { id: 'bd1' } } });
+pg.tapDrill({ currentTarget: { dataset: { id: 'bd2' } } });
+ok(pg.data.drillPickN === 2, '在页面上点选 2 个组合（实际 ' + pg.data.drillPickN + '）');
+pg.tapDrill({ currentTarget: { dataset: { id: 'bd2' } } });
+ok(pg.data.drillPickN === 1, '再点一次取消选择');
+pg.tapDrill({ currentTarget: { dataset: { id: 'bd2' } } });
+pg.openPick();
+ok(pg.data.pickOn === true && pg.data.pickList.length > 0, '弹出目标动作列表（' + pg.data.pickList.length + ' 个可选）');
+ok(pg.data.pickList.every(x => x.id !== 'mv_xiguan'), '列表里不含自己');
+pg.doMoveDrill({ currentTarget: { dataset: { id: 'mv_bianren' } } });
+lib = store.ensureMoves();
+ok(lib.filter(m => m.id === 'mv_bianren')[0].drills.length === 2, '页面操作把 2 个组合移回了「变刃步伐串」');
+ok(pg.data.pickOn === false && pg.data.drillSelOn === false, '移完自动退出选择模式');
 
 console.log(fail ? ('\n✗ 失败 ' + fail + ' 项') : '\n✓ 全部通过：动作库的组合不会再被合并吃掉');
 process.exit(fail ? 1 : 0);

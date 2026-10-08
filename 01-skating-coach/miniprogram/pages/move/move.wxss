@@ -31,3 +31,13 @@
 .picker-like { width: 100%; box-sizing: border-box; border: 1px solid #cfe8f7; border-radius: 10px; padding: 10px 12px; font-size: 15px; background: #fff; color: #075985; }
 
 .edit-link { float: right; font-size: 12px; font-weight: 600; color: #0284c7; }
+.rename-ico { margin-left: 8px; font-size: 15px; opacity: .55; }
+.sel-tip { margin: 6px 0 10px; padding: 8px 12px; border-radius: 10px; background: #eaf4fb;
+  color: #0369a1; font-size: 12px; line-height: 1.5; }
+.drill.picked { background: #ecfdf5; border-radius: 12px; }
+.drill.picked .drill-no { background: #10b981; color: #fff; }
+.pick-q { margin: 8px 0; }
+.pick-list { max-height: 46vh; }
+.pick-row { padding: 12px 4px; border-bottom: 1px solid #eef2f7; }
+.pick-row-name { font-size: 15px; color: #0f172a; font-weight: 600; }
+.pick-row-sub { margin-top: 2px; font-size: 12px; color: #94a3b8; }

@@ -482,15 +482,14 @@ function mergeMoveLibraries(local, incoming) {
     stat.added++;
     return c;
   };
-  (Array.isArray(local) ? local : []).forEach(m => { if (m && m.name) put(m); });
-  stat.added = 0;                       // local 那一份不算"新增"
-  (Array.isArray(incoming) ? incoming : []).forEach(m => {
+  // 同一条数据内部也可能有重复（历史遗留/多次导入）：走同一套合并逻辑，
+  // 否则 ensureMoves 就"再也不去重"了（组合虽然不丢，但库里会一直挂着两条同名动作）。
+  const addOne = m => {
     if (!m || !m.name) return;
     const hit = (m.id && byId[m.id]) || byName[keyOf(m)];
     if (!hit) { put(m); return; }
     stat.merged++;
     if (m.id && hit.id && m.id !== hit.id) moveMap[m.id] = hit.id;
-    // 同名组合的 id 也要映射（记录里可能引用的是另一条上的 id）
     (m.drills || []).forEach(d => {
       if (!d || !d.id) return;
       const same = hit.drills.filter(x => normName(x.name) === normName(d.name))[0];
@@ -503,13 +502,85 @@ function mergeMoveLibraries(local, incoming) {
     out[i] = merged;
     if (merged.id) byId[merged.id] = merged;
     byName[keyOf(merged)] = merged;
-  });
+  };
+  (Array.isArray(local) ? local : []).forEach(addOne);
+  stat.added = 0;                       // local 那一份不算"新增动作"
+  (Array.isArray(incoming) ? incoming : []).forEach(addOne);
   return { moves: out, moveMap: moveMap, drillMap: drillMap, stat: stat };
 }
 // 老名字保留：去重（现在是"合并"而不是"丢掉"）
 function dedupeMoves(moves) {
   return mergeMoveLibraries([], moves).moves;
 }
+// 改动作的名字（记录里引用的 id 不变，所以历史记录、卡片都不受影响）
+function renameMove(id, name) {
+  const nm = String(name || '').trim();
+  if (!nm) return { ok: false, reason: '名称不能为空' };
+  const moves = ensureMoves();
+  const m = moves.filter(x => x.id === id)[0];
+  if (!m) return { ok: false, reason: '找不到这个动作' };
+  const old = m.name;
+  if (old === nm) return { ok: true, name: nm, unchanged: true };
+  // 改名后与别的动作重名 → 合并（组合取并集，记录引用改写），不产生两条同名动作
+  m.name = nm;
+  const lib = mergeMoveLibraries(moves, []);
+  saveMoves(lib.moves);
+  try { remapMoveRefs(lib.moveMap, lib.drillMap); } catch (e) {}
+  return { ok: true, name: nm, from: old, merged: Object.keys(lib.moveMap).length };
+}
+
+// 把若干练习组合挪到另一个动作下。
+// 组合的 id 保持不变 → 历史记录里引用的那个组合不会断；同时把记录里的"动作引用"
+// （moves / itemOrder）也跟过去，否则首页卡片上这个组合会漏掉或还挂在旧动作名下面。
+function moveDrillsTo(ids, toId) {
+  const list = Array.isArray(ids) ? ids : [ids];
+  const moves = ensureMoves();
+  const dst = moves.filter(m => m.id === toId)[0];
+  if (!dst) return { ok: false, reason: '目标动作不存在' };
+  const moved = [];
+  list.forEach(did => {
+    if ((dst.drills || []).some(d => d.id === did)) return;      // 目标那边已经有了
+    for (let i = 0; i < moves.length; i++) {
+      const m = moves[i];
+      if (m.id === toId) continue;
+      const j = (m.drills || []).findIndex(d => d.id === did);
+      if (j < 0) continue;
+      dst.drills = (dst.drills || []).concat([Object.assign({}, m.drills[j])]);
+      m.drills = m.drills.filter(d => d.id !== did);
+      moved.push({ did: did, fromId: m.id, fromName: m.name, name: m.drills.length >= 0 ? m.name : m.name });
+      break;
+    }
+  });
+  if (!moved.length) return { ok: false, reason: '没有可移动的组合（可能目标动作里已经有了）' };
+  saveMoves(moves);
+  const fromIds = moved.map(x => x.fromId).filter((x, i, a) => a.indexOf(x) === i);
+  const touched = [];
+  const recs = loadRecords().map(r => {
+    const hit = moved.filter(x => (r.drills || []).indexOf(x.did) > -1);
+    if (!hit.length) return r;
+    touched.push(r.id);
+    let mv = (r.moves || []).slice();
+    if (mv.indexOf(dst.id) < 0) mv.push(dst.id);
+    fromIds.forEach(fid => {
+      // 这条记录里还有没有"仍属于旧动作"的组合？没有就把旧动作引用去掉
+      const keep = (r.drills || []).some(id => {
+        const f = drillById(id);
+        return f && f.move.id === fid;
+      });
+      if (!keep) mv = mv.filter(id => id !== fid);
+    });
+    mv = mv.filter((x, i) => mv.indexOf(x) === i);
+    const ord = (r.itemOrder || []).map(k => {
+      let out = String(k);
+      hit.forEach(x => { out = out.split('m:' + x.fromId + '::d:' + x.did).join('m:' + dst.id + '::d:' + x.did); });
+      return out;
+    });
+    return Object.assign({}, r, { moves: mv, itemOrder: ord });
+  });
+  if (touched.length) saveRecords(recs);
+  return { ok: true, moved: moved.length, to: dst.name, from: moved.map(x => x.fromName).filter((x, i, a) => a.indexOf(x) === i), records: touched.length };
+}
+
 // 记录里的动作/组合引用跟着合并后的 id 走（moves / drills / itemOrder）
 function remapMoveRefs(moveMap, drillMap) {
   const mk = Object.keys(moveMap || {}), dk = Object.keys(drillMap || {});
@@ -788,7 +859,7 @@ module.exports = {
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS,
-  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs,
+  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey
 };
