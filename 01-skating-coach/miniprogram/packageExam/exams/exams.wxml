@@ -56,6 +56,7 @@
     </block>
   </block>
 
-  <button class="btn" bindtap="add">＋ 新建考级</button>
+  <!-- 官方级别已经齐了（42 个），自建考级只留给"官方级别之外"的用法，收在最下面 -->
+  <view class="selfadd" bindtap="add">＋ 自建考级（官方级别之外的）</view>
   <view class="restore" bindtap="restoreBackup">↩︎ 恢复上次同步前的考级数据</view>
 </view>

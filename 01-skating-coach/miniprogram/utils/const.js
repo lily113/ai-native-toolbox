@@ -1,6 +1,6 @@
 // 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
-const APP_VERSION = '2026.10.08.4';
+const APP_VERSION = '2026.10.08.5';
 
 // ---------- 对外发布的功能开关 ----------
 // 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
@@ -166,9 +166,14 @@ const CN_NUM = ['一', '二', '三', '四', '五', '六', '七', '八', '九', '
 // 生成一个级别的骨架条目：官方分节全部留空 + 一个可编辑的「我的要点」
 //   kind    = 归到哪个项目（决定列表分组）
 //   secKind = 用哪套官方分节名称（成人沿用单人滑的分节）
-function sylLevel(kind, level, key, secKind) {
+function sylLevel(kind, level, key, secKind, items) {
   const sections = (SYL_SECTIONS[secKind || kind] || []).map(sec => ({
-    key: sec.key, name: sec.name, userAdd: false, items: []
+    key: sec.key,
+    name: sec.name,
+    // 官方分节默认只读；「本级步法明细」放开成可加条目，方便你自己往里面补
+    userAdd: sec.key === 'detail',
+    // items 形如 { 'key-steps': ['前外单足弧线', ...] }，只放要素名称，不放正文
+    items: ((items || {})[sec.key] || []).map((t, i) => ({ key: 'e' + (i + 1), title: t, points: [], mistakes: [] }))
   }));
   sections.push({ key: 'my-points', name: '我的要点', userAdd: true, items: [] });
   return { key: key, kind: kind, level: level, source: SYLLABUS_SOURCE, sections: sections };
@@ -186,8 +191,12 @@ const SYLLABUS = [
   // 单人滑 · 自由滑 1–10 级（书名与级别依据：第一章 总则）
   ...sylRange('free', CN_LEVELS.map((lv, i) => [lv, 'free-' + (i + 1)])),
   // 单人滑 · 步法表演节目：基础级 + 1–10 级（四级是你自己转录的那份，见下面 legacy）
-  sylLevel('steps', '基础级', 'steps-0'),
-  ...sylRange('steps', [['一级', 'steps-1'], ['二级', 'steps-2'], ['三级', 'steps-3']]),
+  ...([
+    ['基础级', 'steps-0', ['左右侧蹬冰滑行', '左前交叉步', '左右单足支撑滑行']],
+    ['一级', 'steps-1', ['前外单足弧线', '前内单足弧线', '左、右前交叉步']],
+    ['二级', 'steps-2', ['单足后外弧线', '单足后内弧线', '左、右后交叉步']],
+    ['三级', 'steps-3', ['前外、后外3字步', '前内、后内3字步']]
+  ]).map(x => sylLevel('steps', x[0], x[1], null, { 'key-steps': x[2] })),
 
   {
     key: 'steps-4',
@@ -277,8 +286,14 @@ const SYLLABUS = [
       { key: 'my-points', name: '我的要点', userAdd: true, items: [] }
     ]
   },
-  ...sylRange('steps', [['五级', 'steps-5'], ['六级', 'steps-6'], ['七级', 'steps-7'],
-                       ['八级', 'steps-8'], ['九级', 'steps-9'], ['十级', 'steps-10']]),
+  ...([
+    ['五级', 'steps-5', ['前外、前内摇滚步', '后外、后内摇滚步', '前外闭式乔克塔步']],
+    ['六级', 'steps-6', ['8种不同用刃的括弧步', '前外括弧步', '前内括弧步', '后外括弧步', '后内括弧步']],
+    ['七级', 'steps-7', ['8种不同用刃的内勾步', '前外内勾步', '前内内勾步', '后外内勾步', '后内内勾步']],
+    ['八级', 'steps-8', ['8种不同用刃的外勾步', '前外外勾步', '前内外勾步', '后外外勾步', '后内外勾步']],
+    ['九级', 'steps-9', ['8种不同用刃的结环步', '前内大一字步', '前外结环步', '前内结环步', '后外结环步', '后内结环步']],
+    ['十级', 'steps-10', ['4个外勾步', '4个内勾步', '4个结环步', '4个捻转步', '2个括弧步', '2个开式乔克塔步', '内刃变外刃的大一字步']]
+  ]).map(x => sylLevel('steps', x[0], x[1], null, { 'key-steps': x[2] })),
   // 冰上舞蹈 1–6 级
   ...sylRange('dance', CN_LEVELS.slice(0, 6).map((lv, i) => [lv, 'dance-' + (i + 1)])),
   // 成人单人滑：自由滑 1–6 级、步法表演节目 1–6 级（分节沿用单人滑那套）
