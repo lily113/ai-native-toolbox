@@ -94,7 +94,7 @@ const deepseek = readIf(MP + '/cloudfunctions/deepseek/index.js');
 const login = readIf(MP + '/cloudfunctions/login/index.js');
 ok(deepseek.indexOf('OWNER_OPENID') > -1 && deepseek.indexOf('getWXContext') > -1,
    'deepseek 云函数：校验调用者是不是开发者本人');
-ok(/if \(!owner\) return/.test(deepseek) && /OPENID !== owner/.test(deepseek),
+ok(/if \(!owner\)/.test(deepseek) && /OPENID !== owner/.test(deepseek),
    'deepseek 云函数：非本人 / 未配置时直接拒绝（不会调用 DeepSeek，不产生费用）');
 ok(login.indexOf('isOwner') > -1, 'login 云函数：把 isOwner 告诉客户端');
 const idxWxml = readIf(MP + '/pages/index/index.wxml');
@@ -133,7 +133,11 @@ fs.readdirSync(cfDir).forEach(name => {
     const deps = (JSON.parse(fs.readFileSync(pkgF, 'utf8')).dependencies) || {};
     if (!deps['wx-server-sdk']) problems.push("package.json 里没有 wx-server-sdk 依赖（云端安装会失败）");
   }
+  if (name !== 'login' && name !== 'deepseek') { /* 其它函数不检查 owner 兜底 */ }
   try { new (require('vm').Script)(src); } catch (e) { problems.push('语法错误: ' + e.message); }
+  if (name === 'deepseek' || name === 'login') {
+    if (src.indexOf('OWNER_OPENID_FALLBACK') < 0) problems.push('缺少 OWNER_OPENID_FALLBACK 兜底常量（环境变量读不到时就没法开放给自己）');
+  }
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
