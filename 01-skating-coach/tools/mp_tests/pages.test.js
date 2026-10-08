@@ -130,6 +130,37 @@ const jumpMove = store.ensureMoves().filter(m => m.category === 'jump')[0];
 recPage.toggleMove({ currentTarget: { dataset: { id: jumpMove.id } } });
 ok(recPage.data.selDrillIds.length === 0, '普通动作勾选不会自动勾组合');
 ok(recPage.data.content.indexOf('【' + jumpMove.name + '】') > -1, '普通动作也写进笔记');
+recPage.toggleMove({ currentTarget: { dataset: { id: jumpMove.id } } });
+
+console.log('⑦ 整组：带出后仍能单独取消某个组合');
+recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
+ok(recPage.data.selDrillIds.length === 3, '先整组带出 3 个');
+const firstDrill = recPage.data.movesList.filter(m => m.id === boxMove.id)[0].drills[0];
+recPage.toggleDrill({ currentTarget: { dataset: { mid: boxMove.id, did: firstDrill.id } } });
+ok(recPage.data.selDrillIds.length === 2, '单独取消 1 个 → 剩 2 个，实际 ' + recPage.data.selDrillIds.length);
+ok(recPage.data.content.split('\n').length === 3, '笔记跟着变成 标题 + 2 行');
+ok(recPage.data.content.indexOf(firstDrill.name) === -1, '被取消的组合不在笔记里');
+recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
+
+console.log('⑧ 整组：单个动作可以覆盖分类默认');
+lib = store.ensureMoves();
+lib.forEach(m => { if (m.id === boxMove.id) m.boxMode = 'off'; });
+store.saveMoves(lib);
+recPage.initMoves(null);
+ok(recPage.data.movesList.filter(m => m.id === boxMove.id)[0].box === false,
+   '专题练习里的这个动作被单独关掉整组 → box = false');
+recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
+ok(recPage.data.selDrillIds.length === 0, '关掉后勾动作不再自动带组合');
+lib = store.ensureMoves();
+lib.forEach(m => { if (m.id === boxMove.id) m.boxMode = 'on'; });
+store.saveMoves(lib);
+recPage.initMoves(null);
+ok(recPage.data.movesList.filter(m => m.id === boxMove.id)[0].box === true, '单独打开整组也生效');
+lib = store.ensureMoves();
+lib.forEach(m => { if (m.id === boxMove.id) delete m.boxMode; });
+store.saveMoves(lib);
+recPage.initMoves(null);
+ok(recPage.data.movesList.filter(m => m.id === boxMove.id)[0].box === true, '删掉覆盖项 → 回到跟随分类（整组）');
 
 console.log('④ 分类被删掉后，标签自动回到「全部」');
 const cats = store.cats().filter(c => c.id !== 'topic');

@@ -5,6 +5,9 @@ Page({
     id: '',
     name: '',
     catName: '',
+    catBox: false,
+    boxMode: 'inherit',
+    boxText: '',
     drills: [],
     movePoints: [],
     ptsOn: false, editPts: [],
@@ -35,11 +38,44 @@ Page({
       dateText: (Number(d.c) || 0) > 100000000000 ? store.dateKey(new Date(d.c)) : '',
       points: (d.points && d.points.length) ? d.points : (d.detail ? [d.detail] : [])
     }));
+    const cmap = store.catMap();
+    const cid = store.validCat(m.category);
+    const catName = (cmap[cid] || {}).name || '其他';
+    const catBox = !!(cmap[cid] && cmap[cid].box);
+    const mode = (m.boxMode === 'on' || m.boxMode === 'off') ? m.boxMode : 'inherit';
     this.setData({
       name: m.name,
-      catName: store.catName(store.validCat(m.category)),
+      catName: catName,
+      catBox: catBox,
+      boxMode: mode,
+      // 显示当前实际生效的勾选方式，并说明是从哪来的
+      boxText: mode === 'inherit'
+        ? ('跟随分类「' + catName + '」：' + (catBox ? '整组' : '逐个勾选'))
+        : (mode === 'on' ? '总是整组' : '总是不整组'),
       movePoints: (m.points || []).slice(),
       drills: drills
+    });
+  },
+
+  // 勾选方式：跟随分类 / 总是整组 / 总是不整组
+  pickBox() {
+    wx.showActionSheet({
+      itemList: [
+        '跟随分类「' + this.data.catName + '」（' + (this.data.catBox ? '整组' : '逐个勾选') + '）',
+        '总是整组',
+        '总是不整组'
+      ],
+      success: res => {
+        const mode = ['inherit', 'on', 'off'][res.tapIndex];
+        if (!mode || mode === this.data.boxMode) return;
+        const moves = store.ensureMoves();
+        const it = moves.filter(x => x.id === this.data.id)[0];
+        if (!it) return;
+        if (mode === 'inherit') delete it.boxMode; else it.boxMode = mode;
+        store.saveMoves(moves);
+        this.reload();
+        wx.showToast({ title: mode === 'inherit' ? '已跟随分类' : (mode === 'on' ? '已设为整组' : '已关闭整组') });
+      }
     });
   },
 

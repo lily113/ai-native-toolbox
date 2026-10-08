@@ -137,9 +137,9 @@ Page({
     const selMoves = (rec && Array.isArray(rec.moves)) ? rec.moves : [];
     const selDrills = (rec && Array.isArray(rec.drills)) ? rec.drills : [];
     const movesList = lib.map(m => {
-      // 「串/组」类分类：勾选动作即带出它下面全部组合
+      // 「整组」：单个动作的设置优先，缺省跟随所属分类；勾选动作即带出它下面全部组合
       const cid = store.validCat(m.category);
-      const box = !!(catMap[cid] && catMap[cid].box);
+      const box = store.boxModeOf(m, catMap) === 'on';
       const checked = selMoves.indexOf(m.id) > -1;
       return {
         id: m.id,
