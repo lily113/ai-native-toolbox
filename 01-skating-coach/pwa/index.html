@@ -903,11 +903,22 @@
     lesson: { name: '上课',     emoji: '👨‍🏫', badge: 'mode-lesson' }
   };
   var MOVE_CATS = {
+    warm:  { name: '热身', emoji: '🔥' },
     step:  { name: '步法', emoji: '🦶' },
     spin:  { name: '旋转', emoji: '🌀' },
     jump:  { name: '跳跃', emoji: '🦘' },
+    topic: { name: '专题练习', emoji: '🧩' },
     other: { name: '其他', emoji: '✨' }
   };
+  // 小程序版支持自定义分类；这里把不认识的一律归到「其他」，避免导入后动作"消失"
+  function catOf(m) { return MOVE_CATS[m.category] ? m.category : 'other'; }
+  // 原有 4 类照旧显示（哪怕为空）；新增的热身/专题练习只在真的有动作时才出现
+  function moveCatKeys() {
+    return Object.keys(MOVE_CATS).filter(function (c) {
+      if (c === 'other' || c === 'step' || c === 'spin' || c === 'jump') return true;
+      return moves.some(function (m) { return catOf(m) === c; });
+    });
+  }
   var LEVELS = [
     { name: '未学', cls: 'lv0' },
     { name: '初学', cls: 'lv1' },
@@ -1751,8 +1762,8 @@
     moves.forEach(function (m) { lvCount[m.level] = (lvCount[m.level] || 0) + 1; });
     var html = '<div class="muted" style="margin-bottom:4px">共 ' + moves.length + ' 个动作 · ' +
       LEVELS.map(function (lv, i) { return lv.name + ' ' + (lvCount[i] || 0); }).join(' · ') + '</div>';
-    Object.keys(MOVE_CATS).forEach(function (c) {
-      var list = moves.filter(function (m) { return m.category === c; });
+    moveCatKeys().forEach(function (c) {
+      var list = moves.filter(function (m) { return catOf(m) === c; });
       html += '<div class="stat-sub">' + MOVE_CATS[c].emoji + ' ' + MOVE_CATS[c].name + '（' + list.length + '）</div>';
       html += list.length
         ? '<div class="move-grid">' + list.map(moveCardHTML).join('') + '</div>'
@@ -2027,8 +2038,8 @@
   function renderMovePickerList() {
     var q = (moveSearchEl.value || '').toLowerCase();
     var html = '';
-    Object.keys(MOVE_CATS).forEach(function (c) {
-      var list = moves.filter(function (m) { return m.category === c; });
+    moveCatKeys().forEach(function (c) {
+      var list = moves.filter(function (m) { return catOf(m) === c; });
       if (q) list = list.filter(function (m) {
         if (m.name.toLowerCase().indexOf(q) !== -1) return true;
         return (m.drills || []).some(function (d) { return d.name.toLowerCase().indexOf(q) !== -1; });
