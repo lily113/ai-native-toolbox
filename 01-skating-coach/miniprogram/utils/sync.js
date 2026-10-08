@@ -164,13 +164,27 @@ function dropOldChunks(oid, gen, n) {
   return Promise.all(jobs);
 }
 let fallbackNote = '';        // 分块不可用时退回单文档，成功后仍要在设置页留一句提示
-// 3 块并发写：700 条 = 15 块，串行写要十几秒，用户切走 App 就可能被系统掐掉
-function writeChunks(oid, gen, parts) {
+// 3 块并发写：700 条 = 15 块，串行写要十几秒，用户切走 App 就可能被系统掐掉。
+// 断点续传：已经写成功的块记在本地（cfg.upload.done），下次点上传只补没传的，
+// 网络一直很差也能"每次往前挪一点"，而不是每次都从第 1 块重来。
+function writeChunks(oid, gen, parts, doneList) {
+  const done = {};
+  (Array.isArray(doneList) ? doneList : []).forEach(i => { done[i] = 1; });
   let next = 0;
   const worker = () => {
     const i = next++;
     if (i >= parts.length) return Promise.resolve();
-    return setChunk(oid, gen, i, parts[i], 3).then(worker);
+    if (done[i]) return worker();                 // 上次已经传成功的块，跳过
+    return setChunk(oid, gen, i, parts[i], 3).then(() => {
+      done[i] = 1;
+      const c = cfg();
+      if (c.upload && c.upload.gen === gen) {
+        c.upload.done = (Array.isArray(c.upload.done) ? c.upload.done : []);
+        if (c.upload.done.indexOf(i) < 0) c.upload.done.push(i);
+        saveCfg(c);
+      }
+      return worker();
+    });
   };
   const jobs = [];
   for (let k = 0; k < Math.min(3, parts.length); k++) jobs.push(worker());
@@ -181,11 +195,19 @@ function writePayload(oid, payload, ts) {
   const prev = cfg().lastChunk || null;
   if (payload.length > SINGLE_LIMIT) {
     const parts = splitChunks(payload);
-    return writeChunks(oid, ts, parts)
-      .then(() => col.doc(oid).set({ data: { chunked: true, gen: ts, n: parts.length, size: payload.length, ts: ts } }))
+    // 上次传到一半的记录：长度和块数都没变就接着传（只补缺的块）
+    const u0 = cfg().upload;
+    const resume = (u0 && u0.len === payload.length && u0.total === parts.length && u0.gen) ? u0 : null;
+    const gen = resume ? resume.gen : ts;
+    const done = (resume && Array.isArray(resume.done)) ? resume.done.slice() : [];
+    const cu = cfg();
+    cu.upload = { gen: gen, len: payload.length, total: parts.length, done: done };
+    saveCfg(cu);
+    return writeChunks(oid, gen, parts, done)
+      .then(() => col.doc(oid).set({ data: { chunked: true, gen: gen, n: parts.length, size: payload.length, ts: ts } }))
       .then(() => {
-        const c2 = cfg(); c2.lastChunk = { gen: ts, n: parts.length }; saveCfg(c2);
-        if (prev && prev.gen !== ts) return dropOldChunks(oid, prev.gen, prev.n);
+        const c2 = cfg(); c2.lastChunk = { gen: gen, n: parts.length }; c2.upload = null; saveCfg(c2);
+        if (prev && prev.gen !== gen) return dropOldChunks(oid, prev.gen, prev.n);
       })
       .catch(e => {
         // 兜底：云环境里还没建 planner_data_chunks 集合（或分块被权限挡住）→ 退回老的单文档写法，
@@ -198,7 +220,7 @@ function writePayload(oid, payload, ts) {
   // 小数据：还是单文档（和以前完全一样）
   return col.doc(oid).set({ data: { payload: payload, ts: ts } })
     .then(() => {
-      const c2 = cfg(); c2.lastChunk = null; saveCfg(c2);
+      const c2 = cfg(); c2.lastChunk = null; c2.upload = null; saveCfg(c2);
       if (prev) return dropOldChunks(oid, prev.gen, prev.n);
     });
 }
@@ -272,7 +294,14 @@ function push(manual) {
               markOk('push'); lastPushFailed = false;
               if (fallbackNote) { const c4 = cfg(); c4.lastError = fallbackNote; c4.lastErrorAt = Date.now(); saveCfg(c4); fallbackNote = ''; }
             })
-            .catch(e => { markErr('push', e); lastPushFailed = true; if (manual) notifyFail('上传', e); });
+            .catch(e => {
+              const u = cfg().upload;
+              const n = (u && Array.isArray(u.done)) ? u.done.length : 0;
+              const tot = (u && u.total) || 0;
+              const wrapped = (tot && n) ? { message: '分块上传中断：已写入 ' + n + '/' + tot + ' 块，下次会自动接着传（' + ((e && (e.errMsg || e.message)) || '') + '）' } : e;
+              markErr('push', wrapped); lastPushFailed = true;
+              if (manual) notifyFail('上传', wrapped);
+            });
         };
         if (remoteDoc && remoteDoc.payload) {
           const remoteS = statsOf(remoteDoc.payload);
