@@ -377,7 +377,13 @@ function pull(manual) {
           store.save(store.KEYS.records, mergeArrays(store.loadRecords(), data.records, localNewer));
           try { store.migrateMergeNotes(); } catch (e) {}
           store.save(store.KEYS.templates, mergeArrays(store.load(store.KEYS.templates) || [], data.templates, localNewer));
-          store.save(store.KEYS.moves, store.dedupeMoves(mergeArrays(store.ensureMoves(), data.moves, localNewer)));
+          // 动作库：**深合并**（同 id / 同名都要把对方多出来的组合并进来），
+          // 以前是"整条选一边"，云端/备份里更全的组合会被丢掉 = 外勾步组合消失的那类问题
+          try {
+            const mLib = store.mergeMoveLibraries(store.ensureMoves(), data.moves);
+            store.save(store.KEYS.moves, mLib.moves);
+            store.remapMoveRefs(mLib.moveMap, mLib.drillMap);
+          } catch (e) { store.save(store.KEYS.moves, store.dedupeMoves(mergeArrays(store.ensureMoves(), data.moves, localNewer))); }
           if (Array.isArray(data.cats) && data.cats.length) {
             store.saveCats(util.mergeCats(store.cats(), data.cats, localNewer));
           }

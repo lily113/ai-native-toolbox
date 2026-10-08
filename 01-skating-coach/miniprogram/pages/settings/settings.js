@@ -204,6 +204,68 @@ Page({
     return { guardOk: ok, guardText: text, snapText: snapText };
   },
 
+  // 修复动作库：把"本机 / 云端历史快照 / 升级前快照"里的动作库深度合并，
+  // 找回被早期版本吃掉的动作组合（例如外勾步下面的组合）。
+  repairMoves() {
+    const K = store.KEYS;
+    const srcs = [];
+    const local = store.ensureMoves();
+    srcs.push({ label: '本机', moves: local });
+    // 升级前快照的结构是 { version, at, payload:{ moves, records, ... } }
+    const snap = store.load(K.upgradeSnap);
+    const snapMoves = snap && ((snap.payload && snap.payload.moves) || snap.moves);
+    if (Array.isArray(snapMoves)) srcs.push({ label: '升级前快照', moves: snapMoves });
+    const before = local.reduce((n, m) => n + ((m.drills || []).length), 0);
+    wx.showLoading({ title: '正在翻云端历史…', mask: true });
+    sync.listHistory(5)
+      .catch(() => [])
+      .then(list => {
+        (list || []).forEach((h, i) => {
+          try {
+            const d = JSON.parse(h.payload);
+            if (d && Array.isArray(d.moves)) srcs.push({ label: '云端历史 #' + (i + 1), moves: d.moves });
+          } catch (e) {}
+        });
+        wx.hideLoading();
+        let lib = local;
+        const found = [];      // 找回来的组合
+        srcs.slice(1).forEach(src => {
+          const beforeNames = {};
+          lib.forEach(m => (m.drills || []).forEach(d => { beforeNames[m.name + '|' + d.name] = 1; }));
+          const r = store.mergeMoveLibraries(lib, src.moves);
+          lib = r.moves;
+          lib.forEach(m => (m.drills || []).forEach(d => {
+            const k = m.name + '|' + d.name;
+            if (!beforeNames[k] && found.length < 40) found.push(src.label + '：' + m.name + ' → ' + d.name);
+          }));
+        });
+        const after = lib.reduce((n, m) => n + ((m.drills || []).length), 0);
+        const gained = after - before;
+        if (!gained) {
+          wx.showModal({
+            title: '动作库检查完毕',
+            content: '翻了 ' + (srcs.length - 1) + ' 份备份，没有找到本机缺的组合（本机现有 ' + before + ' 个组合）。\n\n如果你记得某个动作该有哪几个组合，直接到「动作库 → 该动作 → ＋ 添加组合」补上就行；用过的组合名字可以在训练记录的笔记里看到。',
+            showCancel: false
+          });
+          return;
+        }
+        const detail = found.slice(0, 8).join('\n') + (found.length > 8 ? '\n…' : '');
+        wx.showModal({
+          title: '找回 ' + gained + ' 个组合',
+          content: '本机原来 ' + before + ' 个组合 → 现在 ' + after + ' 个（来自 ' + srcs.length + ' 份数据）。\n\n' + detail,
+          confirmText: '保存并上传',
+          success: r2 => {
+            if (!r2.confirm) return;
+            store.saveMoves(lib);
+            wx.showToast({ title: '已补回 ' + gained + ' 个组合', icon: 'none', duration: 2500 });
+            // 顺手推上去，免得只修好本机、云端还是缺组合的那份
+            try { sync.push(true); } catch (e) {}
+            this.refreshDataWhere();
+          }
+        });
+      });
+  },
+
   restoreUpgrade() {
     const snap = store.upgradeSnapshotInfo();
     if (!snap) { wx.showToast({ title: '没有升级前快照', icon: 'none' }); return; }

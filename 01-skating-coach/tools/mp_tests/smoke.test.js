@@ -65,6 +65,14 @@ pages.forEach(p => {
     if (typeof page.onShow === 'function') page.onShow();
     if (typeof page.onReady === 'function') page.onReady();
     ok(true, p + '（' + Object.keys(captured).filter(k => typeof captured[k] === 'function' && k !== 'setData').length + ' 个方法）');
+    // 考级列表：级别要齐、id 必须全是 ASCII（中文 id 拼进 navigateTo 的 URL → 详情页报「考级不存在」）
+    if (p === 'packageExam/exams/exams') {
+      const rows = (page.data.mine || []).concat(...(page.data.groups || []).map(g => g.list));
+      ok(rows.length >= 40, '考级列表：内置级别齐全（' + rows.length + ' 条）');
+      const bad = rows.filter(x => !/^[\x20-\x7e]+$/.test(x.id));
+      ok(bad.length === 0, '考级 id 全是 ASCII' + (bad.length ? '（有问题：' + bad.map(b => b.id).join(',') + '）' : ''));
+      ok((page.data.groups || []).length === 5, '考级按 5 个项目分组（自由滑/步法/冰上舞蹈/成人/双人滑）');
+    }
     // 首页：空数据（= 新用户）必须显示上手引导卡
     if (p === 'pages/index/index') {
       ok(page.data.firstRun === true, '新用户（0 条记录）首页显示上手引导卡');
@@ -104,6 +112,11 @@ ok(/if \(!owner\)/.test(deepseek) && /OPENID !== owner/.test(deepseek),
 ok(login.indexOf('isOwner') > -1, 'login 云函数：把 isOwner 告诉客户端');
 const idxWxml = readIf(MP + '/pages/index/index.wxml');
 ok(idxWxml.indexOf('wx:if="{{aiOn}}"') > -1, '首页：AI 教练入口按身份显示');
+const SYL = require(MP + '/utils/const').SYLLABUS;
+ok(SYL.every(x => /^[\x20-\x7e]+$/.test(x.key)), '考纲所有 key 都是 ASCII（防止"考级不存在"复发）');
+ok(new Set(SYL.map(x => x.key)).size === SYL.length, '考纲 key 无重复');
+ok(SYL.every(x => x.kind && x.level && Array.isArray(x.sections) && x.sections.length >= 2),
+   '每条考纲都有 项目/级别/至少两个分节（含「我的要点」）');
 const constSrc = readIf(MP + '/utils/const.js');
 ok(constSrc.indexOf('POSE_ENABLED') > -1, 'const.js：姿态自查开关存在');
 const appJson2 = JSON.parse(fs.readFileSync(MP + '/app.json', 'utf8'));
@@ -118,6 +131,28 @@ ok(idxWxml.indexOf('firstRun') > -1, '首页有新用户上手引导');
 const setWxml = readIf(MP + '/pages/settings/settings.wxml');
 ok(setWxml.indexOf('copyOpenid') > -1, '设置页：能一键复制 openid（配 OWNER_OPENID 用）');
 ok(setWxml.indexOf('aiStatus') > -1, '设置页：显示 AI 教练对谁开放');
+ok(setWxml.indexOf('dataWhere') > -1, '设置页：显示「本机 N 条 · 云端 M 条」（同步状态可见）');
+const syncSrc2 = readIf(MP + '/utils/sync.js');
+ok(syncSrc2.indexOf('markErr') > -1 && syncSrc2.indexOf('notifyRestored') > -1,
+   '同步失败会留痕、首次从云端恢复会提示（不再静默）');
+ok(syncSrc2.indexOf('scheduleRetry') > -1 && syncSrc2.indexOf('pendingPush') > -1,
+   '上传失败会指数退避重试；启动/切回前台会补推未同步的改动');
+ok(readIf(MP + '/pages/settings/settings.js').indexOf('lastExportAt') > -1,
+   '导出会记录时间（用于"多久没备份"提醒）');
+// 危险动作只应出现在「高级」折叠区里，且必须有警示/二次确认
+const setWxml2 = readIf(MP + '/pages/settings/settings.wxml');
+ok(setWxml2.indexOf('adv-toggle') < setWxml2.indexOf('bindtap="cloudUpload"'),
+   '「用本机覆盖云端」被收进高级区（不在日常区裸露）');
+ok(setWxml2.indexOf('adv-toggle') < setWxml2.indexOf('bindtap="clearData"'),
+   '「清空本机数据」被收进高级区');
+const setJs2 = readIf(MP + '/pages/settings/settings.js');
+ok(setJs2.indexOf('关闭自动同步的后果') > -1, '关闭自动同步会弹后果警示');
+ok(setJs2.indexOf('最后确认') > -1 && setJs2.indexOf('从云端恢复') > -1,
+   '清空数据：两步确认 + 明确告诉用户云端还能恢复');
+ok(readIf(MP + '/pages/index/index.js').indexOf('syncTipShown') > -1,
+   '新用户：有第一条记录后只提示一次「数据会自动存到云端」');
+ok(readIf(MP + '/pages/index/index.js').indexOf('onDataRestored') > -1,
+   '首页有 onDataRestored：云端恢复后立刻刷新界面');
 
 // ---------- ⑤ 云函数静态检查（本地跑不了真实运行时，但能抓"用了却没引入"这类错） ----------
 console.log('\n⑤ 云函数');
@@ -145,6 +180,29 @@ fs.readdirSync(cfDir).forEach(name => {
   }
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
+
+console.log('上传失败可自救');
+const retryWxml = fs.readFileSync(path.join(MP, 'pages/settings/settings.wxml'), 'utf8');
+const retryJs = fs.readFileSync(path.join(MP, 'pages/settings/settings.js'), 'utf8');
+const syncJs = fs.readFileSync(path.join(MP, 'utils/sync.js'), 'utf8');
+ok(/bindtap="retryUpload"/.test(retryWxml) && /retryUpload\s*\(/.test(retryJs),
+   '错误提示旁边有「立即重试上传」按钮（上传超时不用干等自动退避）');
+ok(/splitChunks|writeChunks/.test(syncJs) && /CHUNK_COL = 'planner_data'/.test(syncJs),
+   '大数据走分块上传，且分块就放在已有的 planner_data 集合（不需要你手动新建集合）');
+ok(/function diagnose\(\)/.test(syncJs), '有逐级试写诊断：能看出卡在"写小文档/写48KB/整份"哪一步');
+ok(/onNetworkStatusChange/.test(syncJs), '网络恢复后自动补传');
+
+console.log('"还有东西没传"不能只看时间戳');
+ok(/function fingerprint\(\)/.test(syncJs) && /pushedRecords/.test(syncJs),
+   'pending 改成比内容（本机条数 + payload 大小），不再只比 lastEdit/seenTs');
+ok(/cloudBehind/.test(setJs2) && /doRetryUpload/.test(setJs2),
+   '上传按钮：本机与云端条数对不上时仍然允许上传（带确认），不会再回"没有未上传的改动"');
+
+console.log('设置页版本号');
+const verWxml = fs.readFileSync(path.join(MP, 'pages/settings/settings.wxml'), 'utf8');
+const verJs = fs.readFileSync(path.join(MP, 'pages/settings/settings.js'), 'utf8');
+ok(/ver-line/.test(verWxml) && /ver:\s*require/.test(verJs.replace(/\s+/g,' ')),
+   '设置页底部显示 APP_VERSION（上传体验版后能核对手机上跑的是哪一版）');
 
 console.log(fail ? ('\n✗ 失败 ' + fail + ' 项 —— 先别发！') : '\n✓ 全部通过：页面、启动流程、对外闸门、云函数静态检查都正常');
 process.exit(fail ? 1 : 0);

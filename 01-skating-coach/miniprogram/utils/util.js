@@ -52,7 +52,13 @@ function applyPayload(d) {
   // 导入的记录可能带着 notes / lessonSummary（网页版字段）：立刻并进 content，别让它变成隐形数据
   try { store.migrateMergeNotes(); } catch (e) {}
   store.save(store.KEYS.templates, mergeById(store.load(store.KEYS.templates) || [], d.templates));
-  store.save(store.KEYS.moves, mergeById(store.load(store.KEYS.moves) || [], d.moves));
+  // 动作库：深合并。以前同 id 就直接跳过，所以"备份里更全的组合"永远补不回来
+  // （外勾步的组合丢了以后，重新导入那份备份也救不回来，就是因为这里）
+  try {
+    const mLib = store.mergeMoveLibraries(store.load(store.KEYS.moves) || [], d.moves);
+    store.save(store.KEYS.moves, mLib.moves);
+    store.remapMoveRefs(mLib.moveMap, mLib.drillMap);
+  } catch (e) { store.save(store.KEYS.moves, mergeById(store.load(store.KEYS.moves) || [], d.moves)); }
   // 分类表：本机分类还没动过 → 用备份里的（恢复自定义分类名）；动过 → 保留本机
   if (Array.isArray(d.cats) && d.cats.length) {
     store.saveCats(mergeCats(store.cats(), d.cats, !store.catsUntouched()));

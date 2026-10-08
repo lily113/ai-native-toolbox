@@ -188,6 +188,70 @@ ok(recPage.data.selMoveIds.indexOf(jumpMove.id) > -1 && recPage.data.selDrillIds
    '老记录只记了组合（早期 bug 存的）→ 反推把所属动作勾上');
 recPage.initMoves(null);
 
+console.log('⑫ 已勾选的东西看得见：摘要 + 「只看已勾选」筛选');
+recPage.initMoves(null);
+recPage.data.content = '';
+recPage.onlyPicked = false;
+recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
+ok(recPage.data.selMoveIds.length === 1 && recPage.data.selDrillIds.length === 3, '勾 1 个动作 = 1 动作 + 3 组合');
+recPage.toggleOnlyPicked();
+ok(recPage.data.onlyPicked === true && recPage.data.viewMoves.length === 1 && recPage.data.viewMoves[0].id === boxMove.id,
+   '只看已勾选 → 列表只剩这 1 个（不会再对着一屏没勾的发懵）');
+recPage.toggleOnlyPicked();
+recPage.toggleMove({ currentTarget: { dataset: { id: boxMove.id } } });
+recPage.toggleOnlyPicked();
+ok(recPage.data.viewMoves.length === 0 && /没勾选任何动作/.test(recPage.data.emptyHint),
+   '全取消后筛选列表为空，提示是「这条记录还没勾选任何动作」而不是"换个关键词"');
+recPage.toggleOnlyPicked();
+
+console.log('⑩ 考级勾选：只显示「我关注的」和「这条记录勾选过的」');
+recPage.initMoves(null);
+const allExams = store.ensureExams();
+const starId = 'sy_steps-3';       // 关注：步法 · 三级
+const otherId = 'sy_free-1';       // 没关注：自由滑 · 一级
+store.saveExams(allExams.map(x => Object.assign({}, x, { star: x.id === starId })));
+recPage.initExams(null);
+ok(recPage.data.examList.length === 1 && recPage.data.examList[0].id === starId,
+   '新记录（没勾过任何考级）只列出关注的 1 个，实际 ' + recPage.data.examList.length + ' 个：'
+   + recPage.data.examList.map(x => x.label).join('/'));
+ok(recPage.data.examList[0].checked === false, '关注的考级默认不勾选（要用户自己点）');
+recPage.initExams({ moves: [], drills: [], examPicks: [otherId], itemOrder: [] });
+const labels10 = recPage.data.examList.map(x => x.id);
+ok(labels10.indexOf(starId) > -1 && labels10.indexOf(otherId) > -1, '关注的 + 这条记录勾过的都在，实际 ' + labels10.join('/'));
+ok(recPage.data.examList.filter(x => x.id === otherId)[0].checked === true, '记录里勾过但没关注的那条，显示为已勾选');
+ok(recPage.data.examList.length < 10, '不再把 42 个级别全铺出来，实际 ' + recPage.data.examList.length + ' 行');
+recPage.toggleExam({ currentTarget: { dataset: { id: otherId } } });
+ok(recPage.data.selExamIds.indexOf(otherId) < 0, '取消勾选生效');
+ok(recPage.data.content.indexOf('【自由滑 · 一级】') < 0, '笔记里那一行同步消失');
+recPage.toggleExam({ currentTarget: { dataset: { id: starId } } });
+ok(recPage.data.content.indexOf('【步法 · 三级】') > -1, '勾选关注的考级 → 写入笔记条目');
+
+console.log('⑪ 失效条目行：动作被删掉后，笔记里那几行可以一键清理');
+const goneMove = store.ensureMoves().filter(m => m.name === '单脚转')[0]
+  || store.ensureMoves().filter(m => m.name === '测试新动作')[0];
+recPage.data.content = '【' + goneMove.name + '】原组合（动作还在库里 → 是你自己的批注，不动）\n正常想保留的一行\n【一个已经不存在的动作】\n【另一个删掉的动作】第 2 组';
+recPage.data.selMoveIds = [];
+recPage.data.selDrillIds = [];
+recPage.scanOrphans();
+ok(recPage.data.orphanCount === 2, '认出 2 行失效条目（名字已不在库里），实际 ' + recPage.data.orphanCount);
+recPage.data.content += '\n【' + boxMove.name + '】' + boxMove.drills[0].name;   // 库里还有、但这条没勾 ‣ 长得像生成行
+recPage.scanOrphans();
+ok(recPage.data.orphanCount === 3, '外加 1 行"没勾选却还在"的生成行，实际 ' + recPage.data.orphanCount);
+recPage.data.content = recPage.data.content.replace('\n【' + boxMove.name + '】' + boxMove.drills[0].name, '');
+ok(recPage.data.orphanLines.indexOf('正常想保留的一行') < 0, '普通文字行不算失效条目');
+ok(recPage.data.orphanLines.filter(l => l.indexOf(goneMove.name) > -1).length === 0,
+   '动作还在库里、只是手写了批注的行不算失效（不会误删你写的东西）');
+recPage.cleanOrphans();
+ok(recPage.data.content.indexOf('一个已经不存在的动作') < 0 && recPage.data.content.indexOf('另一个删掉的动作') < 0,
+   '两行失效条目都清掉了');
+ok(recPage.data.content.indexOf(goneMove.name) > -1 && recPage.data.content.indexOf('正常想保留的一行') > -1,
+   '批注行与普通文字原样保留，实际「' + recPage.data.content.split('\n').join(' / ') + '」');
+ok(recPage.data.orphanCount === 0, '清理完提示条消失');
+// 你手写的「【小标题】+ 1. 2. 3.」结构不动它（真实数据 2025-09-05 就是这种上课笔记）
+recPage.data.content = '【一个不存在的分组】\n1. 起手姿势\n2. 转体别趴';
+recPage.scanOrphans();
+ok(recPage.data.orphanCount === 0, '标题后面跟着你自己列的点 → 不当作失效条目，实际 ' + recPage.data.orphanCount);
+
 console.log('④ 分类被删掉后，标签自动回到「全部」');
 const cats = store.cats().filter(c => c.id !== 'topic');
 store.saveCats(cats);
