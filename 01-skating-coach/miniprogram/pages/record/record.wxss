@@ -6,10 +6,9 @@
 .mv-check, .dr-check { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid #bcd8ea; background: #fff; color: #0284c7; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
 .mv-check.on, .dr-check.on { background: #0284c7; border-color: #0284c7; color: #fff; }
 .mv-name { font-size: 15px; color: #0f172a; font-weight: 600; }
-.mv-tag { font-size: 10px; font-weight: 700; color: #0369a1; background: #e0f2fe; border: 1px dashed #7dd3fc; border-radius: 999px; padding: 1px 6px; flex-shrink: 0; }
 .mv-cat { font-size: 11px; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 1px 7px; margin-left: auto; }
 .mv-drills { padding: 2px 0 6px 30px; }
-.dr-box-hint { font-size: 11px; color: #0369a1; font-weight: 700; margin-bottom: 2px; }
+.mv-hint { font-size: 11.5px; color: #94a3b8; margin: -2px 0 8px; line-height: 1.5; }
 .dr { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
 .dr-check { width: 19px; height: 19px; font-size: 12px; }
 .dr-name { font-size: 14px; color: #475569; }

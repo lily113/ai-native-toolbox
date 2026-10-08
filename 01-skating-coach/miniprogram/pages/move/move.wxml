@@ -7,12 +7,6 @@
   <view class="cat-tip">点上面的分类可以把这个动作挪到别的分类（比如把「…串 / …练习」类动作归到专题练习）。</view>
 
   <view class="card">
-    <view class="block-title">🧩 记录里的勾选方式<text class="edit-link" bindtap="pickBox">修改</text></view>
-    <view class="box-mode" bindtap="pickBox">{{boxText}}<text class="box-arrow">▾</text></view>
-    <view class="muted">「整组」= 在训练记录里勾这一下就带出下面全部组合；关掉就一个个勾。无论哪种方式，组合都能单独取消。</view>
-  </view>
-
-  <view class="card">
     <view class="block-title">💡 共性要点<text class="edit-link" bindtap="openPts">编辑</text></view>
     <view class="pt-item" wx:for="{{movePoints}}" wx:for-item="p" wx:key="index">· {{p}}</view>
     <view class="empty" wx:if="{{!movePoints.length}}">（适用于该动作下所有练习的通用要点，点「编辑」添加）</view>

@@ -8,14 +8,14 @@ const MODES = {
   lesson: { name: '📖 上课' }
 };
 // 动作分类：默认表（用户可在「动作库 → 分类管理」里改名 / 新增 / 排序 / 删除）
-//   id   = 内部标识，动作记录按 id 关联，改名不影响历史记录
-//   box  = 「串/组」类容器：在训练记录里勾选该动作即带出它下面的全部组合
+//   id = 内部标识，动作记录按 id 关联，改名不影响历史记录
+// 分类只是「动作库怎么分组」；训练记录里点动作名一律会把它下面的组合一起勾上
 const DEFAULT_CATS = [
-  { id: 'warm',  name: '热身',     box: true },
+  { id: 'warm',  name: '热身' },
   { id: 'step',  name: '步法' },
   { id: 'spin',  name: '旋转' },
   { id: 'jump',  name: '跳跃' },
-  { id: 'topic', name: '专题练习', box: true },
+  { id: 'topic', name: '专题练习' },
   { id: 'other', name: '其他' }
 ];
 const CAT_FALLBACK = 'other';   // 兜底分类：固定存在且排在最后，不可删除

@@ -22,7 +22,6 @@
 .pick-cb.on { background: #0284c7; border-color: #0284c7; }
 .move-body { flex: 1; min-width: 0; }
 .move-name { font-size: 16px; font-weight: 700; color: #0c4a6e; }
-.box-badge { font-size: 10px; font-weight: 700; color: #0369a1; background: #e0f2fe; border: 1px dashed #7dd3fc; border-radius: 999px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
 .move-meta { margin-top: 3px; }
 .cat-badge { font-size: 11px; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 2px 8px; }
 .drill-cnt { font-size: 11px; color: #64748B; margin-left: 6px; }

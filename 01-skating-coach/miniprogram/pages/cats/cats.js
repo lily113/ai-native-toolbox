@@ -16,7 +16,6 @@ Page({
     const list = cats.map((c, i) => ({
       id: c.id,
       name: c.name,
-      box: !!c.box,
       n: cnt[c.id] || 0,
       fixed: c.id === store.CAT_FALLBACK,
       first: i === 0,
@@ -62,7 +61,7 @@ Page({
         if (name.length > 8) { wx.showToast({ title: '名称请控制在 8 字内', icon: 'none' }); return; }
         const cats = store.cats();
         if (cats.some(x => x.name === name)) { wx.showToast({ title: '已有同名分类', icon: 'none' }); return; }
-        const item = { id: 'c' + store.uid().slice(0, 7), name: name, box: false };
+        const item = { id: 'c' + store.uid().slice(0, 7), name: name };
         const at = cats.findIndex(x => x.id === store.CAT_FALLBACK);
         if (at >= 0) cats.splice(at, 0, item); else cats.push(item);
         store.saveCats(cats);
@@ -84,14 +83,6 @@ Page({
     if (j < 0 || j >= cats.length) return;
     if (cats[j].id === store.CAT_FALLBACK) { wx.showToast({ title: '「其他」固定排在最后', icon: 'none' }); return; }
     const t = cats[i]; cats[i] = cats[j]; cats[j] = t;
-    store.saveCats(cats);
-    this.reload();
-  },
-
-  toggleBox(e) {
-    const id = e.currentTarget.dataset.id;
-    const cats = store.cats();
-    cats.forEach(c => { if (c.id === id) c.box = !c.box; });
     store.saveCats(cats);
     this.reload();
   },
