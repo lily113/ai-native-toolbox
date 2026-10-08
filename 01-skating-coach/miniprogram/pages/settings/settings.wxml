@@ -44,15 +44,15 @@
     <view class="auto-row">
       <view class="auto-info">
         <view class="auto-title">自动同步</view>
-        <view class="muted auto-sub">打开/切回自动拉取，改动后几秒自动上传</view>
+        <view class="muted auto-sub">保持开启：改动几秒后自动上传云端，删小程序/换手机时能恢复</view>
       </view>
       <switch checked="{{auto}}" bindchange="toggleAuto" color="#0284c7" />
     </view>
     <view class="btn-row">
-      <button class="ghost-btn half" bindtap="cloudUpload">⬆️ 上传</button>
-      <button class="ghost-btn half" bindtap="cloudPull">⬇️ 拉取合并</button>
+      <button class="ghost-btn half" bindtap="cloudPull">☁️ 从云端恢复（合并）</button>
+      <button class="ghost-btn half" bindtap="overview">📊 数据概览</button>
     </view>
-    <view class="diag" bindtap="overview">📊 数据概览</view>
+    <view class="muted pull-hint">「从云端恢复」只补不删，随时可以点，点了不会丢任何东西。</view>
     <view class="diag" bindtap="rollback">⏮ 找回云端历史版本</view>
   </view>
 
@@ -92,10 +92,14 @@
       <view class="btn-row">
         <button class="ghost-btn" bindtap="restoreUpgrade">⬆︎ 恢复升级前数据<text wx:if="{{snapText}}">（{{snapText}}）</text></button>
       </view>
+      <view class="danger-zone">
+        <view class="muted">下面两个操作会**覆盖或清掉**数据，普通使用不需要；点之前请先「导出为文件」。</view>
+        <view class="btn-row">
+          <button class="ghost-btn danger half" bindtap="cloudUpload">⬆️ 用本机覆盖云端</button>
+          <button class="ghost-btn danger half" bindtap="clearData">🧨 清空本机数据</button>
+        </view>
+        <view class="muted">· 「用本机覆盖云端」= 把云端那份换成你本机现在的样子（云端旧版会自动存进历史，可回滚）<br/>· 「清空本机数据」= 只清本机，云端那份还在，之后可以点「从云端恢复」拉回来</view>
+      </view>
     </block>
-  </view>
-
-  <view class="card danger-card">
-    <button class="ghost-btn danger" bindtap="clearData">清空所有数据</button>
   </view>
 </view>

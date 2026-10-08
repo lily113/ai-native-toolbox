@@ -51,6 +51,25 @@ Page({
     this.refreshMonth();
     this.refreshDayMarks();
     this.refreshEntries();
+    this.maybeSyncTip();
+  },
+
+  // 新用户教育：**等他们真的记了一条训练之后**，才用一句话讲清"数据存在哪、怎么才不丢"。
+  // 第一次打开就讲备份只会让人迷惑（那时没有数据可丢）。只提示一次。
+  maybeSyncTip() {
+    try {
+      const meta = store.load(store.KEYS.meta) || {};
+      if (meta.syncTipShown) return;
+      if (store.loadRecords().length === 0) return;   // 还没数据，先不讲
+      meta.syncTipShown = true;
+      store.save(store.KEYS.meta, meta);
+      wx.showModal({
+        title: '数据会自动存到云端 ☁️',
+        showCancel: false,
+        confirmText: '知道了',
+        content: '你的记录会自动同步到云端，不用手动做什么。\n\n以后**删掉小程序或换手机**，重新打开就能从云端恢复（本机那份会被清空，云端那份还在）。\n\n想更稳妥：去「设置 → 数据备份 → 导出为文件」，自己留一份。\n\n（这条提示只出现一次）'
+      });
+    } catch (e) {}
   },
 
   // 云端刚把数据恢复回来时被调用（sync.js 通知）→ 立刻重画日历，别让用户以为数据没了
