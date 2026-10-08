@@ -70,6 +70,14 @@ function allLines(recs) {
   return out;
 }
 const beforeLines = allLines(before);
+// 升级前就存在的"失效引用"（引用的动作早已不在库里）——这是历史遗留，不算升级的锅
+function danglingOf(recs, movesArr) {
+  const have = {}; (movesArr || []).forEach(m => { if (m && m.id) have[m.id] = 1; });
+  const out = [];
+  recs.forEach(r => (r.moves || []).forEach(id => { if (!have[id]) out.push(id); }));
+  return out;
+}
+const danglingBefore = danglingOf(before, raw.moves || []);
 const beforeMoves = (mem[K.moves] || []).length;
 const beforeExams = JSON.stringify(mem[K.exams] || []);
 const beforeMilestones = JSON.stringify(mem[K.milestones] || []);
@@ -118,9 +126,17 @@ ok(after.every(r => !r.notes && !r.lessonSummary), '隐形字段已并入 conten
 
 console.log('\n④ 动作库 / 考级 / 里程碑');
 const dangling = [];
-after.forEach(r => (r.moves || []).forEach(id => { if (!store.moveById(id)) dangling.push(r.date + '→' + id); }));
-ok(dangling.length === 0, '没有记录指向已不存在的动作' + (dangling.length ? '（' + dangling.slice(0, 3).join(' | ') + '）' : ''));
-ok((mem[K.moves] || []).length >= beforeMoves, '动作数没变少：' + beforeMoves + ' → ' + (mem[K.moves] || []).length);
+after.forEach(r => (r.moves || []).forEach(id => { if (!store.moveById(id)) dangling.push(id); }));
+const newDangling = dangling.filter(id => danglingBefore.indexOf(id) < 0);
+ok(newDangling.length === 0, '升级没有造成新的失效引用（升级前没有、升级后也没有）');
+if (danglingBefore.length) {
+  const aff = after.filter(r => (r.moves || []).some(id => danglingBefore.indexOf(id) > -1));
+  console.log('  ℹ️  历史遗留：升级前就有 ' + danglingBefore.length + ' 个动作引用对不上（'
+    + aff.length + ' 条记录，最近 ' + (aff.map(r => r.date).sort().pop() || '—') + '）——'
+    + '这些动作在旧版本里就已经不在库里了，文字没丢，只是首页卡片不显示动作条目。');
+}
+ok((mem[K.moves] || []).length === beforeMoves,
+   '动作库没有被迁移改动（不塞预置、不改名）：' + beforeMoves + ' → ' + (mem[K.moves] || []).length);
 const exNow = JSON.stringify(store.ensureExams());
 ok(exNow.length >= beforeExams.length * 0.5, '考级数据还在（' + exNow.length + ' 字符）');
 ok(JSON.stringify(mem[K.milestones] || []) === beforeMilestones, '里程碑原样');

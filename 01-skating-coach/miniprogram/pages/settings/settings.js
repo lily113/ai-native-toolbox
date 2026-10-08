@@ -213,6 +213,18 @@ Page({
     const lessonUnits = recs.filter(r => r.mode === 'lesson').reduce((n, r) => n + (Number(r.units) || 1), 0);
     const dates = recs.map(r => r.date).sort();
     const meta = store.load(store.KEYS.meta) || {};
+    // 失效引用：记录里勾的动作如果已经被删掉，首页卡片就不显示这条动作（文字不受影响）
+    let danglingTxt = '';
+    try {
+      const moves = store.ensureMoves();
+      const has = {};
+      moves.forEach(m => { has[m.id] = 1; });
+      let n = 0, lastDate = '';
+      recs.forEach(r => {
+        if ((r.moves || []).some(id => !has[id])) { n++; if (r.date > lastDate) lastDate = r.date; }
+      });
+      if (n) danglingTxt = '\n失效动作引用：' + n + ' 条记录（动作已删，笔记文字仍在；最近 ' + lastDate + '）';
+    } catch (e) { danglingTxt = ''; }
     // 云文档上限 1MB：顺手把真实上传体积算出来，上传/发布前能确认还剩多少余量
     let sizeTxt = '';
     try {
@@ -224,6 +236,7 @@ Page({
       + lines.join('\n')
       + '\n\n所有上课记录的节数合计 = ' + lessonUnits
       + '\n基线：上冰 ' + (Number(meta.iceBase) || 0) + ' · 上课 ' + (Number(meta.lessonBase) || 0)
+      + danglingTxt
       + sizeTxt
 
     wx.showModal({ title: '数据概览', content: txt, showCancel: false });
