@@ -164,13 +164,45 @@ def data_keys(js):
     return keys
 
 
+def setdata_keys(js):
+    """页面里 this.setData({...}) 直接写死的键（WXML 里用到它们也算合法字段）"""
+    keys = set()
+    for m in re.finditer(r'setData\s*\(\s*\{', js):
+        i = js.index('{', m.start())
+        depth, j = 0, i
+        while j < len(js):
+            if js[j] == '{':
+                depth += 1
+            elif js[j] == '}':
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        block = js[i:j + 1]
+        depth, k = 0, 0
+        while k < len(block):
+            ch = block[k]
+            if ch in '{([':
+                depth += 1
+            elif ch in '})]':
+                depth -= 1
+            elif depth == 1 and (ch in ASCII_LETTERS or ch in '_$'):
+                mm = re.match(r'[A-Za-z_$][\w$]*', block[k:])
+                name = mm.group(0)
+                if block[k + len(name):].lstrip().startswith(':'):
+                    keys.add(name)
+                k += len(name) - 1
+            k += 1
+    return keys
+
+
 def audit_fields():
     bad = 0
     for jsf, wf in page_pairs():
         if not wf:
             continue
         js, w = read(jsf), read(wf)
-        keys = data_keys(js)
+        keys = data_keys(js) | setdata_keys(js)
         aliases = set(['item', 'index'])
         for m in re.finditer(r'wx:for-(?:item|index)\s*=\s*"([^"]+)"', w):
             aliases.add(m.group(1))

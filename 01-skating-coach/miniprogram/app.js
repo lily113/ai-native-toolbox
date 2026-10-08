@@ -13,7 +13,16 @@ App({
     } else {
       wx.cloud.init({ traceUser: true });
     }
-    try { const st = require('./utils/store'); st.migrateMergeNotes(); st.migrateLessonForm(); st.cats(); } catch (e) { console.warn('migrate', e); }
+    try {
+      const st = require('./utils/store');
+      // ① 换版本时：先把现有数据整份快照到本机，并记下"每一行文字"的指纹
+      const prev = st.upgradeGuard();
+      // ② 跑迁移（都必须只加不删）
+      st.migrateMergeNotes(); st.migrateLessonForm(); st.cats();
+      // ③ 校验：记录条数不能变少、原来写下的字一个都不能找不到；不通过就记下来（首页会提示）
+      const chk = st.upgradeVerify(prev);
+      if (chk && !chk.ok) console.warn('升级自检未通过', chk);
+    } catch (e) { console.warn('migrate', e); }
     try { require('./utils/sync').init(); } catch (e) { console.warn('sync init', e); }
   },
   globalData: {

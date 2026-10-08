@@ -30,6 +30,20 @@ Page({
   },
 
   onShow() {
+
+    // 升级自检没过（少记录 / 少文字）→ 提示一次，并告诉用户到哪恢复
+    try {
+      const warn = store.takeUpgradeWarning();
+      if (warn) {
+        wx.showModal({
+          title: '⚠️ 升级自检提醒',
+          content: '这次升级后发现：记录 ' + warn.before + ' → ' + warn.after + ' 条'
+            + (warn.lost ? '，有 ' + warn.lost + ' 行笔记没找到' : '') + '。\n\n'
+            + (warn.snap ? '升级前的数据已在本机备份，可到「设置 → 高级 → 恢复升级前数据」一键恢复。' : '本机未留存快照，可到「设置 → 数据备份」或云端历史快照恢复。'),
+          showCancel: false
+        });
+      }
+    } catch (e) {}
     this.refreshDay();
     this.refreshMonth();
     this.refreshDayMarks();

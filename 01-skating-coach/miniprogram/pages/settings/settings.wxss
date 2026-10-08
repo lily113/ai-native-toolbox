@@ -28,3 +28,7 @@
 
 /* 高级/排查折叠区 */
 .adv-toggle { font-size: 14px; font-weight: 700; color: #075985; padding: 4px 0; }
+
+.guard { font-size: 12.5px; line-height: 1.6; border-radius: 10px; padding: 9px 11px; margin: 8px 0; }
+.guard.ok { color: #0369a1; background: #e0f2fe; }
+.guard.bad { color: #b91c1c; background: #fee2e2; font-weight: 700; }
