@@ -1,6 +1,6 @@
 <view class="page">
   <view class="head card">
-    <view class="head-name">{{name}}</view>
+    <view class="head-name" bindtap="renameMove">{{name}}<text class="rename-ico">✏️</text></view>
     <text class="cat-badge tappable" bindtap="pickCat">🏷️ {{catName}} ▾</text>
     <button class="del-move" bindtap="delMove">删除动作</button>
   </view>
@@ -13,19 +13,21 @@
   </view>
 
   <view class="card">
-    <view class="block-title">🏷️ 练习组合（drills）</view>
-    <view class="drill" wx:for="{{drills}}" wx:key="id" bindtap="openEdit" bindlongpress="delDrill" data-id="{{item.id}}">
-      <view class="drill-no">{{item.no}}</view>
+    <view class="block-title">🏷️ 练习组合（drills）<text class="edit-link" bindtap="toggleDrillSel">{{drillSelOn ? '完成' : '⇄ 移动组合'}}</text></view>
+    <view class="sel-tip" wx:if="{{drillSelOn}}">点选要移动的组合（可多选，已选 {{drillPickN}} 个），再点下面的「移到别的动作」。</view>
+    <view class="drill {{drillSelOn && item.picked ? 'picked' : ''}}" wx:for="{{drills}}" wx:key="id" bindtap="tapDrill" bindlongpress="delDrill" data-id="{{item.id}}">
+      <view class="drill-no">{{drillSelOn ? (item.picked ? '✓' : '') : item.no}}</view>
       <view class="drill-body">
         <view class="drill-name">{{item.name}}<text class="drill-date" wx:if="{{item.dateText}}">{{item.dateText}}</text></view>
         <view class="pt-item" wx:for="{{item.points}}" wx:for-item="pt" wx:key="index">· {{pt}}</view>
       </view>
     </view>
     <view class="empty" wx:if="{{!drills.length}}">还没有组合。点按组合可改名称/要点，长按可删除。</view>
-    <button class="ghost-btn" bindtap="addDrill">＋ 添加练习组合</button>
+    <button class="ghost-btn" bindtap="addDrill" wx:if="{{!drillSelOn}}">＋ 添加练习组合</button>
+    <button class="btn" bindtap="openPick" wx:if="{{drillSelOn}}">移到别的动作（已选 {{drillPickN}}）</button>
   </view>
 
-  <view class="tip">提示：点按组合可编辑名称与要点（可多条），长按删除。</view>
+  <view class="tip">提示：点动作名可以改名；点按组合可编辑名称与要点（可多条），长按删除；点右上「⇄ 移动组合」可以把组合挪到别的动作下面（历史记录里的归属会一起跟过去）。</view>
 
   <!-- 共性要点弹层 -->
   <view class="mask {{ptsOn ? 'show' : ''}}" bindtap="closePts">
@@ -42,6 +44,25 @@
       <view class="sh-actions">
         <button class="ghost-btn" bindtap="closePts">取消</button>
         <button class="btn" bindtap="savePts">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 移到哪个动作 弹层 -->
+  <view class="mask {{pickOn ? 'show' : ''}}" bindtap="closePick">
+    <view class="sheet" catchtap="noop">
+      <view class="sh-title">移到哪个动作下面</view>
+      <view class="muted">已选 {{drillPickN}} 个组合</view>
+      <input class="ta pick-q" value="{{pickQuery}}" bindinput="onPickQuery" placeholder="搜索动作名（或组合名）…" confirm-type="search" />
+      <scroll-view scroll-y class="pick-list">
+        <view class="pick-row" wx:for="{{pickList}}" wx:for-item="p" wx:key="id" bindtap="doMoveDrill" data-id="{{p.id}}">
+          <view class="pick-row-name">{{p.name}}</view>
+          <view class="pick-row-sub">{{p.catName}} · 已有 {{p.n}} 个组合</view>
+        </view>
+        <view class="empty" wx:if="{{!pickList.length}}">没有匹配的动作</view>
+      </scroll-view>
+      <view class="sh-actions">
+        <button class="ghost-btn" bindtap="closePick">取消</button>
       </view>
     </view>
   </view>

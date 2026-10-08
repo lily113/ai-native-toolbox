@@ -13,7 +13,13 @@ Page({
     editId: null,
     editName: '',
     editDate: '',
-    editPoints: []
+    editPoints: [],
+    // 「移动组合到别的动作」选择模式
+    drillSelOn: false,
+    drillPickN: 0,
+    pickOn: false,
+    pickQuery: '',
+    pickList: []
   },
 
   onLoad(q) {
@@ -35,11 +41,94 @@ Page({
       dateText: (Number(d.c) || 0) > 100000000000 ? store.dateKey(new Date(d.c)) : '',
       points: (d.points && d.points.length) ? d.points : (d.detail ? [d.detail] : [])
     }));
+    const sel = this.data.drillSel || {};
+    drills.forEach(d => { d.picked = !!sel[d.id]; });
     this.setData({
       name: m.name,
       catName: store.catName(store.validCat(m.category)),
       movePoints: (m.points || []).slice(),
-      drills: drills
+      drills: drills,
+      drillPickN: drills.filter(d => d.picked).length
+    });
+  },
+
+  // ---------- 改动作名称 ----------
+  renameMove() {
+    const cur = this.data.name;
+    wx.showModal({
+      title: '改动作名称',
+      editable: true,
+      placeholderText: '动作名，如：膝关节韵律练习',
+      content: cur,
+      confirmText: '保存',
+      success: r => {
+        if (!r.confirm) return;
+        const nm = String(r.content || '').trim();
+        if (!nm) { wx.showToast({ title: '名称不能为空', icon: 'none' }); return; }
+        if (nm === cur) return;
+        const out = store.renameMove(this.data.id, nm);
+        if (!out.ok) { wx.showToast({ title: out.reason || '改名失败', icon: 'none' }); return; }
+        this.reload();
+        wx.showToast({ title: out.merged ? ('已改名为「' + nm + '」并合并了同名动作') : '已改名', icon: 'none', duration: out.merged ? 2500 : 1500 });
+      }
+    });
+  },
+
+  // ---------- 把练习组合移到别的动作下 ----------
+  toggleDrillSel() {
+    const on = !this.data.drillSelOn;
+    this.setData({ drillSelOn: on, drillSel: on ? (this.data.drillSel || {}) : {} }, () => this.reload());
+  },
+  tapDrill(e) {
+    const did = e.currentTarget.dataset.id;
+    if (!this.data.drillSelOn) { this.openEdit(e); return; }
+    const sel = Object.assign({}, this.data.drillSel || {});
+    if (sel[did]) delete sel[did]; else sel[did] = 1;
+    this.setData({ drillSel: sel }, () => this.reload());
+  },
+  openPick() {
+    const n = Object.keys(this.data.drillSel || {}).length;
+    if (!n) { wx.showToast({ title: '先点选要移动的组合', icon: 'none' }); return; }
+    const catMap = store.catMap();
+    this.setData({ pickOn: true, pickQuery: '' }, () => this.refreshPick());
+  },
+  closePick() { this.setData({ pickOn: false }); },
+  onPickQuery(e) { this.setData({ pickQuery: e.detail.value }, () => this.refreshPick()); },
+  refreshPick() {
+    const q = String(this.data.pickQuery || '').trim().toLowerCase();
+    const list = store.ensureMoves()
+      .filter(m => m.id !== this.data.id)
+      .filter(m => !q || String(m.name).toLowerCase().indexOf(q) > -1
+        || (m.drills || []).some(d => String(d.name).toLowerCase().indexOf(q) > -1))
+      .map(m => ({
+        id: m.id, name: m.name,
+        catName: store.catName(store.validCat(m.category)),
+        n: (m.drills || []).length
+      }));
+    this.setData({ pickList: list });
+  },
+  doMoveDrill(e) {
+    const toId = e.currentTarget.dataset.id;
+    const ids = Object.keys(this.data.drillSel || {});
+    const dst = store.moveById(toId);
+    if (!dst || !ids.length) return;
+    wx.showModal({
+      title: '移动组合',
+      content: '把 ' + ids.length + ' 个练习组合移到「' + dst.name + '」下面？\n\n（历史训练记录里用过的这个组合也会跟着显示在新动作下，记录内容不会变）',
+      confirmText: '移动',
+      success: r => {
+        if (!r.confirm) return;
+        const out = store.moveDrillsTo(ids, toId);
+        if (!out.ok) { wx.showToast({ title: out.reason || '移动失败', icon: 'none' }); return; }
+        this.setData({ drillSelOn: false, drillSel: {}, pickOn: false });
+        this.reload();
+        wx.showModal({
+          title: '已移动 ' + out.moved + ' 个组合',
+          content: '「' + out.from.join('、') + '」 → 「' + out.to + '」\n'
+            + (out.records ? '同时更新了 ' + out.records + ' 条历史记录里的归属（卡片上会显示在新动作下面）。' : '没有历史记录引用这些组合，无需改动记录。'),
+          showCancel: false
+        });
+      }
     });
   },
 
