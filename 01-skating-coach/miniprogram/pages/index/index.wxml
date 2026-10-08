@@ -4,6 +4,14 @@
     <view class="gear" bindtap="goSettings">⚙️</view>
   </view>
 
+  <view class="first-run" wx:if="{{firstRun}}">
+    <view class="fr-t">👋 第一次用，三步就上手</view>
+    <view class="fr-l">1. 点底部「＋ 添加训练」记一条今天的训练（上冰 / 陆地、自己练 / 上课都行）</view>
+    <view class="fr-l">2. 到「动作库」加你练的动作和组合，以后记录里点一下就带出来</view>
+    <view class="fr-l">3. 「考级」里有官方大纲可以对照，「回顾」看月度统计</view>
+    <view class="fr-l fr-dim">数据只存在你自己的账号下；「设置 → 数据备份」可以随时导出。</view>
+  </view>
+
   <view class="month-bar">
     <text class="mh-btn" bindtap="switchMonth" data-dir="prev">‹</text>
     <view class="mh-center">
@@ -84,7 +92,7 @@
     <view class="quick-item" bindtap="goExams"><view class="quick-icon">🎓</view><view class="quick-label">考级</view></view>
     <view class="quick-item" bindtap="goMoves"><view class="quick-icon">⛸️</view><view class="quick-label">动作库</view></view>
     <view class="quick-item" bindtap="goMilestone"><view class="quick-icon">🏆</view><view class="quick-label">纪念日</view></view>
-    <view class="quick-item" bindtap="goCoach"><view class="quick-icon">🤖</view><view class="quick-label">AI 教练</view></view>
-    <view class="quick-item" bindtap="goPose"><view class="quick-icon">🩻</view><view class="quick-label">姿态自查</view></view>
+    <view class="quick-item" wx:if="{{aiOn}}" bindtap="goCoach"><view class="quick-icon">🤖</view><view class="quick-label">AI 教练</view></view>
+    <view class="quick-item" wx:if="{{poseOn}}" bindtap="goPose"><view class="quick-icon">🩻</view><view class="quick-label">姿态自查</view></view>
   </view>
 </view>

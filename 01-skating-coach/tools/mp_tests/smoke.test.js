@@ -87,5 +87,29 @@ try {
   console.log('    合计 ' + (size / 1024).toFixed(1) + ' KB（微信单键上限 1MB / 总量 10MB）');
 } catch (e) { ok(false, '启动流程抛错: ' + e.message); }
 
-console.log(fail ? ('\n✗ 失败 ' + fail + ' 项 —— 先别发！') : '\n✓ 全部通过：每一页都能加载，启动流程正常');
+// ---------- ④ 对外发布的闸门（别被误删） ----------
+console.log('\n④ 对外发布闸门');
+const readIf = f => fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '';
+const deepseek = readIf(MP + '/cloudfunctions/deepseek/index.js');
+const login = readIf(MP + '/cloudfunctions/login/index.js');
+ok(deepseek.indexOf('OWNER_OPENID') > -1 && deepseek.indexOf('getWXContext') > -1,
+   'deepseek 云函数：校验调用者是不是开发者本人');
+ok(/if \(!owner\) return/.test(deepseek) && /OPENID !== owner/.test(deepseek),
+   'deepseek 云函数：非本人 / 未配置时直接拒绝（不会调用 DeepSeek，不产生费用）');
+ok(login.indexOf('isOwner') > -1, 'login 云函数：把 isOwner 告诉客户端');
+const idxWxml = readIf(MP + '/pages/index/index.wxml');
+ok(idxWxml.indexOf('wx:if="{{aiOn}}"') > -1, '首页：AI 教练入口按身份显示');
+const constSrc = readIf(MP + '/utils/const.js');
+ok(constSrc.indexOf('POSE_ENABLED') > -1, 'const.js：姿态自查开关存在');
+const appJson2 = JSON.parse(fs.readFileSync(MP + '/app.json', 'utf8'));
+if (!require(MP + '/utils/const').POSE_ENABLED) {
+  ok(appJson2.pages.indexOf('pages/pose/pose') < 0, '姿态自查关闭时，不注册页面（不进包、不触发相册隐私）');
+} else {
+  ok(appJson2.pages.indexOf('pages/pose/pose') > -1, '姿态自查开启时，页面已注册');
+}
+const syncSrc = readIf(MP + '/utils/sync.js');
+ok(syncSrc.indexOf('_openid: oid') > -1, '历史快照查询按自己的 openid 限定（防跨用户读取）');
+ok(idxWxml.indexOf('firstRun') > -1, '首页有新用户上手引导');
+
+console.log(fail ? ('\n✗ 失败 ' + fail + ' 项 —— 先别发！') : '\n✓ 全部通过：每一页都能加载，启动流程与对外闸门正常');
 process.exit(fail ? 1 : 0);

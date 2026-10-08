@@ -24,8 +24,19 @@ App({
       if (chk && !chk.ok) console.warn('升级自检未通过', chk);
     } catch (e) { console.warn('migrate', e); }
     try { require('./utils/sync').init(); } catch (e) { console.warn('sync init', e); }
+    // 问一次「我是不是开发者本人」：决定首页显不显示 AI 教练入口（真正的兜底在云函数里）
+    try {
+      const app = this;
+      wx.cloud.callFunction({ name: 'login' }).then(r => {
+        const res = (r && r.result) || {};
+        if (res.openid) app.globalData.openid = res.openid;
+        app.globalData.isOwner = !!res.isOwner;
+        if (!res.ownerConfigured) console.warn('未配置 OWNER_OPENID：AI 教练对所有人关闭');
+      }).catch(() => {});
+    } catch (e) {}
   },
   globalData: {
-    openid: ''
+    openid: '',
+    isOwner: false        // 默认不显示（等 login 云函数确认后才打开）
   }
 });

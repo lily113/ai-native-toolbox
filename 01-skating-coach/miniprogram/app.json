@@ -9,8 +9,7 @@
     "pages/cats/cats",
     "pages/milestone/milestone",
     "pages/review/review",
-    "pages/settings/settings",
-    "pages/pose/pose"
+    "pages/settings/settings"
   ],
   "window": {
     "navigationBarBackgroundColor": "#e0f2fe",

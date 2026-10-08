@@ -45,6 +45,13 @@ function mergeArrays(local, remote, localWins) {
 // ---------- 云端历史快照 + 上传前体检 ----------
 const HIST = 'planner_history';
 function histCol() { return wx.cloud.database().collection(HIST); }
+// ⚠️ 对外开放后，历史快照必须在**查询里**就把范围限死在自己身上。
+//    集合权限设成「仅创建者可读写」时本来也读不到别人的，但那依赖控制台配置正确；
+//    这里显式带上 _openid 条件，多一层兜底（快照是客户端 add 的，_openid 由云端自动写入）。
+function histMine() {
+  const oid = openid();
+  return oid ? histCol().where({ _openid: oid }) : histCol().where({ _openid: '__none__' });
+}
 function statsOf(str) {
   try {
     const d = JSON.parse(str);
@@ -65,12 +72,12 @@ function saveHistory(payload, ts) {
   return histCol().add({ data: { ts: ts || 0, payload: payload, at: Date.now() } }).catch(() => {});
 }
 function trimHistory(keep) {
-  return histCol().orderBy('at', 'desc').skip(keep).limit(20).get()
+  return histMine().orderBy('at', 'desc').skip(keep).limit(20).get()
     .then(r => Promise.all((r.data || []).map(d => histCol().doc(d._id).remove().catch(() => {}))))
     .catch(() => {});
 }
 function listHistory(limit) {
-  return histCol().orderBy('at', 'desc').limit(limit || 5).get()
+  return ensureOpenid().then(() => histMine().orderBy('at', 'desc').limit(limit || 5).get())
     .then(r => r.data || []).catch(() => []);
 }
 

@@ -118,3 +118,9 @@
 .rl-head.tag .rl-bar { background: #f59e0b; }
 .rl-head.tag .rl-head-text { color: #b45309; }
 
+
+/* 新用户上手引导 */
+.first-run { background: #fff; border: 1px solid #cfe8f7; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; }
+.fr-t { font-size: 14.5px; font-weight: 800; color: #0c4a6e; margin-bottom: 6px; }
+.fr-l { font-size: 12.5px; color: #475569; line-height: 1.75; }
+.fr-dim { color: #94a3b8; margin-top: 4px; }

@@ -1,5 +1,5 @@
 const store = require('../../utils/store');
-const { TYPES, MODES, WEEK, EXAM_KINDS, LESSON_FORMS } = require('../../utils/const');
+const { POSE_ENABLED, TYPES, MODES, WEEK, EXAM_KINDS, LESSON_FORMS } = require('../../utils/const');
 
 Page({
   data: {
@@ -16,7 +16,10 @@ Page({
     monthCount: 0,
     monthMin: 0,
     monthLesson: 0,
-    ymValue: ''
+    ymValue: '',
+    aiOn: false,          // AI 教练入口：仅开发者本人可见（由 login 云函数确认）
+    poseOn: POSE_ENABLED, // 姿态自查：见 const.js 的开关
+    firstRun: false       // 一条记录都没有时，显示上手引导
   },
 
   onLoad() {
@@ -47,6 +50,28 @@ Page({
     this.refreshDay();
     this.refreshMonth();
     this.refreshDayMarks();
+    this.refreshEntries();
+  },
+
+  // 入口可见性 + 新用户引导（每次进首页都刷新一次）
+  refreshEntries() {
+    const app = getApp();
+    const apply = () => this.setData({ aiOn: !!(app && app.globalData && app.globalData.isOwner) });
+    apply();
+    // 启动时那次 login 可能还没回来（或失败），这里补问一次
+    if (!app || !app.globalData || app.globalData.isOwner === undefined || !app.globalData.openid) {
+      try {
+        wx.cloud.callFunction({ name: 'login' }).then(r => {
+          const res = (r && r.result) || {};
+          if (app && app.globalData) {
+            if (res.openid) app.globalData.openid = res.openid;
+            app.globalData.isOwner = !!res.isOwner;
+          }
+          apply();
+        }).catch(() => {});
+      } catch (e) {}
+    }
+    try { this.setData({ firstRun: store.loadRecords().length === 0 }); } catch (e) {}
   },
 
   switchMonth(e) {
@@ -237,6 +262,7 @@ Page({
     wx.navigateTo({ url: '/pages/record/record?id=' + e.currentTarget.dataset.id });
   },
   goPose() {
+    if (!POSE_ENABLED) { wx.showToast({ title: '姿态自查暂未开放', icon: 'none' }); return; }
     wx.navigateTo({ url: '/pages/pose/pose' });
   },
   goCoach() {
