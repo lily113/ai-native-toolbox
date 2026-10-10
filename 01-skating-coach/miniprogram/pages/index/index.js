@@ -153,11 +153,11 @@ Page({
       let staleN = 0, staleName = '';
       const usage = store.moveUsage();
       store.ensureMoves().forEach(m => {
-        if (m.status === 'mastered') return;              // 已掌握的不用再提醒
         const u = usage[m.id];
         if (!u || !u.last) return;                       // 整个动作从没练过：不算荒
         Object.keys(u.drills || {}).forEach(did => {
           const d = u.drills[did];
+          if (d.mastered) return;                        // 已掌握的组合不再提醒
           const stale = (d.last && Number(d.days) > 30) || (!d.last && Number(d.addedDays) > 30);
           if (!stale) return;
           staleN++;

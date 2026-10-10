@@ -3,9 +3,8 @@
     <view class="head-name" bindtap="renameMove">{{name}}<text class="rename-ico">✏️</text></view>
     <text class="cat-badge tappable" bindtap="pickCat">🏷️ {{catName}} ▾</text>
     <view class="usage-line">{{usageText}}</view>
-    <view class="stat-row">
-      <text class="status-badge {{status === 'mastered' ? 'on' : ''}}" bindtap="toggleStatus">{{status === 'mastered' ? '✅ 已掌握' : '在练中'}}</text>
-      <text class="stat-hint" bindtap="toggleStatus">{{status === 'mastered' ? '点一下退回在练' : '点一下标记为已掌握'}}</text>
+    <view class="stat-row" wx:if="{{masteredText}}">
+      <text class="stat-hint">✅ {{masteredText}}</text>
     </view>
     <button class="del-move" bindtap="delMove">删除动作</button>
   </view>
@@ -27,6 +26,7 @@
     <view class="sel-tip" wx:if="{{drillSelOn}}">点选要移动的组合（可多选，已选 {{drillPickN}} 个），再点下面的「移到别的动作」。</view>
     <view class="drill {{drillSelOn && item.picked ? 'picked' : ''}}" wx:for="{{drills}}" wx:key="id" bindtap="tapDrill" bindlongpress="delDrill" data-id="{{item.id}}">
       <view class="drill-no">{{drillSelOn ? (item.picked ? '✓' : '') : item.no}}</view>
+      <text class="drill-master {{item.mastered ? 'on' : ''}}" catchtap="toggleDrillStatus" data-id="{{item.id}}">{{item.mastered ? '✅' : '○'}}</text>
       <view class="drill-body">
         <view class="drill-name">{{item.name}}<text class="drill-date" wx:if="{{item.dateText}}">{{item.dateText}}</text><text class="drill-use" wx:if="{{item.usageText}}">{{item.usageText}}</text></view>
         <view class="pt-item" wx:for="{{item.points}}" wx:for-item="pt" wx:key="index">· {{pt}}</view>
@@ -35,9 +35,13 @@
     <view class="empty" wx:if="{{!drills.length}}">还没有组合。点按组合可改名称/要点，长按可删除。</view>
     <button class="ghost-btn" bindtap="addDrill" wx:if="{{!drillSelOn}}">＋ 添加练习组合</button>
     <button class="btn" bindtap="openPick" wx:if="{{drillSelOn}}">移到别的动作（已选 {{drillPickN}}）</button>
+    <view class="sel-ops" wx:if="{{drillSelOn}}">
+      <button class="ghost-btn half" bindtap="markSelMastered">✅ 标记已掌握</button>
+      <button class="ghost-btn half" bindtap="markSelActive">↩︎ 退回在练</button>
+    </view>
   </view>
 
-  <view class="tip">提示：点动作名可以改名；点按组合可编辑名称与要点（可多条），长按删除；点右上「⇄ 移动组合」可以把组合挪到别的动作下面（历史记录里的归属会一起跟过去）。</view>
+  <view class="tip">提示：点动作名可以改名；点按组合可编辑名称与要点（可多条），长按删除；每个组合右边的 ○/✅ 是「已掌握」开关——标了就不再进「最久没练」提醒；点右上「⇄ 移动组合」可以把组合挪到别的动作下面（历史记录里的归属会一起跟过去）。</view>
 
   <!-- 共性要点弹层 -->
   <view class="mask {{ptsOn ? 'show' : ''}}" bindtap="closePts">

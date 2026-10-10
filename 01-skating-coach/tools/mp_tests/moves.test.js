@@ -223,28 +223,55 @@ ok(us['mu2'] && Number(us['mu2'].days) > 30, '外勾步上次是 6/1，超过 30
 ok(/练过 3 次/.test(store.moveUsageText(us['mu1'])), '摘要文案：' + store.moveUsageText(us['mu1']));
 ok(store.moveUsageText(us['mu3']) === '还没练过', '没练过的动作写「还没练过」');
 
-console.log('⑪ 动作状态：已掌握 / 在练（比删除温和，且合并时不会丢）');
-ok(store.setMoveStatus('mu2', 'mastered').ok, '标记已掌握成功');
-ok(store.ensureMoves().filter(m => m.id === 'mu2')[0].status === 'mastered', '状态存下来了');
-ok(store.ensureMoves().filter(m => m.id === 'mu2')[0].drills.length === 1, '标记不影响它的组合');
-// 合并时状态不能丢（cloneMove 是白名单式，漏字段就会被吃掉）
-const libA = [{ id: 'sm1', name: '转三', category: 'step', status: 'mastered', statusAt: 200, drills: [] }];
-const libB = [{ id: 'sm1', name: '转三', category: 'step', status: 'active', statusAt: 100, drills: [{ id: 'sd1', name: 'x' }] }];
-const merged = store.mergeMoveLibraries(libA, libB).moves[0];
-ok(merged.status === 'mastered', '合并时保留"最后改过"的状态（标记时间是 200 的那边赢）');
-const rev = store.mergeMoveLibraries(libB, libA).moves[0];
-ok(rev.status === 'mastered', '反过来合并也不丢');
-ok(rev.drills.length === 1, '合并不影响组合');
-ok(store.setMoveStatus('mu2', 'active').ok && store.ensureMoves().filter(m => m.id === 'mu2')[0].status === 'active', '可以退回在练');
+console.log('⑪ 已掌握是"练习组合"的状态，不是动作（按用户纠正改的）');
+store.saveMoves([
+  { id: 'sm1', name: '转三', category: 'step', drills: [
+    { id: 'smd1', name: '前外转三', c: 1 }, { id: 'smd2', name: '后外转三', c: 2 }] },
+  { id: 'sm2', name: '乔克塔步', category: 'step', drills: [{ id: 'smd3', name: '前内乔克塔', c: 1 }] }
+]);
+ok(store.setDrillStatus('sm1', 'smd1', 'mastered').ok, '标记单个组合为已掌握');
+const lib1 = store.ensureMoves().filter(m => m.id === 'sm1')[0];
+ok(lib1.drills.filter(d => d.id === 'smd1')[0].status === 'mastered', '组合状态存下来了');
+ok(lib1.drills.filter(d => d.id === 'smd2')[0].status !== 'mastered', '同一个动作里的另一个组合不受影响（关键：粒度是组合）');
+ok(lib1.status === undefined, '动作上不再有 status 字段（搬走了）');
+ok(!store.setDrillStatus('sm1', '不存在', 'mastered').ok, '找不到组合会返回失败');
+// 批量
+ok(store.setDrillsStatus('sm1', ['smd1', 'smd2'], 'mastered').n === 2, '批量标记 2 个组合');
+ok(store.moveUsage()['sm1'].masteredN === 2 && store.moveUsage()['sm1'].allMastered === true, 'moveUsage 报"全部掌握"');
+store.setDrillsStatus('sm1', ['smd2'], 'active');
+ok(store.moveUsage()['sm1'].masteredN === 1 && store.moveUsage()['sm1'].allMastered === false, '退回一个 → 变成部分掌握');
+
+console.log('⑪.5 旧数据迁移：早期标在动作上的「已掌握」落到它下面的组合');
+store.save(store.KEYS.moves, [
+  { id: 'old1', name: '旧动作', category: 'step', status: 'mastered', statusAt: 1700000000000,
+    drills: [{ id: 'oldd1', name: '组合一', c: 1 }, { id: 'oldd2', name: '组合二', c: 2 }] }
+]);
+const migrated = store.ensureMoves()[0];
+ok(migrated.status === undefined && migrated.statusAt === undefined, '动作级字段被清掉');
+ok(migrated.drills.every(d => d.status === 'mastered'), '两个组合都继承了"已掌握"（用户之前的标记不丢）');
+const raw = JSON.stringify(store.load(store.KEYS.moves));
+store.ensureMoves();
+ok(JSON.stringify(store.load(store.KEYS.moves)) === raw, '迁移只做一次，重复调用不再写盘（避免空转上传）');
+
+console.log('⑪.6 合并两份数据时，组合状态按"最后标记的那边"保留');
+const mA = [{ id: 'cm1', name: '转三', category: 'step', drills: [{ id: 'cd1', name: '前外转三', status: 'mastered', statusAt: 300 }] }];
+const mB = [{ id: 'cm1', name: '转三', category: 'step', drills: [{ id: 'cd1', name: '前外转三', status: 'active', statusAt: 100 }] }];
+ok(store.mergeMoveLibraries(mA, mB).moves[0].drills[0].status === 'mastered', '时间更新的那边赢（300 > 100）');
+const mC = [{ id: 'cm1', name: '转三', category: 'step', drills: [{ id: 'cd1', name: '前外转三', status: 'active', statusAt: 900 }] }];
+ok(store.mergeMoveLibraries(mA, mC).moves[0].drills[0].status === 'active', '反过来也一样（900 更新）');
 
 console.log('⑫ 最久没练只算"练过、且还在练"的（这条是用户提的）');
 const usageNow = store.moveUsage();
 const considered = store.ensureMoves().filter(m => m.status !== 'mastered' && usageNow[m.id] && usageNow[m.id].last && Number(usageNow[m.id].days) > 30);
 ok(considered.every(m => usageNow[m.id].last), '没练过的不在"超过 30 天"名单里');
-// 把 mu2（131 天前练的）标成已掌握，它就该从提醒名单里消失
-store.setMoveStatus('mu2', 'mastered');
-const considered2 = store.ensureMoves().filter(m => m.status !== 'mastered' && usageNow[m.id] && usageNow[m.id].last && Number(usageNow[m.id].days) > 30);
-ok(considered2.filter(m => m.id === 'mu2').length === 0, '已掌握的也不在名单里');
+// 造一个"荒了很久"的动作，把它的组合标成已掌握 → 它就该从提醒里消失（粒度是组合）
+store.saveMoves([{ id: 'st1', name: '荒动作', category: 'step', drills: [{ id: 'std1', name: '荒组合', c: 1 }] }]);
+store.saveRecords([{ id: 'st_r', date: '2026-05-01', type: 'ice', mode: 'self', duration: 60, content: '', moves: ['st1'], drills: ['std1'], examPicks: [], itemOrder: [] }]);
+const uBefore = store.moveUsage()['st1'];
+ok(uBefore.staleDrill && uBefore.staleDrill.name === '荒组合', '前提：它本来算"荒"（' + (uBefore.staleDrill ? uBefore.staleDrill.days + ' 天' : '—') + '）');
+store.setDrillsStatus('st1', ['std1'], 'mastered');
+const uAfter = store.moveUsage()['st1'];
+ok(uAfter.allMastered === true && uAfter.staleDrill === null, '组合标成已掌握 → 不再有"最荒的组合"，也就不进提醒');
 
 console.log('⑬ 最久没练按"组合"排（这一版的重点）');
 const D = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
@@ -273,9 +300,10 @@ const u2 = store.moveUsage();
 ok(u2['z1'].last === D(2), '动作A 动作级最近是 2 天前');
 ok(u2['z1'].staleDrill && u2['z1'].staleDrill.name === '组合A-很荒',
    'A 的"最荒组合"选中了很荒的那个（' + (u2['z1'].staleDrill ? u2['z1'].staleDrill.name : '—') + '）');
-ok(Number(u2['z1'].staleDays) === 45, 'A 的排序键 = 组合的 45 天（不是动作级的 2 天）');
-ok(Number(u2['z2'].staleDays) === 50 && u2['z2'].staleDays > u2['z1'].staleDays,
-   'B(50 天) 比 A(45 天) 更荒 → 排序时 B 在 A 前面（实际 B=' + u2['z2'].staleDays + ', A=' + u2['z1'].staleDays + '）');
+// 天数会随"现在几点"±1，所以只断言量级和相对关系，不写死具体数字
+ok(Number(u2['z1'].staleDays) > 30, 'A 的排序键 = 最荒组合的天数（' + u2['z1'].staleDays + ' 天），不是动作级的 ' + u2['z1'].days + ' 天');
+ok(u2['z2'].staleDays > u2['z1'].staleDays,
+   'B 更荒 → 排序时 B 在 A 前面（实际 B=' + u2['z2'].staleDays + ' 天, A=' + u2['z1'].staleDays + ' 天）');
 ok(Number(u2['z3'].staleDays) === -1 || !u2['z3'].last, '动作C 从没练过 → 沉底（不是"最荒"）');
 ok(u2['z4'].staleDrill === null, '动作D 的组合刚加 10 天、没练过 → 不算荒');
 ok(u2._firstDrillDate === undefined, '不再计算"组合级记录起始日期"（顶部提示已去掉）');

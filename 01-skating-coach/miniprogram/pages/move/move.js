@@ -16,7 +16,7 @@ Page({
     editPoints: [],
     // 「移动组合到别的动作」选择模式
     examLinks: [],
-    status: 'active',
+    masteredText: '',
     drillSelOn: false,
     drillPickN: 0,
     pickOn: false,
@@ -54,7 +54,9 @@ Page({
       points: (d.points && d.points.length) ? d.points : (d.detail ? [d.detail] : [])
     }));
     const sel = this.data.drillSel || {};
-    drills.forEach(d => { d.picked = !!sel[d.id]; });
+    const masterOf = {};
+    (m.drills || []).forEach(d => { masterOf[d.id] = (d.status === 'mastered'); });
+    drills.forEach(d => { d.picked = !!sel[d.id]; d.mastered = !!masterOf[d.id]; });
     // 练习统计：这个动作练过几次、最近一次；每个组合各练过几次
     let usage = {}, usageText = '还没练过';
     try {
@@ -68,8 +70,9 @@ Page({
     // 这个动作被挂到哪些考级要求上（在考级页里「挂到动作」建立的关系）
     let links = [];
     try { links = store.examMoveLinks(m.id).map(x => ({ label: x.kindName + ' · ' + x.level, title: x.title || x.secName })); } catch (e) {}
+    const masteredN = drills.filter(d => d.mastered).length;
     this.setData({
-      status: (m.status === 'mastered') ? 'mastered' : 'active',
+      masteredText: drills.length ? (masteredN ? (masteredN + '/' + drills.length + ' 个组合已标记掌握') : '') : '',
       usageText: usageText,
       examLinks: links,
       name: m.name,
@@ -80,28 +83,33 @@ Page({
     });
   },
 
-  // ---------- 标记「已掌握 / 在练」 ----------
-  // 不建议为了"太简单了"而删除：删掉会让历史记录里的引用断链（我们修过的"失效条目行"）。
-  // 标记只是状态变了，账本、组合、教练要点都还在。
-  toggleStatus() {
-    const cur = this.data.status === 'mastered';
-    const next = cur ? 'active' : 'mastered';
-    const run = () => {
-      const out = store.setMoveStatus(this.data.id, next);
-      if (!out.ok) { wx.showToast({ title: out.reason || '操作失败', icon: 'none' }); return; }
-      this.reload();
-      wx.showToast({ title: next === 'mastered' ? '已标记为「已掌握」' : '已退回「在练」', icon: 'none' });
-    };
+  // ---------- 练习组合的「已掌握 / 在练」----------
+  // 「已掌握」属于**练习组合**：一个动作里可能"前外转三会了、后外转三还得练"。
+  // 不建议为了"太简单了"删除组合：删了历史记录里的引用会断链（我们修过的"失效条目行"）。
+  toggleDrillStatus(e) {
+    const did = e.currentTarget.dataset.id;
+    const dr = (this.data.drills || []).filter(d => d.id === did)[0];
+    if (!dr) return;
+    const next = dr.mastered ? 'active' : 'mastered';
     if (next === 'mastered') {
       wx.showModal({
         title: '标记为已掌握',
-        content: '「' + this.data.name + '」会标成已掌握：\n\n· 动作、练习组合、教练要点全部保留，历史记录照旧能翻到\n· 不再出现在"最久没练"提醒里\n· 动作列表可以用「只看在练」把它收起来\n\n以后想复习，随时可以退回「在练」。',
+        content: '「' + dr.name + '」会标成已掌握：\n\n· 组合、要点、日期全部保留，历史记录照旧能翻到\n· 不再出现在"最久没练"提醒里\n\n以后想复习，随时可以退回「在练」。',
         confirmText: '标记已掌握',
-        success: r => { if (r.confirm) run(); }
+        success: r => { if (r.confirm) this.applyDrillStatus([did], next); }
       });
       return;
     }
-    run();
+    this.applyDrillStatus([did], next);
+  },
+  applyDrillStatus(ids, status) {
+    const out = store.setDrillsStatus(this.data.id, ids, status);
+    if (!out.ok) { wx.showToast({ title: out.reason || '操作失败', icon: 'none' }); return; }
+    this.reload();
+    wx.showToast({
+      title: status === 'mastered' ? ('已标记 ' + out.n + ' 个组合') : ('已退回 ' + out.n + ' 个组合'),
+      icon: 'none'
+    });
   },
 
   // ---------- 改动作名称 ----------
@@ -137,6 +145,16 @@ Page({
     const sel = Object.assign({}, this.data.drillSel || {});
     if (sel[did]) delete sel[did]; else sel[did] = 1;
     this.setData({ drillSel: sel }, () => this.reload());
+  },
+  markSelMastered() {
+    const ids = Object.keys(this.data.drillSel || {});
+    if (!ids.length) { wx.showToast({ title: '先点选组合', icon: 'none' }); return; }
+    this.applyDrillStatus(ids, 'mastered');
+  },
+  markSelActive() {
+    const ids = Object.keys(this.data.drillSel || {});
+    if (!ids.length) { wx.showToast({ title: '先点选组合', icon: 'none' }); return; }
+    this.applyDrillStatus(ids, 'active');
   },
   openPick() {
     const n = Object.keys(this.data.drillSel || {}).length;
