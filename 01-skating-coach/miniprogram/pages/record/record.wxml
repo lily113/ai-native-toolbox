@@ -152,8 +152,12 @@
 
   </view>
 
+  <view class="footer share-row">
+    <button class="ghost-btn" wx:if="{{id}}" bindtap="shareCard">🖼 生成分享卡</button>
+  </view>
   <view class="footer">
     <button class="ghost-btn del" wx:if="{{id}}" bindtap="del">删除</button>
     <button class="btn save-btn" bindtap="save">保存</button>
   </view>
+  <canvas type="2d" id="shareCanvas" style="width:540px;height:720px;position:fixed;left:-9999px;top:0;"></canvas>
 </view>
