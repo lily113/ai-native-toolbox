@@ -34,7 +34,7 @@
       <view class="ov-goal-sub">近 4 周平均 {{ov.avg4}} 分钟<text wx:if="{{ov.streak}}"> · 已连续 {{ov.streak}} 周达标 🔥</text></view>
     </view>
     <view class="ov-stale" wx:if="{{ov.staleN}}" bindtap="goStaleMoves">
-      ⏱ 有 {{ov.staleN}} 个练习组合超过 30 天没练（比如「{{ov.staleName}}」）→
+      ⏱ 有 {{ov.staleN}} 项超过 30 天没练（比如「{{ov.staleName}}」）→
     </view>
   </view>
 

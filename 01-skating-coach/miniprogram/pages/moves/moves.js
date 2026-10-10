@@ -2,11 +2,17 @@ const store = require('../../utils/store');
 
 // 「最久没练」那一行显示什么：优先显示这个动作下最荒的组合
 function staleLine(u) {
-  if (!u || !u.staleDrill) return '';
-  const d = u.staleDrill;
-  return d.never
-    ? ('最久没练：' + d.name + ' · 加了 ' + d.days + ' 天还没练过')
-    : ('最久没练：' + d.name + ' · ' + d.days + ' 天');
+  if (!u || u.allMastered) return '';      // 已经掌握的不显示"最久没练"
+
+  if (u.staleDrill) {
+    const d = u.staleDrill;
+    return d.never
+      ? ('最久没练：' + d.name + ' · 加了 ' + d.days + ' 天还没练过')
+      : ('最久没练：' + d.name + ' · ' + d.days + ' 天');
+  }
+  // 没有细分组合的动作：按动作本身说话
+  if (!u.byDrill && u.last && Number(u.days) > 30) return '最久没练：整个动作 · ' + u.days + ' 天';
+  return '';
 }
 
 const ROW_H = 64; // 拖动行高（固定，方便算序号）
@@ -28,7 +34,8 @@ Page({
     onlyActive: false,      // 只看在练（收起"组合全部已掌握"的动作）
     activeN: 0,
     drillAll: 0,
-    masteredN: 0            // 已掌握的**组合**数
+    masteredN: 0,           // 已掌握的**组合**数
+    plainMastered: 0        // 没细分组合、按动作本身标了掌握的数量
   },
 
   onShow() {
@@ -93,6 +100,8 @@ Page({
       usageText: store.moveUsageText(usage[m.id]),
       staleText: staleLine(usage[m.id]),
       mastered: !!(usage[m.id] && usage[m.id].allMastered),
+      byDrill: !!(usage[m.id] && usage[m.id].byDrill),
+      moveMastered: !!(usage[m.id] && usage[m.id].moveMastered),
       masteredN: usage[m.id] ? usage[m.id].masteredN : 0,
       drillN: usage[m.id] ? usage[m.id].drillN : 0,
       stale: !!(usage[m.id] && usage[m.id].last && Number(usage[m.id].staleDays) > 30),
@@ -108,17 +117,19 @@ Page({
     const shownIds = list.map(x => x.id);
 
     // 顶部计数：动作数 + 已掌握的**组合**数
-    let drillAll = 0, drillMastered = 0;
+    let drillAll = 0, drillMastered = 0, plainMastered = 0;
     moves.forEach(m => {
       const u = usage[m.id];
       if (!u) return;
       drillAll += u.drillN || 0;
       drillMastered += u.masteredN || 0;
+      if (!u.byDrill && u.moveMastered) plainMastered++;   // 没细分组合、按动作本身标了掌握
     });
     this.setData({
       activeN: moves.length,
       drillAll: drillAll,
       masteredN: drillMastered,
+      plainMastered: plainMastered,
       tab: tab,
       tabs: tabs,
       list: list,
