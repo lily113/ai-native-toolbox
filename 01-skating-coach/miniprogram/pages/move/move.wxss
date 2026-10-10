@@ -47,3 +47,6 @@
 .status-badge { padding: 3px 12px; border-radius: 999px; background: #e0f2fe; color: #0369a1; font-size: 12px; font-weight: 600; }
 .status-badge.on { background: #dcfce7; color: #15803d; }
 .stat-hint { font-size: 11px; color: #94a3b8; }
+.drill-master { flex: none; width: 34px; text-align: center; font-size: 16px; color: #cbd5e1; }
+.drill-master.on { color: #15803d; }
+.sel-ops { display: flex; gap: 8px; margin-top: 8px; }

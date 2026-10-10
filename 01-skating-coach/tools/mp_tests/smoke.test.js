@@ -232,13 +232,18 @@ ok(/numCls/.test(rvJs) && /num-lg|num-md/.test(readIf(MP + '/pages/review/review
 ok(!/min-height:\s*1[0-9][0-9]px/.test(readIf(MP + '/pages/review/review.wxss')),
    '两张卡不再用大 min-height 撑高（flex 行内本来就等高）');
 
-console.log('动作状态与"最久没练"口径');
-ok(/setMoveStatus/.test(readIf(MP + '/utils/store.js')) && /status === 'mastered'/.test(readIf(MP + '/utils/store.js')),
-   '动作有「在练 / 已掌握」状态（合并时按最后修改时间保留）');
-ok(/m\.status === 'mastered'/.test(readIf(MP + '/pages/index/index.js')),
-   '首页"久未练习"提醒排除已掌握的动作');
-ok(/onlyActive/.test(readIf(MP + '/pages/moves/moves.js')) && /只看在练/.test(readIf(MP + '/pages/moves/moves.wxml')),
-   '动作库有「只看在练」筛选 + 在练/已掌握计数');
+console.log('已掌握是"练习组合"的状态（不是动作）');
+const stJs2 = readIf(MP + '/utils/store.js');
+ok(/setDrillStatus/.test(stJs2) && /setDrillsStatus/.test(stJs2), '组合级的状态开关（单个 + 批量）');
+ok(/masterOf\[d\.id\]/.test(stJs2) && /d\.status === 'mastered'/.test(stJs2),
+   '判定走的是 drill.status（动作级 status 只在迁移代码里出现一次）');
+ok(/movedStatus/.test(stJs2), '有一次迁移：早期标在动作上的「已掌握」落到它的组合上（旧标记不丢）');
+ok(/d\.mastered\) return;/.test(stJs2), '"最荒的组合"跳过已掌握的组合');
+ok(/d\.mastered\) return;/.test(readIf(MP + '/pages/index/index.js')), '首页提醒也跳过已掌握的组合');
+ok(/allMastered/.test(readIf(MP + '/pages/moves/moves.js')) && /只看在练/.test(readIf(MP + '/pages/moves/moves.wxml')),
+   '动作库：组合全部掌握的动作会被「只看在练」收起 + 显示掌握进度');
+ok(/toggleDrillStatus/.test(readIf(MP + '/pages/move/move.js')) && /markSelMastered/.test(readIf(MP + '/pages/move/move.js')),
+   '动作详情：每个组合可单独标 / 选择模式下可批量标');
 
 console.log('第二批：报告图 / 教练字段 / 考级提醒');
 ok(/makeReport\s*\(/.test(readIf(MP + '/pages/review/review.js')) && /type="2d"/.test(readIf(MP + '/pages/review/review.wxml')),

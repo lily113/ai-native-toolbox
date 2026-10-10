@@ -25,9 +25,10 @@ Page({
     selCount: 0,
     allSel: false,
     sortByStale: false,     // 「最久没练」优先
-    onlyActive: false,      // 只看在练（收起"已掌握"）
+    onlyActive: false,      // 只看在练（收起"组合全部已掌握"的动作）
     activeN: 0,
-    masteredN: 0
+    drillAll: 0,
+    masteredN: 0            // 已掌握的**组合**数
   },
 
   onShow() {
@@ -65,17 +66,17 @@ Page({
       //   排序键 = 这个动作下最荒的练习组合的天数；没有组合的动作用动作自身。
       //   沉底不变：整个动作从没练过 / 已掌握 → 排到最后。
       const gap = m => {
-        if (m.status === 'mastered') return -1;
         const u = usage[m.id];
         if (!u || !u.last) return -1;               // 这个动作根本没练过
+        if (u.allMastered) return -1;               // 组合都标了已掌握 → 不再提醒
         const d = Number(u.staleDays);
         return isNaN(d) ? -1 : d;
       };
       shown = shown.slice().sort((a, b) => gap(b) - gap(a));
     }
     if (this.data.onlyActive) {
-      // 只看在练：把「已掌握」收起来（数据还在，切回来就能看到）
-      shown = shown.filter(m => m.status !== 'mastered');
+      // 只看在练：收起"组合全部标了已掌握"的动作（部分掌握仍算在练）
+      shown = shown.filter(m => !(usage[m.id] && usage[m.id].allMastered));
     }
 
     // 批量整理：选中项跨分类保留，但清掉已经不存在的动作
@@ -91,7 +92,9 @@ Page({
       dateText: (Number(m.c) || 0) > 100000000000 ? store.dateKey(new Date(m.c)) : '',
       usageText: store.moveUsageText(usage[m.id]),
       staleText: staleLine(usage[m.id]),
-      mastered: m.status === 'mastered',
+      mastered: !!(usage[m.id] && usage[m.id].allMastered),
+      masteredN: usage[m.id] ? usage[m.id].masteredN : 0,
+      drillN: usage[m.id] ? usage[m.id].drillN : 0,
       stale: !!(usage[m.id] && usage[m.id].last && Number(usage[m.id].staleDays) > 30),
       picked: sel.indexOf(m.id) > -1
     }));
@@ -104,10 +107,18 @@ Page({
     }));
     const shownIds = list.map(x => x.id);
 
-    const masteredN = moves.filter(m => m.status === 'mastered').length;
+    // 顶部计数：动作数 + 已掌握的**组合**数
+    let drillAll = 0, drillMastered = 0;
+    moves.forEach(m => {
+      const u = usage[m.id];
+      if (!u) return;
+      drillAll += u.drillN || 0;
+      drillMastered += u.masteredN || 0;
+    });
     this.setData({
-      activeN: moves.length - masteredN,
-      masteredN: masteredN,
+      activeN: moves.length,
+      drillAll: drillAll,
+      masteredN: drillMastered,
       tab: tab,
       tabs: tabs,
       list: list,

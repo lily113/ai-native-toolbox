@@ -439,10 +439,8 @@ function cloneMove(m) {
     c: (typeof m.c === 'number') ? m.c : 0,
     points: Array.isArray(m.points) ? m.points.slice() : [],
     detail: m.detail || '',
-    // 动作状态：'active'（在练）/ 'mastered'（已掌握）。
-    // ⚠️ 和 coach 一样，这种字段必须显式列出来，否则合并/读取一次就没了。
-    status: (m.status === 'mastered') ? 'mastered' : 'active',
-    statusAt: Number(m.statusAt) || 0,
+    // ⚠️「已掌握」是**练习组合**的状态，不是动作的（动作级别不存这个字段）。
+    //    组合用 Object.assign 全量复制，所以 drill.status / statusAt 会自然保留。
     drills: (Array.isArray(m.drills) ? m.drills : []).map(d => Object.assign({}, d))
   };
 }
@@ -461,6 +459,11 @@ function absorbMove(a, b, drillMap) {
       if (!hit.detail && d.detail) hit.detail = d.detail;
       if ((!hit.points || !hit.points.length) && d.points && d.points.length) hit.points = d.points.slice();
       if (!hit.c && d.c) hit.c = d.c;
+      // 组合的「已掌握」按"最后标记的那一边"赢（两边都标过就取新的）
+      if (Number(d.statusAt) > Number(hit.statusAt)) {
+        hit.status = (d.status === 'mastered') ? 'mastered' : 'active';
+        hit.statusAt = Number(d.statusAt) || 0;
+      }
       return;
     }
     const copy = Object.assign({}, d, { id: d.id || uid() });
@@ -472,12 +475,6 @@ function absorbMove(a, b, drillMap) {
   keep.points = pts;
   ['detail'].forEach(f => { if (!keep[f] && b[f]) keep[f] = b[f]; });
   if (!keep.c && b.c) keep.c = b.c;
-  // 状态取"最后改过的那一边"（标记时间更新的赢）
-  if (Number(b.statusAt) > Number(keep.statusAt)) {
-    keep.status = (b.status === 'mastered') ? 'mastered' : 'active';
-    keep.statusAt = Number(b.statusAt) || 0;
-  }
-  if (!keep.status) keep.status = 'active';
   return keep;
 }
 // 合并两份动作库：同 id 或同名同分类就合成一条（组合取并集）。
@@ -574,14 +571,27 @@ function moveUsage() {
       if (!counted[f.move.id]) { u.n++; counted[f.move.id] = 1; }
     });
   });
-  // 收尾：算天数和"最荒的组合"
+  // 收尾：算天数、组合的掌握状态、以及"最荒的组合"
+  // ⚠️ 掌握状态一次性取好（别在循环里反复 ensureMoves()，那是 O(n²)）
+  const masterOf = {};
+  moves.forEach(m => (m.drills || []).forEach(d => { masterOf[d.id] = (d.status === 'mastered'); }));
   Object.keys(out).forEach(k => {
     const u = out[k];
     u.days = u.last ? daysOf(u.last) : -1;
+    u.masteredN = 0;
+    u.drillN = 0;
+    Object.keys(u.drills).forEach(did => {
+      const d = u.drills[did];
+      d.mastered = !!masterOf[did];
+      u.drillN++;
+      if (d.mastered) u.masteredN++;
+    });
+    u.allMastered = u.drillN > 0 && u.masteredN === u.drillN;   // 只对"有组合"的动作成立
     let worst = null;
     Object.keys(u.drills).forEach(did => {
       const d = u.drills[did];
       d.days = d.last ? daysOf(d.last) : -1;
+      if (d.mastered) return;                    // 已掌握的组合不再算"荒"
       if (d.days > 30) {
         // 练过、但超过 30 天
         if (!worst || d.days > worst.days) worst = { id: did, name: d.name, days: d.days, never: false };
@@ -645,15 +655,27 @@ function examLinkedCount(ov) {
   return Object.keys(extra).filter(k => extra[k] && extra[k].moveId).length;
 }
 
-// 标记动作状态：'active' 在练 / 'mastered' 已掌握（已掌握的不再参与"最久没练"提醒）
-function setMoveStatus(id, status) {
+// 标记**练习组合**的状态：'active' 在练 / 'mastered' 已掌握
+// （已掌握的组合不再参与"最久没练"的提醒；动作、要点、历史记录都还在）
+function setDrillStatus(moveId, drillId, status) {
+  return setDrillsStatus(moveId, [drillId], status);
+}
+function setDrillsStatus(moveId, drillIds, status) {
+  const ids = Array.isArray(drillIds) ? drillIds : [drillIds];
   const moves = ensureMoves();
-  const m = moves.filter(x => x.id === id)[0];
+  const m = moves.filter(x => x.id === moveId)[0];
   if (!m) return { ok: false, reason: '找不到这个动作' };
-  m.status = (status === 'mastered') ? 'mastered' : 'active';
-  m.statusAt = Date.now();
+  const at = Date.now();
+  let n = 0;
+  (m.drills || []).forEach(d => {
+    if (ids.indexOf(d.id) < 0) return;
+    d.status = (status === 'mastered') ? 'mastered' : 'active';
+    d.statusAt = at;
+    n++;
+  });
+  if (!n) return { ok: false, reason: '没找到这些组合' };
   saveMoves(moves);
-  return { ok: true, status: m.status, name: m.name };
+  return { ok: true, n: n, status: (status === 'mastered') ? 'mastered' : 'active', name: m.name };
 }
 
 // 改动作的名字（记录里引用的 id 不变，所以历史记录、卡片都不受影响）
@@ -797,6 +819,22 @@ function ensureMoves() {
     if (typeof m.sort !== 'number') m.sort = n - 1;
     if (typeof m.c !== 'number') m.c = 0;
   });
+  // 迁移（2026-10）：早期版本把「已掌握」标在**动作**上，现在改成标在**练习组合**上。
+  // 把旧的标记落到它下面的每个组合，再删掉动作级字段——用户之前标过的东西不能丢。
+  let movedStatus = false;
+  moves.forEach(m => {
+    if (m.status === 'mastered' || m.statusAt) {
+      if (m.status === 'mastered') {
+        (m.drills || []).forEach(d => {
+          if (d.status !== 'mastered') { d.status = 'mastered'; d.statusAt = Number(m.statusAt) || Date.now(); }
+        });
+      }
+      delete m.status;
+      delete m.statusAt;
+      movedStatus = true;
+    }
+  });
+
   const mLib = mergeMoveLibraries(moves, []);
   const deduped = mLib.moves;
   if (Object.keys(mLib.moveMap).length || Object.keys(mLib.drillMap).length) {
@@ -825,7 +863,7 @@ function ensureMoves() {
   // ⚠️ 只在真的发生了合并/新增组合/字段迁移时才写盘：
   //    每次加载都写盘会触发保存钩子 → 被当成"有改动" → 自动上传空转。
   const st = mLib.stat || {};
-  if (changed || st.merged || st.added || st.drillsAdded || out.length !== moves.length) save(KEYS.moves, out);
+  if (changed || st.merged || st.added || st.drillsAdded || movedStatus || out.length !== moves.length) save(KEYS.moves, out);
   return out;
 }
 function saveMoves(moves) { save(KEYS.moves, moves); }
@@ -1003,7 +1041,7 @@ module.exports = {
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS,
-  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setMoveStatus,
+  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey
 };
