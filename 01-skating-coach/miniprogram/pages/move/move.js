@@ -11,6 +11,7 @@ Page({
     // 编辑弹层
     editOn: false,
     editId: null,
+    editMastered: false,
     editName: '',
     editDate: '',
     editPoints: [],
@@ -113,7 +114,12 @@ Page({
   toggleDrillStatus(e) {
     const did = e.currentTarget.dataset.id;
     const dr = (this.data.drills || []).filter(d => d.id === did)[0];
-    if (!dr) return;
+    if (!dr) {
+      // 不静默返回：真出问题时至少让用户/我看到发生了什么
+      console.log('[掌握开关] 没找到组合 id=', did, '当前列表=', (this.data.drills || []).map(d => d.id));
+      wx.showToast({ title: '没找到这个组合，请重开这一页再试', icon: 'none' });
+      return;
+    }
     const next = dr.mastered ? 'active' : 'mastered';
     if (next === 'mastered') {
       wx.showModal({
@@ -288,12 +294,12 @@ Page({
       const dr = (m.drills || []).find(d => d.id === did);
       if (!dr) return;
       this.setData({
-        editOn: true, editId: did, editName: dr.name,
+        editOn: true, editId: did, editName: dr.name, editMastered: dr.status === 'mastered',
         editDate: (Number(dr.c) || 0) > 100000000000 ? store.dateKey(new Date(dr.c)) : '',
         editPoints: (dr.points && dr.points.length) ? dr.points.slice() : (dr.detail ? [dr.detail] : [])
       });
     } else {
-      this.setData({ editOn: true, editId: null, editName: '', editDate: store.todayKey(), editPoints: [] });
+      this.setData({ editOn: true, editId: null, editName: '', editDate: store.todayKey(), editPoints: [], editMastered: false });
     }
   },
 
@@ -302,6 +308,7 @@ Page({
 
   onName(e) { this.setData({ editName: e.detail.value }); },
   onDateChange(e) { this.setData({ editDate: e.detail.value }); },
+  onEditMastered(e) { this.setData({ editMastered: !!e.detail.value }); },
   onPoint(e) {
     const i = e.currentTarget.dataset.i;
     const pts = this.data.editPoints.slice();
@@ -333,9 +340,17 @@ Page({
       if (dr) {
         dr.name = name; dr.points = points; dr.detail = points.join('；');
         if (ts) dr.c = ts; else if (!dr.c) dr.c = Date.now();
+        // 弹层里的「已掌握」开关：状态变了才写时间戳（免得每次编辑都算"刚标记"）
+        const want = this.data.editMastered ? 'mastered' : 'active';
+        if ((dr.status === 'mastered' ? 'mastered' : 'active') !== want) {
+          dr.status = want;
+          dr.statusAt = Date.now();
+        }
       }
     } else {
-      m.drills.push({ id: store.uid(), name: name, points: points, detail: points.join('；'), c: ts || Date.now() });
+      const nd = { id: store.uid(), name: name, points: points, detail: points.join('；'), c: ts || Date.now() };
+      if (this.data.editMastered) { nd.status = 'mastered'; nd.statusAt = Date.now(); }
+      m.drills.push(nd);
     }
     store.saveMoves(moves);
     this.reload();

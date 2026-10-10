@@ -50,3 +50,9 @@
 .drill-master { flex: none; width: 34px; text-align: center; font-size: 16px; color: #cbd5e1; }
 .drill-master.on { color: #15803d; }
 .sel-ops { display: flex; gap: 8px; margin-top: 8px; }
+/* 44px 左右的点击区（比 34px 的小圆点好点中）；负外边距保持行高不变 */
+.drill-master { flex: none; width: 40px; height: 36px; margin: -6px 0; display: flex;
+  align-items: center; justify-content: center; font-size: 17px; color: #cbd5e1; }
+.drill-master.on { color: #15803d; }
+.switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.switch-t { font-size: 15px; color: #0f172a; font-weight: 600; }
