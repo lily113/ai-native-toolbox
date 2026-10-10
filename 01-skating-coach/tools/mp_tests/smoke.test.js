@@ -181,6 +181,18 @@ fs.readdirSync(cfDir).forEach(name => {
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
+console.log('最久没练按组合排');
+const mvJs = readIf(MP + '/pages/moves/moves.js');
+const mvWxml = readIf(MP + '/pages/moves/moves.wxml');
+const stJs = readIf(MP + '/utils/store.js');
+ok(/staleDrill/.test(stJs) && /staleDays/.test(mvJs),
+   '排序键用"这个动作下最荒的组合"（不是动作级平均）');
+ok(/addedDays/.test(stJs) && /never/.test(stJs),
+   '"从没练过但加进库超过 30 天"的组合也算荒');
+ok(/最久没练：/.test(mvJs) && /staleText/.test(mvWxml), '行里显示最荒的那个组合名和天数');
+ok(/coverageText/.test(mvJs) && /cover-tip/.test(mvWxml), '顶部注明组合级记录的起始日期（避免误判）');
+ok(/个练习组合超过 30 天没练/.test(readIf(MP + '/pages/index/index.wxml')), '首页提示也改成组合级');
+
 console.log('回顾页大数字字号');
 const rvWxml = readIf(MP + '/pages/review/review.wxml');
 const rvJs = readIf(MP + '/pages/review/review.js');

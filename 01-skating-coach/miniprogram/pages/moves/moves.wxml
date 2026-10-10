@@ -25,6 +25,7 @@
     <text class="edit-link" bindtap="bulkAll">{{allSel ? '取消全选' : '全选本页'}}</text>
   </view>
   <view class="muted sort-hint" wx:if="{{sortOn}}">按住并上下拖动调整顺序，松手自动保存</view>
+  <view class="cover-tip" wx:if="{{sortByStale && coverageText}}">{{coverageText}}</view>
 
   <!-- 普通浏览 / 批量整理 -->
   <block wx:if="{{!sortOn}}">
@@ -41,9 +42,10 @@
             <text class="move-date" wx:if="{{item.dateText}}">{{item.dateText}}</text>
           </view>
           <view class="move-meta2">
-            <text class="usage {{item.usageText === '还没练过' ? 'none' : ''}}">{{item.usageText}}</text>
+            <text class="usage {{item.usageText === '还没练过' ? 'none' : ''}}" wx:if="{{!sortByStale}}">{{item.usageText}}</text>
+            <text class="usage stale-txt" wx:if="{{sortByStale && item.staleText}}">{{item.staleText}}</text>
             <text class="stale-tag" wx:if="{{item.mastered}}">✅ 已掌握</text>
-            <text class="stale-tag" wx:if="{{item.stale && !item.mastered}}">⏱ 超过 30 天没练</text>
+            <text class="stale-tag" wx:if="{{item.stale && !item.mastered && !sortByStale}}">⏱ 超过 30 天没练</text>
           </view>
         </view>
       </view>
