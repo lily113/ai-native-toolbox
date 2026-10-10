@@ -50,6 +50,9 @@ function normalizeRecord(r) {
     time: r.time || '',
     duration: Number(r.duration) || 0,
     content: r.content || '',
+    // 上课教练（可选）：换教练、多人轮课时有用。⚠️ 这里必须显式列出来，
+    // 否则 normalizeRecord 会把没列出的字段丢掉（读一次就没了）。
+    coach: typeof r.coach === 'string' ? r.coach : '',
     status: r.status === 'done' ? 'done' : 'pending',
     notes: r.notes || '',
     lessonSummary: r.lessonSummary || '',
