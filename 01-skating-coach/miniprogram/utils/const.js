@@ -1,6 +1,6 @@
 // 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
-const APP_VERSION = '2026.10.08.18';
+const APP_VERSION = '2026.10.08.19';
 
 // ---------- 对外发布的功能开关 ----------
 // 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
@@ -173,7 +173,10 @@ function sylLevel(kind, level, key, secKind, items) {
     // 官方分节默认只读；「本级步法明细」放开成可加条目，方便你自己往里面补
     userAdd: true,   // 官方分节里的条目只读，但允许你自己往里加条目（补原书数字、明细等）
     // items 形如 { 'key-steps': ['前外单足弧线', ...] }，只放要素名称，不放正文
-    items: ((items || {})[sec.key] || []).map((t, i) => ({ key: 'e' + (i + 1), title: t, points: [], mistakes: [] }))
+    // 元素可以是字符串（只有标题），也可以是 { title, points, mistakes }（带正文要点）
+    items: ((items || {})[sec.key] || []).map((t, i) => (t && typeof t === 'object')
+      ? { key: t.key || ('e' + (i + 1)), title: t.title || '', points: (t.points || []).slice(), mistakes: (t.mistakes || []).slice() }
+      : { key: 'e' + (i + 1), title: t, points: [], mistakes: [] })
   }));
   sections.push({ key: 'my-points', name: '我的要点', userAdd: true, items: [] });
   return { key: key, kind: kind, level: level, source: SYLLABUS_SOURCE, sections: sections };
@@ -185,13 +188,9 @@ function sylRange(kind, pairs, secKind) {
 // 一~十级的中文名
 const CN_LEVELS = CN_NUM.map(n => n + '级');
 
-// 内置考纲（只读）：内容摘自《国家花样滑冰等级测试大纲（第2版）》相应页，仅供备考参考，请以官方原文为准。
-// 使用固定 key，用户个性化内容按 key 关联，因此用户不需要（也不能）编辑考纲本体。
-const SYLLABUS = [
-  // 单人滑 · 自由滑 1–10 级（书名与级别依据：第一章 总则）
-  ...sylRange('free', CN_LEVELS.map((lv, i) => [lv, 'free-' + (i + 1)])),
-  // 单人滑 · 步法表演节目：基础级 + 1–10 级（四级是你自己转录的那份，见下面 legacy）
-  ...([
+// 单人滑步法表演节目 基础级 + 1–3 级的要素与时长（[级别, key, 重点步法, 时长/节奏]）
+// 成人步法 1–6 级原书写明"参考单人滑步法表演节目 1–6 级开展与评判"，所以这份数据两处共用。
+const STEPS_REQ = [
     // ⚠️ 步法有两个时长：①「步法部分」的滑行时长 ②「整套节目」（步法+表演节目）的总时长。
     //    基础级/一级/二级只有步法部分，没有表演节目环节，所以只有一个时长。
     ['基础级', 'steps-0', ['左右侧蹬冰滑行', '左前交叉步', '左右单足支撑滑行'],
@@ -202,12 +201,185 @@ const SYLLABUS = [
       ['步法滑行时长：1 分 35 秒 ± 10 秒', '音乐节奏：按步法图案中的节奏要求']],
     ['三级', 'steps-3', ['前外、后外3字步', '前内、后内3字步'],
       ['步法滑行时长：1 分 10 秒 ± 5 秒', '整套节目时长：1 分 55 秒 ± 5 秒', '音乐节奏：52 小节/分 · 156 拍/分']]
-  ]).map(x => sylLevel('steps', x[0], x[1], null, { 'key-steps': x[2], test: x[3] })),
+];
+
+// ---------- 单人自由滑 1–10 级：逐级要求 ----------
+// 来源：《国家花样滑冰等级测试大纲（第2版）》第三章「单人自由滑等级测试内容」表格（第 128–130 页）。
+// 只放事实（时长、动作名称与数量、标准的判定口径），不放书里的正文描述。
+const FREE_REQ = [
+  { lv: '一级', time: '不超过 1 分钟（无音乐伴奏）',
+    jumps: ['W（华尔兹跳）'],
+    spins: ['USp-Ⅱ（5 圈），必须 3 字步进入'],
+    steps: ['1 个前燕式平衡（3 秒），浮腿任选'],
+    moves: ['2 个方向的前交叉蹬冰，每个方向至少连续 3 次'] },
+  { lv: '二级', time: '不超过 1 分钟（无音乐伴奏）',
+    jumps: ['1S（后内结环一周跳）'],
+    spins: ['USp（3 圈），必须 3 字步进入'],
+    steps: ['1 个 LFO 燕式平衡（3 秒）', '1 个 RFI 燕式平衡（3 秒）', '2 个燕式平衡中间最多 2 步滑行或步法，顺序任选'],
+    moves: ['2 个方向的后交叉蹬冰，每个方向至少连续 3 次'] },
+  { lv: '三级', time: '1 分 30 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['1T', '1Lo', '1F'],
+    spins: ['SSp（3 圈）', 'USp-B（3 圈）'],
+    steps: ['1 个 RFO 燕式平衡（3 秒）', '1 个 LF 燕式平衡（3 秒）', '2 个燕式平衡中间最多 2 步滑行或步法，顺序任选'],
+    moves: ['无'] },
+  { lv: '四级', time: '1 分 50 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['1Lz', '1A', '1Lo+1Lo'],
+    spins: ['CSp（3 圈）', 'CUSp（4+4）', '反直立转单/双臂上手姿态（至少连续 2 圈）'],
+    steps: ['1 个 BO 燕式平衡（3 秒）', '1 个 BI 燕式平衡（3 秒）', '必须换足，2 个燕式平衡中间最多 2 步滑行或步法，顺序任选'],
+    moves: ['无'] },
+  { lv: '五级', time: '2 分 15 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['1A+1T+1Lo', '2S', '任选 1 种不同于 2S 的 2 周跳'],
+    spins: ['CSSp 男（5+5）/ LSp 女（6）', 'CoSp（8 圈）至少 3 种基本姿势（每种至少转 2 圈）'],
+    steps: ['1 个 StSq，充分利用冰面，至少包括 2 个简单或难度的转体步（Turns）和 2 个步法（Steps），每种最多可重复计算 1 次'],
+    moves: ['无'] },
+  { lv: '六级', time: '2 分 30 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['1A+2T', '2Lo', '2F', '2Lz'],
+    spins: ['CCSp（5+5）', 'CCoSp（6+6）至少 3 种基本姿势，每种至少转 2 圈（每只脚至少 2 种基本姿势）'],
+    steps: ['1 个 StSq，充分利用冰面，至少包括 3 个简单或难度的转体步（Turns）和 3 个步法（Steps），每种最多可重复 1 次'],
+    moves: ['无'] },
+  { lv: '七级', time: '2 分 30 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['2A', '2Lo+2Lo', '2F+Eu+2S'],
+    spins: ['FCSp（6 圈）', 'CCoSp（6+6）至少 3 种基本姿势（每种至少转 2 圈）', '所有旋转必须达到国际滑联旋转 1 级的定级标准；没达到的按不符合规定执行'],
+    steps: ['1 个 StSq，充分利用冰面，至少包括 4 个难度转体步（Turns）/ 步法（Steps），每种最多可重复 1 次'],
+    moves: ['难度滑行动作（3 秒），例如：伊娜鲍尔步（Ina Bauer）/ 大一字步（spread eagle）/ 创新滑行动作（Creative Movement）'] },
+  { lv: '八级', time: '2 分 40 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['2A', '3T', '任选 1 个 2 周连 2 周的联跳（2+2）'],
+    spins: ['FSSp（8 圈）空中必选择蹲踞姿势', '1 种姿势旋转（8 圈），不能跳进入，必须选择不同于蹲踞姿势（不可以做基本直立姿势）', 'CCoSp（6+6）至少选择 3 种基本姿势（每种至少转 2 圈）', '所有旋转必须达到国际滑联旋转 2 级的定级标准'],
+    steps: ['1 个 StSq，充分利用冰面，至少包括 5 个难度的转体步（Turns）/ 步法（Steps），每种最多可重复 1 次'],
+    moves: ['无'] },
+  { lv: '九级', time: '2 分 40 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['3 周跳（任选）', '3 周连 2 周跳（3 周跳必须不同于单跳）', '2Lz+2T+2Lo'],
+    spins: ['跳接转（8 圈）', '1 种姿势转（8 圈），不能跳进入，不能与跳接转姿势相同（不可以做基本直立姿势）', 'CCoSp（6+6）至少选择 3 种基本姿势（每种至少转 2 圈）', '所有旋转必须达到国际滑联旋转 3 级的定级标准'],
+    steps: ['1 个 StSq，充分利用冰面，至少包括 7 个难度的转体步（Turns），每种最多可重复 1 次'],
+    moves: ['无'] },
+  { lv: '十级', time: '2 分 40 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['3Lo', '3F', '3Lz+2T / 2Lo'],
+    spins: ['FCaSp（8 圈）/ FCCoSp（10 圈），至少选择 3 种基本姿势（每种至少转 2 圈）', '1 种姿势转（8 圈），不能跳进入，不能与跳接转姿势相同（不可以做基本直立姿势）', 'CCoSp（10 圈）至少选择 3 种基本姿势（每种至少转 2 圈）', '所有旋转必须达到国际滑联旋转 3 级的定级标准'],
+    steps: ['1 个 ChSq，按照国际滑联要求执行'],
+    moves: ['无'] }
+];
+// ---------- 单人成人自由滑 1–6 级 ----------
+// 来源：第四章「单人成人自由滑等级测试内容」表格（第 136 页）与「成人自由滑等级测试评判标准」（第 137 页）。
+const ADULT_FREE_REQ = [
+  { lv: '一级', time: '1 分 ± 10 秒（在音乐伴奏下）',
+    jumps: ['W（华尔兹跳）'],
+    spins: ['USp-Ⅱ（转 3 圈）'],
+    steps: ['1 个前燕式平衡（3 秒），浮腿任选', '少于 3 秒将按照规定动作没有达到规定时间评判'],
+    moves: ['2 个方向的前交叉蹬冰，每个方向至少连续 3 次'] },
+  { lv: '二级', time: '1 分 10 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['W + W（两个华尔兹跳）'],
+    spins: ['USp-Ⅱ（转 5 圈），必须选择 3 字步进入'],
+    steps: ['1 个 LFO 燕式平衡（3 秒）', '任选 1 个自由滑动作，不能与 LFO 燕式平衡相同（3 秒）'],
+    moves: ['2 个方向的后交叉蹬冰，每个方向至少连续 3 次'] },
+  { lv: '三级', time: '1 分 10 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['1S（后内结环一周跳）'],
+    spins: ['USp（转 3 圈），必须选择 3 字步进入'],
+    steps: ['1 个 RFI 燕式平衡（3 秒）', '任选 1 个自由滑动作，不能与 RFI 燕式平衡相同（3 秒）'],
+    moves: ['无'] },
+  { lv: '四级', time: '1 分 30 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['1T', '1Lo'],
+    spins: ['SSp（转 3 圈）'],
+    steps: ['1 个 RFO 燕式平衡（3 秒）', '1 个 LF 燕式平衡（3 秒）', '任选 1 个自由滑动作（3 秒）（不包括燕式平衡）'],
+    moves: ['无'] },
+  { lv: '五级', time: '1 分 30 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['1F', '1S+1T'],
+    spins: ['CSp（转 3 圈）'],
+    steps: ['1 个 BO 燕式平衡（3 秒）', '1 个 BI 燕式平衡（3 秒）', '任选 1 个自由滑动作（3 秒）（不包括燕式平衡）'],
+    moves: ['无'] },
+  { lv: '六级', time: '1 分 30 秒 ± 10 秒（在音乐伴奏下）',
+    jumps: ['1Lz', '1Lo+1Lo'],
+    spins: ['CoSp（转 6 圈）至少 2 种基本姿势（每种不少于 2 圈）'],
+    steps: ['2 个有创意的自由动作，各 3 秒（不包括燕式平衡）'],
+    moves: ['无'] }
+];
+const ADULT_FREE_PASS = [
+  { title: '评判等级', points: ['规定动作评判等级分为：优秀、良好、通过。'] },
+  { title: '通过口径', points: ['整套节目中动作完成没有错误评价，且大部分规定动作得到加分：满足 2 条者为良好通过，满足 4 条及以上者为优秀通过（加分条件明细见第三章）。'] },
+  { title: '技术依据', points: ['成人自由滑技术动作的基础知识与质量要求，参考第三章单人自由滑的相关内容。'] }
+];
+const ADULT_FREE_FAIL = [
+  { title: '扣分口径', points: ['-1 为轻微失误，-2 为严重失误；2 次轻微失误相当于 1 次严重失误。'] },
+  { title: '严重失误的数量限制', points: [
+    '1 至 2 级：只允许 1 个动作严重失误或 2 个轻微失误。',
+    '3 至 6 级：只允许 2 个动作严重失误或 4 个轻微失误，但不得出现在同类动作中。'
+  ] },
+  { title: '哪些算严重失误', points: [
+    '滑行中跌倒为 1 次严重失误。', '动作缺少或遗漏为 2 次严重失误。',
+    '每个规定动作只允许试做 1 次，重复动作为 1 次严重失误。',
+    '1、2 级测试中交叉蹬冰技术差为 1 次严重失误。',
+    '不符合规定动作要求为 1 次严重失误。',
+    '超出或少于规定的滑行或音乐时间为 1 次严重失误。'
+  ] }
+];
+function adultFreeLevel(r, i) {
+  return sylLevel('adult', '自由滑 · ' + r.lv, 'adult-f' + (i + 1), 'free', {
+    content: [
+      { title: '时间', points: [r.time] },
+      { title: '跳跃', points: r.jumps },
+      { title: '旋转', points: r.spins },
+      { title: '接续步', points: r.steps },
+      { title: '自由滑动作', points: r.moves }
+    ],
+    pass: ADULT_FREE_PASS,
+    fail: ADULT_FREE_FAIL
+  });
+}
+
+// 自由滑共用的评判标准（第三章「单人自由滑等级测试评判标准」，第 131–132 页）
+const FREE_PASS = [
+  { title: '评判等级', points: ['规定动作评判等级分为：优秀、良好、完成。'] },
+  { title: '通过口径', points: [
+    '整套节目中动作完成没有错误评价，且大部分规定动作得到加分：满足 2 条者为良好通过，满足 4 条及以上者为优秀通过。'
+  ] },
+  { title: '加分条件（按动作分类）', points: [
+    '跳跃：高度远度、起跳/落冰、自始至终轻松自如、进入步法有创意、身体姿势、与音乐相符',
+    '旋转：速度或加速、控制与姿势清晰、轻松自如、中心稳定、创新性、与音乐相符',
+    '接续步：用刃深/转体清晰、与音乐相符、流畅与完成度、浮足变化的创新性、冰面覆盖、加速与减速',
+    '编排步法 / 自由滑动作：与音乐相符并反映节目概念、创新性、完成度、滑行方向与图案多变、动作清晰精准、全情投入'
+  ] }
+];
+const FREE_FAIL = [
+  { title: '扣分口径', points: ['-1 为轻微失误，-2 为严重失误；2 次轻微失误相当于 1 次严重失误。'] },
+  { title: '严重失误的数量限制', points: [
+    '1 至 2 级：只允许出现 1 次严重失误或 2 次轻微失误。',
+    '3 至 10 级：只允许出现 2 次严重失误或 4 次轻微失误，但不得出现在同类动作中。'
+  ] },
+  { title: '哪些算严重失误', points: [
+    '滑行中跌倒。', '动作缺少或遗漏。', '每个规定动作只允许试做 1 次，重复动作。',
+    '1、2 级测试中交叉蹬冰技术差。', '不符合规定动作要求。',
+    '超出或少于规定的滑行或音乐时间。', '附加动作（累计）。'
+  ] }
+];
+function freeLevel(r, i) {
+  return sylLevel('free', r.lv, 'free-' + (i + 1), null, {
+    content: [
+      { title: '时间', points: [r.time] },
+      { title: '跳跃', points: r.jumps },
+      { title: '旋转', points: r.spins },
+      { title: '接续步', points: r.steps },
+      { title: '自由滑动作', points: r.moves }
+    ],
+    pass: FREE_PASS,
+    fail: FREE_FAIL
+  });
+}
+
+// 内置考纲（只读）：内容摘自《国家花样滑冰等级测试大纲（第2版）》相应页，仅供备考参考，请以官方原文为准。
+// 使用固定 key，用户个性化内容按 key 关联，因此用户不需要（也不能）编辑考纲本体。
+const SYLLABUS = [
+  // 单人滑 · 自由滑 1–10 级（书名与级别依据：第一章 总则）
+  ...FREE_REQ.map(freeLevel),
+  // 单人滑 · 步法表演节目：基础级 + 1–10 级（四级是你自己转录的那份，见下面 legacy）
+  ...STEPS_REQ.map(x => sylLevel('steps', x[0], x[1], null, {
+    'key-steps': x[2],
+    test: [{ title: '时间与节奏', points: x[3] }]
+  })),
 
   {
     key: 'steps-4',
     kind: 'steps',
     level: '四级',
+    source: SYLLABUS_SOURCE,
     sections: [
       {
         key: 'intro', name: '步法简介与要求', userAdd: false, items: [
@@ -229,6 +401,16 @@ const SYLLABUS = [
             ], mistakes: []
           }
         ]
+      },
+      {
+        key: 'test', name: '测试标准明细', userAdd: true, items: [{
+          key: 't1', title: '时间与节奏', mistakes: [],
+          points: [
+            '步法滑行时长：1 分 10 秒 ± 5 秒',
+            '整套节目时长：1 分 55 秒 ± 5 秒',
+            '音乐节奏：52 小节/分 · 156 拍/分'
+          ]
+        }]
       },
       { key: 'pattern', name: '规定步法（图案）', userAdd: false, images: ['/packageExam/images/steps-4.png'], items: [] },
       {
@@ -305,15 +487,46 @@ const SYLLABUS = [
       ['步法滑行时长：1 分 30 秒 ± 5 秒', '整套节目时长：2 分 10 秒 ± 5 秒', '音乐节奏：28 小节/分 · 112 拍/分']],
     ['十级', 'steps-10', ['4个外勾步', '4个内勾步', '4个结环步', '4个捻转步', '2个括弧步', '2个开式乔克塔步', '内刃变外刃的大一字步'],
       ['步法滑行时长：1 分 20 秒 ± 5 秒', '整套节目时长：2 分 ± 5 秒', '音乐节奏：本级不受限制']]
-  ]).map(x => sylLevel('steps', x[0], x[1], null, { 'key-steps': x[2], test: x[3] })),
+  ]).map(x => sylLevel('steps', x[0], x[1], null, {
+    'key-steps': x[2],
+    test: [{ title: '时间与节奏', points: x[3] }]
+  })),
   // 冰上舞蹈 1–6 级
   ...sylRange('dance', CN_LEVELS.slice(0, 6).map((lv, i) => [lv, 'dance-' + (i + 1)])),
   // 成人单人滑：自由滑 1–6 级、步法表演节目 1–6 级（分节沿用单人滑那套）
-  ...sylRange('adult', CN_LEVELS.slice(0, 6).map((lv, i) => ['自由滑 · ' + lv, 'adult-f' + (i + 1)]), 'free'),
+  ...ADULT_FREE_REQ.map(adultFreeLevel),
   ...sylRange('adult', CN_LEVELS.slice(0, 6).map((lv, i) => ['步法 · ' + lv, 'adult-s' + (i + 1)]), 'steps'),
   // 双人滑 1–3 级
   ...sylRange('pair', [['一级', 'pair-1'], ['二级', 'pair-2'], ['三级', 'pair-3']])
 ];
+
+// 成人步法 1–6 级：原书第四章写明"参考单人滑步法表演节目 1–6 级开展与评判"，
+// 所以直接沿用单人步法同名级别的要素与时长，只在备注里说明出处（不重复维护两份数据）。
+(function fillAdultSteps() {
+  const src = {};
+  SYLLABUS.forEach(x => { if (x.kind === 'steps') src[x.key] = x; });
+  SYLLABUS.forEach(x => {
+    if (x.kind !== 'adult' || x.key.indexOf('adult-s') !== 0) return;
+    const n = x.key.replace('adult-s', '');
+    const from = src['steps-' + n];
+    if (!from) return;
+    const note = '本级别参考《大纲》单人滑步法表演节目「' + from.level + '」开展与评判（原书第四章「单人成人步法表演节目测试内容及评判标准」）。';
+    const secs = [{ key: 'adult-ref', name: '成人步法 · 说明', userAdd: true,
+      items: [{ key: 'ref', title: '出处', points: [note], mistakes: [] }] }];
+    from.sections.forEach(sec => {
+      if (sec.key === 'my-points') return;
+      secs.push({
+        key: sec.key, name: sec.name, userAdd: sec.userAdd,
+        items: sec.items.map(it => ({
+          key: it.key, title: it.title,
+          points: (it.points || []).slice(), mistakes: (it.mistakes || []).slice()
+        }))
+      });
+    });
+    secs.push({ key: 'my-points', name: '我的要点', userAdd: true, items: [] });
+    x.sections = secs;
+  });
+})();
 
 module.exports = {
   APP_VERSION, POSE_ENABLED, TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
