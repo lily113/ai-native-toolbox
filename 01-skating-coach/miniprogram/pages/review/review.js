@@ -1,4 +1,5 @@
 const store = require('../../utils/store');
+const sharecard = require('../../utils/sharecard');
 const { LESSON_FORMS } = require('../../utils/const');
 
 // 大数字的字号档位：<=3 字用 lg，4-5 字用 md，再长用 sm（永远不用"缩一半"那种）
@@ -22,9 +23,7 @@ Page({
     year: 0,
     month: 0,
     ymValue: '',
-    stats: null,
-    cvW: 640,     // 报告图画布尺寸（px，绘制时按 dpr 放大）
-    cvH: 900
+    stats: null
   },
 
   onLoad() {
@@ -34,145 +33,32 @@ Page({
   },
   onShow() { this.calc(); },
 
-  // ---------- 生成月度报告图 ----------
-  // 用 canvas 2d 画一张 640x900 的图：标题、三个大数字、近 12 个月柱状、上下冰占比。
-  // 已保存过就提示；保存到相册被拒时引导去设置里开权限。
+  // ---------- 生成月度报告图（A 卡）----------
+  // 主角是"这个月练了什么" + 一句能被引用的话；不放累计次数/占比通栏/隐私声明。
+  // 绘制走共享底座 utils/sharecard.js（和单次训练卡同一套）。
   makeReport() {
     const st = this.data.stats || {};
     if (!st.count) { wx.showToast({ title: '这个月还没有记录', icon: 'none' }); return; }
-    wx.showLoading({ title: '正在生成…', mask: true });
-    const q = wx.createSelectorQuery();
-    q.select('#reportCanvas').fields({ node: true, size: true }).exec(res => {
-      const node = res && res[0] && res[0].node;
-      if (!node) { wx.hideLoading(); wx.showToast({ title: '生成失败（画布没找到）', icon: 'none' }); return; }
-      const W = 640, H = 900;
-      const dpr = (wx.getSystemInfoSync().pixelRatio) || 2;
-      node.width = W * dpr;
-      node.height = H * dpr;
-      const ctx = node.getContext('2d');
-      ctx.scale(dpr, dpr);
-      ctx.fillStyle = '#f0f9ff';
-      ctx.fillRect(0, 0, W, H);
-      // 标题
-      ctx.fillStyle = '#0369a1';
-      ctx.font = 'bold 34px sans-serif';
-      ctx.fillText('花样滑冰训练', 40, 70);
-      ctx.fillStyle = '#0f172a';
-      ctx.font = 'bold 26px sans-serif';
-      ctx.fillText(st.label || '', 40, 108);
-      ctx.fillStyle = '#64748b';
-      ctx.font = '18px sans-serif';
-      ctx.fillText('本机记录 · 数据只在你自己账号下', 40, 138);
-      // 三个大数字
-      const boxY = 170, boxH = 130;
-      const boxes = [
-        { n: String(st.count), lb: '训练次数' },
-        { n: st.minutesText || '', lb: '总时长' },
-        { n: String(st.ice) + ' / ' + String(st.lesson), lb: '上冰 / 上课' }
-      ];
-      boxes.forEach((b, i) => {
-        const x = 40 + i * ((W - 80) / 3);
-        const w = (W - 80) / 3 - 14;
-        ctx.fillStyle = '#ffffff';
-        this._roundRect(ctx, x, boxY, w, boxH, 16);
-        ctx.fill();
-        ctx.fillStyle = '#0284c7';
-        ctx.font = 'bold 40px sans-serif';
-        ctx.fillText(b.n, x + 16, boxY + 62);
-        ctx.fillStyle = '#64748b';
-        ctx.font = '18px sans-serif';
-        ctx.fillText(b.lb, x + 16, boxY + 96);
+    const ym = this.data.year + '-' + ('0' + (this.data.month + 1)).slice(-2);
+    const cfg = (store.load(store.KEYS.meta) || {}).shareCard || {};
+    const data = sharecard.monthCardData(ym, { withDuration: !!cfg.duration });
+    const draw = (hook) => {
+      const d = Object.assign({}, data, { hook: hook || data.hook });
+      sharecard.exportImage({ selector: '#reportCanvas' }, (ctx) => sharecard.drawMonthCard(ctx, d));
+    };
+    const hooks = (data.hooks || []).filter(Boolean);
+    if (hooks.length > 1) {
+      // 让用户挑一句今天想发的话（比纯自动更贴）
+      wx.showActionSheet({
+        itemList: hooks.slice(0, 3),
+        success: r => draw(hooks[r.tapIndex]),
+        fail: () => {}
       });
-      // 近 12 个月柱状
-      const chY = 340, chH = 260;
-      ctx.fillStyle = '#334155';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText('近 12 个月训练次数（最高 ' + (st.trendMax || 0) + ' 次）', 40, chY - 14);
-      const trend = st.trend || [];
-      const bw = Math.floor((W - 80) / Math.max(1, trend.length)) - 10;
-      trend.forEach((t, i) => {
-        const x = 40 + i * ((W - 80) / Math.max(1, trend.length));
-        const h = Math.max(t.count ? 8 : 0, Math.round((t.count || 0) / Math.max(1, st.trendMax) * (chH - 40)));
-        ctx.fillStyle = t.current ? '#0284c7' : '#7dd3fc';
-        this._roundRect(ctx, x, chY + (chH - 40) - h, bw, h, 6);
-        ctx.fill();
-        ctx.fillStyle = t.current ? '#0284c7' : '#94a3b8';
-        ctx.font = '16px sans-serif';
-        ctx.fillText(String(t.label || ''), x, chY + chH - 14);
-        if (t.count) {
-          ctx.fillStyle = '#334155';
-          ctx.font = '15px sans-serif';
-          ctx.fillText(String(t.count), x, chY + (chH - 40) - h - 6);
-        }
-      });
-      // 类型占比
-      const tbY = 660;
-      ctx.fillStyle = '#334155';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText('上冰 / 陆地 / 上课', 40, tbY - 14);
-      let bx = 40;
-      (st.typeBar || []).forEach(t => {
-        const w = Math.round((W - 80) * (t.pct || 0) / 100);
-        if (w <= 0) return;
-        ctx.fillStyle = (t.cls === 'ice') ? '#38bdf8' : (t.cls === 'land' ? '#a78bfa' : '#34d399');
-        this._roundRect(ctx, bx, tbY, w, 30, 8);
-        ctx.fill();
-        bx += w + 2;
-      });
-      ctx.font = '18px sans-serif';
-      let ly = tbY + 62;
-      (st.typeBar || []).forEach(t => {
-        ctx.fillStyle = (t.cls === 'ice') ? '#0ea5e9' : (t.cls === 'land' ? '#7c3aed' : '#059669');
-        ctx.fillText(t.name + '  ' + t.n + ' 次 · ' + t.pct + '%', 40, ly);
-        ly += 26;
-      });
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '16px sans-serif';
-      ctx.fillText('累计上冰 ' + (st.allIce || 0) + ' 次 · 累计上课 ' + (st.allUnits || 0) + ' 节', 40, H - 40);
+      return;
+    }
+    draw(hooks[0]);
+  },
 
-      wx.canvasToTempFilePath({
-        canvas: node,
-        success: r => {
-          wx.hideLoading();
-          const p = r.tempFilePath;
-          const after = () => {
-            if (wx.showShareImageMenu) {
-              wx.showShareImageMenu({ path: p, fail: () => {} });
-            } else {
-              wx.previewImage({ urls: [p] });
-            }
-          };
-          wx.saveImageToPhotosAlbum({
-            filePath: p,
-            success: () => { wx.showToast({ title: '已存到相册', icon: 'none' }); after(); },
-            fail: err => {
-              const msg = String((err && err.errMsg) || '');
-              if (msg.indexOf('auth deny') > -1 || msg.indexOf('authorize') > -1) {
-                wx.showModal({
-                  title: '需要相册权限', content: '保存图片需要你允许"保存到相册"。去设置里打开？',
-                  success: r2 => { if (r2.confirm) wx.openSetting({}); }
-                });
-              } else {
-                wx.showToast({ title: '保存失败，可直接转发图片', icon: 'none' });
-              }
-              after();
-            }
-          });
-        },
-        fail: () => { wx.hideLoading(); wx.showToast({ title: '生成失败，稍后再试', icon: 'none' }); }
-      });
-    });
-  },
-  _roundRect(ctx, x, y, w, h, r) {
-    const rr = Math.min(r, w / 2, h / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + rr, y);
-    ctx.arcTo(x + w, y, x + w, y + h, rr);
-    ctx.arcTo(x + w, y + h, x, y + h, rr);
-    ctx.arcTo(x, y + h, x, y, rr);
-    ctx.arcTo(x, y, x + w, y, rr);
-    ctx.closePath();
-  },
 
   prev() {
     const d = new Date(this.data.year, this.data.month - 1, 1);

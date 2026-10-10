@@ -181,6 +181,16 @@ fs.readdirSync(cfDir).forEach(name => {
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
+console.log('阶段报告图（A 卡）');
+ok(/monthCardData/.test(readIf(MP + '/utils/sharecard.js')) && /drawMonthCard/.test(readIf(MP + '/utils/sharecard.js')),
+   'A 卡也走共享底座（不再是回顾页里那套内联绘制）');
+const rvJs2 = readIf(MP + '/pages/review/review.js');
+ok(rvJs2.indexOf('_roundRect') < 0 && rvJs2.indexOf('arcTo') < 0,
+   '回顾页里旧的画布代码已经删掉（避免两套）');
+ok(/showActionSheet/.test(rvJs2) && /hooks/.test(rvJs2), '多个候选句子时先让用户挑一句');
+ok(/showCanvas/.test(readIf(MP + '/pages/review/review.wxml')) === false && /reportCanvas/.test(readIf(MP + '/pages/review/review.wxml')),
+   '回顾页画布沿用 reportCanvas（540×720，和分享卡同尺寸）');
+
 console.log('单次训练分享卡（C 卡）');
 ok(fs.existsSync(MP + '/utils/sharecard.js') && /drawTrainingCard/.test(readIf(MP + '/utils/sharecard.js')),
    '抽了共用的分享卡绘制底座（以后 A 卡复用同一套）');
