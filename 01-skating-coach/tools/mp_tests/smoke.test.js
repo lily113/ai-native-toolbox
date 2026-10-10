@@ -181,6 +181,16 @@ fs.readdirSync(cfDir).forEach(name => {
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
+console.log('公开发布前的清理（别手滑加回来）');
+const pkgImgs = fs.existsSync(MP + '/packageExam/images') ? fs.readdirSync(MP + '/packageExam/images') : [];
+ok(pkgImgs.length === 0, '小程序包里没有书里的扫描图（packageExam/images ' + (pkgImgs.length ? '还有 ' + pkgImgs.join(',') : '已清空') + '）');
+ok(!/steps-4\.png/.test(readIf(MP + '/utils/const.js')), '考纲数据里不再引用那张图案扫描');
+ok(!/key: 'pattern'/.test(readIf(MP + '/utils/const.js')), '「规定步法（图案）」分节已移除');
+const setJs3 = readIf(MP + '/pages/settings/settings.js');
+ok(/remindVisible/.test(setJs3) && /wx:if="\{\{remindOn\}\}"/.test(readIf(MP + '/pages/settings/settings.wxml')),
+   '没配订阅消息模板时，「考级提醒」这一行不显示（别让审核看到半成品入口）');
+ok(!/未配置（点一下看怎么配）/.test(setJs3), '那句"未配置"的占位文案已经不存在');
+
 console.log('阶段报告图（A 卡）');
 ok(/monthCardData/.test(readIf(MP + '/utils/sharecard.js')) && /drawMonthCard/.test(readIf(MP + '/utils/sharecard.js')),
    'A 卡也走共享底座（不再是回顾页里那套内联绘制）');
