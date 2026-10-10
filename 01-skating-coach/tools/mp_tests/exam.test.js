@@ -38,7 +38,7 @@ ok(new Set(S.map(x => x.key)).size === 42, 'key 全部唯一');
 ok(Object.keys(byKey).filter(k => k.indexOf('adult-s') === 0).length === 6, '成人步法 1–6 级都在');
 ok(Object.keys(byKey).filter(k => k.indexOf('adult-f') === 0).length === 6, '成人自由滑 1–6 级都在');
 
-console.log('② 单人自由滑 1–10：时长 + 四项要求（不再是空壳）');
+console.log('② 单人自由滑 1–10：只剩「测试内容」，但内容齐全');
 const FREE_TIME = {
   'free-1': '不超过 1 分钟', 'free-2': '不超过 1 分钟', 'free-3': '1 分 30 秒',
   'free-4': '1 分 50 秒', 'free-5': '2 分 15 秒', 'free-6': '2 分 30 秒',
@@ -53,7 +53,8 @@ Object.keys(FREE_TIME).forEach(k => {
      lv.level + ' 测试内容五项齐全（' + titles.join('/') + '）');
   ok(!!timeItem && timeItem.points[0].indexOf(FREE_TIME[k]) > -1, lv.level + ' 时长写对了：' + (timeItem ? timeItem.points[0] : '—'));
   ok(content.every(i => (i.points || []).length > 0), lv.level + ' 每一项都有内容，没有空的');
-  ok(itemsOf(lv, 'pass').length >= 2 && itemsOf(lv, 'fail').length >= 2, lv.level + ' 通过/未通过标准都有');
+  ok(lv.sections.filter(sec => sec.key !== 'my-points').length === 1,
+     lv.level + ' 只保留「测试内容」一个官方分节（精简过）');
 });
 ok(pointCount(byKey['free-4']) >= 10, '自由滑四级要点足够看（' + pointCount(byKey['free-4']) + ' 条）');
 ok(itemsOf(byKey['free-2'], 'content').filter(i => i.title === '跳跃')[0].points[0].indexOf('1S') > -1,
@@ -64,13 +65,18 @@ ok(itemsOf(byKey['free-7'], 'content').filter(i => i.title === '自由滑动作'
    '七级自由滑动作是难度滑行动作（伊娜鲍尔步等）');
 ok(itemsOf(byKey['free-8'], 'content').filter(i => i.title === '旋转')[0].points.join('').indexOf('旋转 2 级') > -1,
    '八级旋转要求达到国际滑联旋转 2 级');
-ok(itemsOf(byKey['free-9'], 'fail').join && itemsOf(byKey['free-9'], 'fail').length === 3, '未通过标准按 1–2 级 / 3–10 级分档');
+ok(byKey['free-9'].sections.every(sec => ['content', 'my-points'].indexOf(sec.key) > -1),
+   '自由滑不再挂通过/未通过标准分节');
+ok(byKey['free-9'].sections.filter(sec => sec.key === 'pass').length === 0, '确认没有残留的 pass 分节');
 
 console.log('③ 步法 11 个级别（基础级 + 1–10）时长都在');
 ok(C.SYLLABUS.filter(x => x.kind === 'steps').length === 11, '步法 11 个级别');
 const stepLv = C.SYLLABUS.filter(x => x.kind === 'steps');
 ok(stepLv.every(lv => itemsOf(lv, 'test').length > 0 && itemsOf(lv, 'test')[0].points.length > 0),
    '每个步法级别都有"时间与节奏"（含时长）');
+ok(stepLv.every(lv => !lv.sections.some(sec => sec.key === 'intro' || sec.key === 'detail')),
+   '步法不再有「步法简介」「本级步法明细」这两个空盒子');
+ok(stepLv.every(lv => itemsOf(lv, 'key-steps').length > 0), '步法的「重点步法说明」都还在');
 ok(itemsOf(byKey['steps-0'], 'test')[0].points[0].indexOf('约 1 分钟') > -1, '基础级只有步法滑行时长（约 1 分钟）');
 ok(itemsOf(byKey['steps-0'], 'key-steps').length === 3, '基础级有三个重点步法要素');
 ok(itemsOf(byKey['steps-3'], 'test').map(i => i.points.join('')).join('').indexOf('1 分 55 秒') > -1,
@@ -80,8 +86,8 @@ console.log('④ 成人：自由滑 1–6 + 步法 1–6');
 ok([1, 2, 3, 4, 5, 6].every(n => itemsOf(byKey['adult-f' + n], 'content').length === 5), '成人自由滑每级都有五项要求');
 ok(itemsOf(byKey['adult-f1'], 'content').filter(i => i.title === '时间')[0].points[0].indexOf('1 分 ± 10 秒') > -1,
    '成人一级时长「1 分 ± 10 秒」写对了');
-ok(itemsOf(byKey['adult-f6'], 'pass').map(i => i.points.join('')).join('').indexOf('优秀、良好、通过') > -1,
-   '成人的评判等级用"优秀/良好/通过"（单人滑是"完成"，没抄错）');
+ok(byKey['adult-f6'].sections.filter(sec => sec.key !== 'my-points').length === 1,
+   '成人自由滑同样只保留「测试内容」');
 const refNote = itemsOf(byKey['adult-s3'], 'adult-ref')[0].points[0];
 ok(refNote.indexOf('单人滑步法表演节目') > -1 && refNote.indexOf('三级') > -1, '成人步法写明了出处：' + refNote.slice(0, 40) + '…');
 ok(itemsOf(byKey['adult-s6'], 'test').length > 0, '成人步法六级也有时长/节奏（沿用单人六级）');
