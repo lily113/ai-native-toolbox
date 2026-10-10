@@ -18,7 +18,8 @@ Page({
     openid: '',
     aiStatus: '检查中…',
     aiVisible: false,     // 只有你是本人时才会显示「AI 教练」这一行
-    remindText: '未开启',
+    remindText: '',
+    remindOn: false,        // 只在配好订阅消息模板后才显示这一行
     shareDuration: false,   // 分享图默认不带时长
     shareCoach: false,      // 分享图默认不带教练名
     dataWhere: '本机 0 条 · 云端 ? 条',
@@ -47,6 +48,7 @@ Page({
       auto: sync.getAuto(),
       ver: require('../../utils/const').APP_VERSION,
       remindText: this.remindInfo(),
+      remindOn: this.remindVisible(),
       shareDuration: !!(loadMetaShare().duration),
       shareCoach: !!(loadMetaShare().coach),
       recN: store.loadRecords().length
@@ -198,13 +200,16 @@ Page({
       fail: () => wx.showToast({ title: '订阅失败，稍后再试', icon: 'none' })
     });
   },
+  // 没配订阅消息模板时，这一行对整个界面隐藏（发布时别让审核看到"没配好的功能"）；
+  // 想配置就先把模板 ID 填进 utils/const.js 的 SUBSCRIBE_TMPL，这一行会自动出现。
   remindInfo() {
     const TMPL = require('../../utils/const').SUBSCRIBE_TMPL;
     const meta = store.load(store.KEYS.meta) || {};
     const st = meta.subscribeExam || {};
-    if (!TMPL) return '未配置（点一下看怎么配）';
+    if (!TMPL) return '';
     return st.on ? '已开启（考级前 7 天提醒一次）' : '未开启';
   },
+  remindVisible() { return !!require('../../utils/const').SUBSCRIBE_TMPL; },
 
   copyOpenid() {
     if (!this.data.openid) { wx.showToast({ title: '还没取到身份', icon: 'none' }); return; }

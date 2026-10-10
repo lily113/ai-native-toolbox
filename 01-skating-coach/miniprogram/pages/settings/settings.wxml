@@ -56,7 +56,7 @@
       </view>
     </view>
 
-    <view class="kv tappable" bindtap="setupReminder">
+    <view class="kv tappable" wx:if="{{remindOn}}" bindtap="setupReminder">
       <text class="kv-label">🔔 考级提醒</text><text class="kv-val">{{remindText}} ▾</text>
     </view>
 

@@ -93,7 +93,7 @@ Page({
         // （以前点开是"测试内容 0 条 / 评判标准 0 条"，看着像坏了）
         // 「我的要点」永远保留（那是你自己写东西的地方），即使现在是空的
         if (!items.length && !imgs.length && s.key !== 'my-points') return;
-        const defOpen = (s.key === 'pattern' || s.key === 'my-points');
+        const defOpen = (s.key === 'my-points');
         sections.push({
           id: s.key, name: s.name, builtin: true, images: imgs, userAdd: s.userAdd === true, items: items,
           open: (this._openMap && this._openMap[s.key] !== undefined) ? this._openMap[s.key] : defOpen
