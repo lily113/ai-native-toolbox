@@ -31,7 +31,9 @@
     <view class="sel-tip" wx:if="{{drillSelOn}}">点选要移动的组合（可多选，已选 {{drillPickN}} 个），再点下面的「移到别的动作」。</view>
     <view class="drill {{drillSelOn && item.picked ? 'picked' : ''}}" wx:for="{{drills}}" wx:key="id" bindtap="tapDrill" bindlongpress="delDrill" data-id="{{item.id}}">
       <view class="drill-no">{{drillSelOn ? (item.picked ? '✓' : '') : item.no}}</view>
-      <text class="drill-master {{item.mastered ? 'on' : ''}}" catchtap="toggleDrillStatus" data-id="{{item.id}}">{{item.mastered ? '✅' : '○'}}</text>
+      <view class="drill-master {{item.mastered ? 'on' : ''}}" catchtap="toggleDrillStatus" catchlongpress="noop" data-id="{{item.id}}">
+        <text>{{item.mastered ? '✅' : '○'}}</text>
+      </view>
       <view class="drill-body">
         <view class="drill-name">{{item.name}}<text class="drill-date" wx:if="{{item.dateText}}">{{item.dateText}}</text><text class="drill-use" wx:if="{{item.usageText}}">{{item.usageText}}</text></view>
         <view class="pt-item" wx:for="{{item.points}}" wx:for-item="pt" wx:key="index">· {{pt}}</view>
@@ -93,6 +95,15 @@
       <view class="field">
         <view class="field-label">名称</view>
         <textarea class="ta" value="{{editName}}" bindinput="onName" placeholder="如：后外点冰两周 ×10 组" maxlength="-1" auto-height></textarea>
+      </view>
+      <view class="field" wx:if="{{editId}}">
+        <view class="switch-row">
+          <view>
+            <view class="switch-t">已掌握</view>
+            <view class="muted">标了就不再进「最久没练」提醒；组合和要点都保留</view>
+          </view>
+          <switch checked="{{editMastered}}" bindchange="onEditMastered" color="#15803d" />
+        </view>
       </view>
       <view class="field">
         <view class="field-label">新增日期（用于排序，日期越新越靠前）</view>

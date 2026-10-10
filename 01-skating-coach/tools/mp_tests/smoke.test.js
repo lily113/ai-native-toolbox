@@ -233,6 +233,17 @@ ok(/numCls/.test(rvJs) && /num-lg|num-md/.test(readIf(MP + '/pages/review/review
 ok(!/min-height:\s*1[0-9][0-9]px/.test(readIf(MP + '/pages/review/review.wxss')),
    '两张卡不再用大 min-height 撑高（flex 行内本来就等高）');
 
+console.log('组合的掌握开关（真机上点不动时的兜底）');
+const mvWxml2 = readIf(MP + '/pages/move/move.wxml');
+ok(/<view class="drill-master[\s\S]{0,80}catchtap="toggleDrillStatus"/.test(mvWxml2),
+   '开关是 <view> + catchtap（不是行内 <text>，点击区更大）');
+ok(/catchlongpress="noop"/.test(mvWxml2), '长按不会误触发父级的"长按删除"');
+ok(/editMastered/.test(mvWxml2) && /onEditMastered/.test(readIf(MP + '/pages/move/move.js')),
+   '组合编辑弹层里也有「已掌握」开关（备用入口）');
+const mvJs4 = readIf(MP + '/pages/move/move.js');
+ok(/没找到这个组合/.test(mvJs4) && /console\.log\('\[掌握开关\]/.test(mvJs4),
+   '找不到组合时不再是静默无反应（给提示 + 打日志）');
+
 console.log('已掌握：粒度跟着数据走（有组合按组合，没组合按动作）');
 const stJs2 = readIf(MP + '/utils/store.js');
 ok(/setDrillStatus/.test(stJs2) && /setDrillsStatus/.test(stJs2), '组合级的状态开关（单个 + 批量）');
