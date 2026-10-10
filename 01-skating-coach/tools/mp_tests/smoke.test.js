@@ -181,6 +181,15 @@ fs.readdirSync(cfDir).forEach(name => {
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
+console.log('考级列表：别把内置内容算成"我记的"');
+const examsWxml = readIf(MP + '/packageExam/exams/exams.wxml');
+const examsJs = readIf(MP + '/packageExam/exams/exams.js');
+ok(examsWxml.indexOf('内置考纲') < 0, '列表里不再有「内置考纲」标签');
+ok(/myNoteCount/.test(examsJs) && /myItems \|\| \[\]\)\.length/.test(examsJs),
+   '条数只统计用户自己记的（自建条目 + 给内置条目补的要点/易错/备注）');
+ok(examsWxml.indexOf('自己记了') > -1, '列表用「📝 自己记了 N 条」这个说法');
+ok(readIf(MP + '/packageExam/exam/exam.wxml').indexOf('内置考纲') < 0, '详情页也不再有这个标签');
+
 console.log('上传失败可自救');
 const retryWxml = fs.readFileSync(path.join(MP, 'pages/settings/settings.wxml'), 'utf8');
 const retryJs = fs.readFileSync(path.join(MP, 'pages/settings/settings.js'), 'utf8');
