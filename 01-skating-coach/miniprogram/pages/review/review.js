@@ -1,6 +1,15 @@
 const store = require('../../utils/store');
 const { LESSON_FORMS } = require('../../utils/const');
 
+// 大数字的字号档位：<=3 字用 lg，4-5 字用 md，再长用 sm（永远不用"缩一半"那种）
+function numCls(txt) {
+  const n = String(txt || '').replace(/\s/g, '').length;
+  if (n <= 3) return 'num-lg';     // 3 / 4小时
+  if (n <= 6) return 'num-md';     // 4小时30分
+  if (n <= 8) return 'num-sm';     // 12小时45分
+  return 'num-xs';
+}
+
 function fmtMin(min) {
   const h = Math.floor(min / 60);
   const mm = min % 60;
@@ -241,6 +250,9 @@ Page({
         label: y + ' 年 ' + (m + 1) + ' 月',
         count: recs.length,
         minutesText: fmtMin(minutes),
+        // 字号档位：两张卡的数字都按长度取档，避免"3"很大、"4 小时"很小
+        minutesCls: numCls(fmtMin(minutes)),
+        countCls: numCls(String(recs.length)),
         ice: ice,
         land: land,
         rehab: rehab,

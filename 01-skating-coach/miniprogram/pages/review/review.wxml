@@ -9,8 +9,8 @@
 
   <block wx:if="{{stats.count}}">
     <view class="rv-grid">
-      <view class="rv-card big"><view class="rv-num">{{stats.count}}</view><view class="rv-lb">训练次数</view></view>
-      <view class="rv-card big"><view class="rv-num" style="font-size:16px">{{stats.minutesText}}</view><view class="rv-lb">总时长</view></view>
+      <view class="rv-card big"><view class="rv-num {{stats.countCls}}">{{stats.count}}</view><view class="rv-lb">训练次数</view></view>
+      <view class="rv-card big"><view class="rv-num {{stats.minutesCls}}">{{stats.minutesText}}</view><view class="rv-lb">总时长</view></view>
     </view>
 
     <view class="rv-card">
