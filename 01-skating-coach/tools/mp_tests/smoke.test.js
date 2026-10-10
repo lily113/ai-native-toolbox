@@ -187,7 +187,8 @@ const rvJs = readIf(MP + '/pages/review/review.js');
 ok(rvWxml.indexOf('style="font-size:16px"') < 0, '不再用内联 font-size 硬缩「总时长」那个数字');
 ok(/numCls/.test(rvJs) && /num-lg|num-md/.test(readIf(MP + '/pages/review/review.wxss')),
    '两张卡的数字按长度取字号档位（3 个字以内 26px，长一点才降档）');
-ok(/min-height: 104px/.test(readIf(MP + '/pages/review/review.wxss')), '两张卡等高，数字上下居中');
+ok(!/min-height:\s*1[0-9][0-9]px/.test(readIf(MP + '/pages/review/review.wxss')),
+   '两张卡不再用大 min-height 撑高（flex 行内本来就等高）');
 
 console.log('动作状态与"最久没练"口径');
 ok(/setMoveStatus/.test(readIf(MP + '/utils/store.js')) && /status === 'mastered'/.test(readIf(MP + '/utils/store.js')),
