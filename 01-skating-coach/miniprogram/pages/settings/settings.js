@@ -4,6 +4,12 @@ const util = require('../../utils/util');
 const sync = require('../../utils/sync');
 const app = getApp();
 
+// 分享图的两个开关（默认都关：时长和教练名都可能是隐私）
+function loadMetaShare() {
+  const meta = store.load(store.KEYS.meta) || {};
+  return Object.assign({ duration: false, coach: false }, meta.shareCard || {});
+}
+
 Page({
   data: {
     goal: 0,
@@ -13,6 +19,8 @@ Page({
     aiStatus: '检查中…',
     aiVisible: false,     // 只有你是本人时才会显示「AI 教练」这一行
     remindText: '未开启',
+    shareDuration: false,   // 分享图默认不带时长
+    shareCoach: false,      // 分享图默认不带教练名
     dataWhere: '本机 0 条 · 云端 ? 条',
     syncErr: '',
     syncStatus: '未配置',
@@ -39,6 +47,8 @@ Page({
       auto: sync.getAuto(),
       ver: require('../../utils/const').APP_VERSION,
       remindText: this.remindInfo(),
+      shareDuration: !!(loadMetaShare().duration),
+      shareCoach: !!(loadMetaShare().coach),
       recN: store.loadRecords().length
     });
     if (app.globalData.openid) this.refreshSync();
@@ -149,6 +159,18 @@ Page({
         this.onShow();
       })
       .catch(() => { clearTimeout(guard); wx.hideLoading(); wx.showToast({ title: '上传失败，稍后再试', icon: 'none' }); });
+  },
+
+  // ---------- 分享图里放不放"时长 / 教练名"（默认都不放）----------
+  toggleShareField(e) {
+    const k = e.currentTarget.dataset.k;      // 'duration' | 'coach'
+    const meta = store.load(store.KEYS.meta) || {};
+    const cfg = Object.assign({ duration: false, coach: false }, meta.shareCard || {});
+    cfg[k] = !cfg[k];
+    meta.shareCard = cfg;
+    store.save(store.KEYS.meta, meta);
+    this.setData({ shareDuration: cfg.duration, shareCoach: cfg.coach });
+    wx.showToast({ title: (k === 'duration' ? '时长' : '教练名') + (cfg[k] ? ' 会出现在分享图上' : ' 不放进分享图'), icon: 'none' });
   },
 
   // 考级提醒：订阅消息（需要先在公众平台申请模板，把模板 ID 填进 const.js）

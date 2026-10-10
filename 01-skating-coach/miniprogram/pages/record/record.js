@@ -1,4 +1,5 @@
 const store = require('../../utils/store');
+const sharecard = require('../../utils/sharecard');
 
 const GHEAD = 'g#';   // 分组标题行的键前缀（仅用于界面，不参与排序）
 
@@ -612,6 +613,16 @@ Page({
   // 不在这里直接改写文本，避免打开即静默重排你的手写内容）
 
 
+
+  // ---------- 生成"这次训练"的分享卡 ----------
+  // 图上只放过程（练了什么、教练说的），不放累计/时长/教练名——后两者要设置里开开关
+  shareCard() {
+    const rec = this.data.id ? store.loadRecords().filter(r => r.id === this.data.id)[0] : null;
+    if (!rec) { wx.showToast({ title: '先保存这条记录，再生成卡片', icon: 'none' }); return; }
+    const cfg = (store.load(store.KEYS.meta) || {}).shareCard || {};
+    const data = sharecard.recordCardData(rec, { withDuration: !!cfg.duration, withCoach: !!cfg.coach });
+    sharecard.exportImage({ selector: '#shareCanvas' }, (ctx) => sharecard.drawTrainingCard(ctx, data));
+  },
 
   // 复制这次训练的文字版（发给教练 / 自己存微信）
   copyRecordText() {

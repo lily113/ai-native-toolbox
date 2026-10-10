@@ -44,6 +44,18 @@
       <text class="sync-retry" bindtap="retryUpload">立即重试上传</text>
     </view>
     <view class="muted dev-note">删除小程序会清空本机数据；重新打开时会自动从云端恢复（前提是之前上传成功过）。所以别只依赖本机，重要数据请定期「导出为文件」。</view>
+    <view class="share-block">
+      <view class="muted">分享图里放什么：练了什么、教练说的要点一定会有；下面两项默认不放（可能是不想公开的信息）。</view>
+      <view class="auto-row">
+        <view class="auto-info"><view class="auto-t">训练时长</view><view class="muted">把「多少分钟」画进分享图</view></view>
+        <switch checked="{{shareDuration}}" bindchange="toggleShareField" data-k="duration" color="#0284c7" />
+      </view>
+      <view class="auto-row">
+        <view class="auto-info"><view class="auto-t">教练名字</view><view class="muted">把「教练：XXX」画进分享图</view></view>
+        <switch checked="{{shareCoach}}" bindchange="toggleShareField" data-k="coach" color="#0284c7" />
+      </view>
+    </view>
+
     <view class="kv tappable" bindtap="setupReminder">
       <text class="kv-label">🔔 考级提醒</text><text class="kv-val">{{remindText}} ▾</text>
     </view>

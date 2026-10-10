@@ -181,6 +181,16 @@ fs.readdirSync(cfDir).forEach(name => {
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
+console.log('单次训练分享卡（C 卡）');
+ok(fs.existsSync(MP + '/utils/sharecard.js') && /drawTrainingCard/.test(readIf(MP + '/utils/sharecard.js')),
+   '抽了共用的分享卡绘制底座（以后 A 卡复用同一套）');
+ok(/shareCard\s*\(/.test(readIf(MP + '/pages/record/record.js')) && /shareCanvas/.test(readIf(MP + '/pages/record/record.wxml')),
+   '记录页有「生成分享卡」入口 + 离屏画布');
+ok(/shareDuration/.test(readIf(MP + '/pages/settings/settings.js')) && /shareCoach/.test(readIf(MP + '/pages/settings/settings.wxml')),
+   '设置页有「分享图里放不放时长 / 教练名」两个开关（默认关）');
+ok(/recordCardData/.test(readIf(MP + '/utils/sharecard.js')) && /withDuration/.test(readIf(MP + '/utils/sharecard.js')),
+   '时长/教练名在"取数据"那层就按开关置空，不是在画的时候才判断');
+
 console.log('最久没练按组合排');
 const mvJs = readIf(MP + '/pages/moves/moves.js');
 const mvWxml = readIf(MP + '/pages/moves/moves.wxml');
