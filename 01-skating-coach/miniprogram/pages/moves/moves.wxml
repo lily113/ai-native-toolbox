@@ -2,6 +2,7 @@
   <view class="head-row">
     <text class="head-title">动作库</text>
     <view class="head-ops">
+      <view class="sort-btn {{onlyActive ? 'on' : ''}}" wx:if="{{!bulkOn && !sortOn && masteredN}}" bindtap="toggleActive">{{onlyActive ? '只看在练 ✓' : '只看在练'}}</view>
       <view class="sort-btn {{sortByStale ? 'on' : ''}}" wx:if="{{!bulkOn && !sortOn}}" bindtap="toggleStale">{{sortByStale ? '⏱ 最久没练 ✓' : '⏱ 最久没练'}}</view>
       <view class="sort-btn" wx:if="{{!bulkOn && !sortOn && tab !== 'all'}}" bindtap="toggleSort">⇅ 排序</view>
       <view class="sort-btn" bindtap="toggleBulk">{{bulkOn ? '✔ 完成' : '☑ 整理'}}</view>
@@ -16,6 +17,7 @@
 
   <view class="note-row" wx:if="{{!sortOn && !bulkOn}}">
     <text class="tabs-note">{{tab === 'all' ? '按最近添加排序' : '按分类查看'}}</text>
+    <text class="cnt-line" wx:if="{{masteredN}}">在练 {{activeN}} · 已掌握 {{masteredN}}</text>
     <text class="edit-link" bindtap="openCats">⚙ 分类管理</text>
   </view>
   <view class="note-row" wx:if="{{bulkOn}}">
@@ -40,7 +42,8 @@
           </view>
           <view class="move-meta2">
             <text class="usage {{item.usageText === '还没练过' ? 'none' : ''}}">{{item.usageText}}</text>
-            <text class="stale-tag" wx:if="{{item.stale}}">⏱ 超过 30 天没练</text>
+            <text class="stale-tag" wx:if="{{item.mastered}}">✅ 已掌握</text>
+            <text class="stale-tag" wx:if="{{item.stale && !item.mastered}}">⏱ 超过 30 天没练</text>
           </view>
         </view>
       </view>

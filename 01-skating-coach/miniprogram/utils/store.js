@@ -439,6 +439,10 @@ function cloneMove(m) {
     c: (typeof m.c === 'number') ? m.c : 0,
     points: Array.isArray(m.points) ? m.points.slice() : [],
     detail: m.detail || '',
+    // 动作状态：'active'（在练）/ 'mastered'（已掌握）。
+    // ⚠️ 和 coach 一样，这种字段必须显式列出来，否则合并/读取一次就没了。
+    status: (m.status === 'mastered') ? 'mastered' : 'active',
+    statusAt: Number(m.statusAt) || 0,
     drills: (Array.isArray(m.drills) ? m.drills : []).map(d => Object.assign({}, d))
   };
 }
@@ -468,6 +472,12 @@ function absorbMove(a, b, drillMap) {
   keep.points = pts;
   ['detail'].forEach(f => { if (!keep[f] && b[f]) keep[f] = b[f]; });
   if (!keep.c && b.c) keep.c = b.c;
+  // 状态取"最后改过的那一边"（标记时间更新的赢）
+  if (Number(b.statusAt) > Number(keep.statusAt)) {
+    keep.status = (b.status === 'mastered') ? 'mastered' : 'active';
+    keep.statusAt = Number(b.statusAt) || 0;
+  }
+  if (!keep.status) keep.status = 'active';
   return keep;
 }
 // 合并两份动作库：同 id 或同名同分类就合成一条（组合取并集）。
@@ -603,6 +613,17 @@ function examLinkedMoveIds() {
 function examLinkedCount(ov) {
   const extra = (ov && ov.itemExtra) || {};
   return Object.keys(extra).filter(k => extra[k] && extra[k].moveId).length;
+}
+
+// 标记动作状态：'active' 在练 / 'mastered' 已掌握（已掌握的不再参与"最久没练"提醒）
+function setMoveStatus(id, status) {
+  const moves = ensureMoves();
+  const m = moves.filter(x => x.id === id)[0];
+  if (!m) return { ok: false, reason: '找不到这个动作' };
+  m.status = (status === 'mastered') ? 'mastered' : 'active';
+  m.statusAt = Date.now();
+  saveMoves(moves);
+  return { ok: true, status: m.status, name: m.name };
 }
 
 // 改动作的名字（记录里引用的 id 不变，所以历史记录、卡片都不受影响）
@@ -952,7 +973,7 @@ module.exports = {
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS,
-  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount,
+  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setMoveStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey
 };

@@ -16,6 +16,7 @@ Page({
     editPoints: [],
     // 「移动组合到别的动作」选择模式
     examLinks: [],
+    status: 'active',
     drillSelOn: false,
     drillPickN: 0,
     pickOn: false,
@@ -68,6 +69,7 @@ Page({
     let links = [];
     try { links = store.examMoveLinks(m.id).map(x => ({ label: x.kindName + ' · ' + x.level, title: x.title || x.secName })); } catch (e) {}
     this.setData({
+      status: (m.status === 'mastered') ? 'mastered' : 'active',
       usageText: usageText,
       examLinks: links,
       name: m.name,
@@ -76,6 +78,30 @@ Page({
       drills: drills,
       drillPickN: drills.filter(d => d.picked).length
     });
+  },
+
+  // ---------- 标记「已掌握 / 在练」 ----------
+  // 不建议为了"太简单了"而删除：删掉会让历史记录里的引用断链（我们修过的"失效条目行"）。
+  // 标记只是状态变了，账本、组合、教练要点都还在。
+  toggleStatus() {
+    const cur = this.data.status === 'mastered';
+    const next = cur ? 'active' : 'mastered';
+    const run = () => {
+      const out = store.setMoveStatus(this.data.id, next);
+      if (!out.ok) { wx.showToast({ title: out.reason || '操作失败', icon: 'none' }); return; }
+      this.reload();
+      wx.showToast({ title: next === 'mastered' ? '已标记为「已掌握」' : '已退回「在练」', icon: 'none' });
+    };
+    if (next === 'mastered') {
+      wx.showModal({
+        title: '标记为已掌握',
+        content: '「' + this.data.name + '」会标成已掌握：\n\n· 动作、练习组合、教练要点全部保留，历史记录照旧能翻到\n· 不再出现在"最久没练"提醒里\n· 动作列表可以用「只看在练」把它收起来\n\n以后想复习，随时可以退回「在练」。',
+        confirmText: '标记已掌握',
+        success: r => { if (r.confirm) run(); }
+      });
+      return;
+    }
+    run();
   },
 
   // ---------- 改动作名称 ----------
@@ -306,7 +332,9 @@ Page({
         if (hitM || hitD) used++;
       });
     } catch (e) {}
-    const extra = used ? '\n\n注意：有 ' + used + ' 条历史训练记录用到它，删除后那些记录里对应的条目行需要手动清理。' : '';
+    const extra = used
+      ? '\n\n注意：有 ' + used + ' 条历史训练记录用到它，删除后那些记录里对应的条目行需要手动清理。\n\n如果只是"现在水平用不上了"，更推荐点上面的「标记为已掌握」——账本和组合都留着，以后复习还能翻。'
+      : '\n\n（如果只是暂时不练了，也可以点上面的「标记为已掌握」，比删除温和。）';
     wx.showModal({
       title: '删除动作',
       content: '确定删除「' + this.data.name + '」？它的练习组合也会一起删除。' + extra,
