@@ -553,7 +553,6 @@ function moveUsage() {
     });
   });
   // 再按记录累加
-  let firstDrillDate = '';               // 最早一条"有组合级信息"的记录日期（用来提示数据覆盖）
   loadRecords().forEach(r => {
     const date = r.date || '';
     const counted = {};
@@ -564,7 +563,6 @@ function moveUsage() {
       counted[id] = 1;
       if (date > u.last) u.last = date;
     });
-    if ((r.drills || []).length && date && (!firstDrillDate || date < firstDrillDate)) firstDrillDate = date;
     (r.drills || []).forEach(id => {
       const f = drillById(id);
       if (!f) return;
@@ -597,7 +595,6 @@ function moveUsage() {
     // 排序键：这个动作"最荒的组合"的天数；没有荒组合时用动作自身的天数
     u.staleDays = worst ? worst.days : u.days;
   });
-  out._firstDrillDate = firstDrillDate;   // 挂在对象上带出去（下划线开头，不会和动作 id 冲突）
   return out;
 }
 // 给动作列表/详情用的一行摘要
