@@ -181,6 +181,14 @@ fs.readdirSync(cfDir).forEach(name => {
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
+console.log('回顾页大数字字号');
+const rvWxml = readIf(MP + '/pages/review/review.wxml');
+const rvJs = readIf(MP + '/pages/review/review.js');
+ok(rvWxml.indexOf('style="font-size:16px"') < 0, '不再用内联 font-size 硬缩「总时长」那个数字');
+ok(/numCls/.test(rvJs) && /num-lg|num-md/.test(readIf(MP + '/pages/review/review.wxss')),
+   '两张卡的数字按长度取字号档位（3 个字以内 26px，长一点才降档）');
+ok(/min-height: 104px/.test(readIf(MP + '/pages/review/review.wxss')), '两张卡等高，数字上下居中');
+
 console.log('动作状态与"最久没练"口径');
 ok(/setMoveStatus/.test(readIf(MP + '/utils/store.js')) && /status === 'mastered'/.test(readIf(MP + '/utils/store.js')),
    '动作有「在练 / 已掌握」状态（合并时按最后修改时间保留）');
