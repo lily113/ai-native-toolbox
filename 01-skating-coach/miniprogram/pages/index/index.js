@@ -19,7 +19,9 @@ Page({
     ymValue: '',
     aiOn: false,          // AI 教练入口：仅开发者本人可见（由 login 云函数确认）
     poseOn: POSE_ENABLED, // 姿态自查：见 const.js 的开关
-    firstRun: false       // 一条记录都没有时，显示上手引导
+    firstRun: false,      // 一条记录都没有时，显示上手引导
+    // 首页概览卡：本月 + 周均目标 + 连续达标周 + 久未练习的动作
+    ov: null
   },
 
   onLoad() {
@@ -101,6 +103,88 @@ Page({
       } catch (e) {}
     }
     try { this.setData({ firstRun: store.loadRecords().length === 0 }); } catch (e) {}
+    this.buildOverview();
+  },
+
+  // ---------- 首页概览：本月练了多少、离周目标还差多少、哪个动作荒了 ----------
+  buildOverview() {
+    try {
+      const recs = store.loadRecords();
+      const now = new Date();
+      const ym = store.dateKey(now).slice(0, 7);
+      const day = store.dateKey(now);
+      // 本周（周一为一周开始）
+      const wd = (now.getDay() + 6) % 7;
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - wd);
+      const mondayKey = store.dateKey(monday);
+      const meta = store.load(store.KEYS.meta) || {};
+      const goal = Number(meta.weeklyIceGoal) || 0;
+
+      let monthN = 0, monthMin = 0, weekMin = 0, iceN = 0, lessonN = 0;
+      recs.forEach(r => {
+        const d = r.date || '';
+        const dur = Number(r.duration) || 0;
+        if (d.slice(0, 7) === ym) {
+          monthN++;
+          monthMin += dur;
+          if (r.type === 'ice') iceN++;
+          if (r.mode === 'lesson') lessonN++;
+        }
+        if (d >= mondayKey && d <= day) weekMin += dur;
+      });
+
+      // 周均（近 4 周）与"连续达标周"：以每周总时长 >= 目标 算达标
+      const weeks = [];
+      for (let i = 3; i >= 0; i--) {
+        const s0 = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - i * 7);
+        const e0 = new Date(s0.getFullYear(), s0.getMonth(), s0.getDate() + 6);
+        const sk = store.dateKey(s0), ek = store.dateKey(e0);
+        let mins = 0;
+        recs.forEach(r => { const d = r.date || ''; if (d >= sk && d <= ek) mins += Number(r.duration) || 0; });
+        weeks.push(mins);
+      }
+      const avg4 = Math.round(weeks.reduce((a, b) => a + b, 0) / 4);
+      let streak = 0;
+      if (goal > 0) { for (let i = weeks.length - 1; i >= 0; i--) { if (weeks[i] >= goal) streak++; else break; } }
+      const weekPct = goal > 0 ? Math.min(100, Math.round((weekMin / goal) * 100)) : 0;
+
+      // 久未练习：动作库里有、但超过 30 天没碰过的
+      let staleN = 0, staleName = '';
+      const usage = store.moveUsage();
+      store.ensureMoves().forEach(m => {
+        const u = usage[m.id];
+        if (!u || !u.last) return;                       // 从没练过的不算"荒了"
+        if (Number(u.days) > 30) { staleN++; if (!staleName) staleName = m.name; }
+      });
+
+      this.setData({
+        ov: {
+          monthN: monthN, monthMin: monthMin, iceN: iceN, lessonN: lessonN,
+          weekMin: weekMin, goal: goal, weekPct: weekPct, avg4: avg4, streak: streak,
+          staleN: staleN, staleName: staleName
+        }
+      });
+    } catch (e) {}
+  },
+
+  // ---------- 分享 ----------
+  // 之前的版本全项目没有任何分享能力：招募来的用户想推荐给雪友只能截图。
+  // 分享标题不带私人内容（只有训练次数这类"体面"的数字）。
+  goReview2() { wx.navigateTo({ url: '/pages/review/review' }); },
+  goStaleMoves() { wx.navigateTo({ url: '/pages/moves/moves' }); },
+
+  onShareAppMessage() {
+    let n = 0;
+    try { n = store.loadRecords().length; } catch (e) {}
+    return {
+      title: n > 0 ? ('我用它记了 ' + n + ' 次花滑训练') : '花样滑冰训练记录 · 记训练、记动作、对着考纲备考',
+      path: '/pages/index/index'
+    };
+  },
+  onShareTimeline() {
+    let n = 0;
+    try { n = store.loadRecords().length; } catch (e) {}
+    return { title: n > 0 ? ('花样滑冰训练记录 · 已经记了 ' + n + ' 次') : '花样滑冰训练记录 · 记训练、记动作、对着考纲备考' };
   },
 
   switchMonth(e) {

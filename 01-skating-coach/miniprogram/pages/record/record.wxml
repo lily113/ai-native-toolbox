@@ -75,7 +75,7 @@
     </view>
 
     <view class="field">
-      <view class="field-label">训练笔记（可选）</view>
+      <view class="field-label">训练笔记（可选）<text class="edit-link" bindtap="copyRecordText">📋 复制这次训练</text></view>
       <textarea class="textarea note" value="{{content}}" data-k="content" bindinput="input" auto-height placeholder="勾选动作/考级会自动写入条目；这里可补充要点、教练的话、身体状态、下次目标…" maxlength="-1"></textarea>
       <view class="orphan-tip" wx:if="{{orphanCount}}">
         <text>有 {{orphanCount}} 行条目和当前勾选对不上（动作/考级已删除或没勾上），取消勾选删不掉</text>

@@ -2,9 +2,15 @@
   <view class="head card">
     <view class="head-name" bindtap="renameMove">{{name}}<text class="rename-ico">✏️</text></view>
     <text class="cat-badge tappable" bindtap="pickCat">🏷️ {{catName}} ▾</text>
+    <view class="usage-line">{{usageText}}</view>
     <button class="del-move" bindtap="delMove">删除动作</button>
   </view>
   <view class="cat-tip">点上面的分类可以把这个动作挪到别的分类（比如把「…串 / …练习」类动作归到专题练习）。</view>
+
+  <view class="card" wx:if="{{examLinks.length}}">
+    <view class="block-title">🎓 已挂到考级</view>
+    <view class="pt-item" wx:for="{{examLinks}}" wx:key="index">· {{item.label}} — {{item.title}}</view>
+  </view>
 
   <view class="card">
     <view class="block-title">💡 共性要点<text class="edit-link" bindtap="openPts">编辑</text></view>
@@ -18,7 +24,7 @@
     <view class="drill {{drillSelOn && item.picked ? 'picked' : ''}}" wx:for="{{drills}}" wx:key="id" bindtap="tapDrill" bindlongpress="delDrill" data-id="{{item.id}}">
       <view class="drill-no">{{drillSelOn ? (item.picked ? '✓' : '') : item.no}}</view>
       <view class="drill-body">
-        <view class="drill-name">{{item.name}}<text class="drill-date" wx:if="{{item.dateText}}">{{item.dateText}}</text></view>
+        <view class="drill-name">{{item.name}}<text class="drill-date" wx:if="{{item.dateText}}">{{item.dateText}}</text><text class="drill-use" wx:if="{{item.usageText}}">{{item.usageText}}</text></view>
         <view class="pt-item" wx:for="{{item.points}}" wx:for-item="pt" wx:key="index">· {{pt}}</view>
       </view>
     </view>

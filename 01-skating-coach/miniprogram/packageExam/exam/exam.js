@@ -8,6 +8,8 @@ Page({
     key: '',
     level: '',
     kindName: '',
+    source: '',
+    linkedN: 0,
     date: '',
     cdText: '',
     note: '',
@@ -28,6 +30,19 @@ Page({
   },
 
   onLoad(q) { this.setData({ id: q.id || '' }); },
+  onShareAppMessage() {
+    // 用真实的级别名（例：自由滑 · 四级）；分享路径带回 key，别人点开直接到这一级
+    const t = ((this.data.kindName || '') + ' · ' + (this.data.level || '')).replace(/^ · /, '') || '花滑考级';
+    return {
+      title: t + '：要考什么、多长时间',
+      path: '/packageExam/exam/exam?key=' + encodeURIComponent(this.data.key || '') + '&id=' + encodeURIComponent(this.data.id || '')
+    };
+  },
+  onShareTimeline() {
+    const t = ((this.data.kindName || '') + ' · ' + (this.data.level || '')).replace(/^ · /, '') || '花滑考级';
+    return { title: t + ' 的考纲要考什么' };
+  },
+
   onShow() { this.reload(); },
 
   overlay() { return store.ensureExams().filter(e => e && e.id === this.data.id)[0] || null; },
@@ -114,6 +129,8 @@ Page({
       key: ov.key || '',
       level: ov.level,
       kindName: EXAM_KINDS[ov.kind] ? EXAM_KINDS[ov.kind].name : '',
+      source: (sy && sy.source) || '',
+      linkedN: store.examLinkedCount(ov),
       date: ov.date || '',
       cdText: util.countdownText(ov.date),
       note: ov.note || '',
@@ -420,5 +437,37 @@ Page({
     if (!n) { wx.showToast({ title: '还没有「我的要点 / 易错」', icon: 'none' }); return; }
     wx.setClipboardData({ data: lines.join('\n') });
     wx.showToast({ title: '已复制我的要点 / 易错' });
+  },
+
+  // 考前清单：把这一级的官方要点 + 我自己记的，按分节整理成一大段文字，一次复制走
+  copyAllPoints() {
+    const lines = [];
+    lines.push((this.data.kindName || '') + ' · ' + (this.data.level || '') + ' 考前清单');
+    if (this.data.date) lines.push('考级日期：' + this.data.date + (this.data.cdText ? ('（' + this.data.cdText + '）') : ''));
+    if (this.data.note) lines.push('备注：' + this.data.note);
+    let n = 0;
+    this.data.sections.forEach(sec => {
+      const body = [];
+      (sec.items || []).forEach(it => {
+        const isBuiltin = !!it.builtin;
+        const pts = (it.points || []).concat(it.myPoints || []);
+        const mks = (it.mistakes || []).concat(it.myMistakes || []);
+        const note = it.myNote || it.note || '';
+        if (!pts.length && !mks.length && !note) return;
+        n++;
+        body.push('· ' + it.title);
+        pts.forEach(p => body.push('    ' + p));
+        mks.forEach(m => body.push('    ✗ ' + m));
+        if (note) body.push('    📝 ' + note);
+      });
+      if (body.length) { lines.push(''); lines.push('【' + sec.name + '】'); body.forEach(x => lines.push(x)); }
+    });
+    if (!n) { wx.showToast({ title: '这一级还没有内容', icon: 'none' }); return; }
+    lines.push('');
+    lines.push('（来源：' + (this.data.source || '《国家花样滑冰等级测试大纲（第2版）》') + '，以官方原文为准）');
+    wx.setClipboardData({
+      data: lines.join('\n'),
+      success: () => wx.showToast({ title: '已复制考前清单', icon: 'none', duration: 2200 })
+    });
   }
 });

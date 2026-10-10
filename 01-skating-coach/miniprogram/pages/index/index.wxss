@@ -124,3 +124,17 @@
 .fr-t { font-size: 14.5px; font-weight: 800; color: #0c4a6e; margin-bottom: 6px; }
 .fr-l { font-size: 12.5px; color: #475569; line-height: 1.75; }
 .fr-dim { color: #94a3b8; margin-top: 4px; }
+.ov { margin: 10px 24rpx 0; padding: 20rpx 24rpx; }
+.ov-row { display: flex; }
+.ov-item { flex: 1; text-align: center; }
+.ov-num { font-size: 40rpx; font-weight: 700; color: #0369a1; }
+.ov-unit { font-size: 22rpx; font-weight: 400; color: #64748b; margin-left: 2rpx; }
+.ov-lb { margin-top: 4rpx; font-size: 22rpx; color: #64748b; }
+.ov-goal { margin-top: 18rpx; padding-top: 16rpx; border-top: 1px solid #e2e8f0; }
+.ov-goal-top { display: flex; justify-content: space-between; font-size: 24rpx; color: #334155; }
+.ov-pct { font-weight: 700; color: #0284c7; }
+.ov-bar { margin-top: 10rpx; height: 12rpx; border-radius: 999rpx; background: #e2e8f0; overflow: hidden; }
+.ov-bar-in { height: 100%; border-radius: 999rpx; background: linear-gradient(90deg, #38bdf8, #0284c7); }
+.ov-goal-sub { margin-top: 10rpx; font-size: 22rpx; color: #64748b; }
+.ov-stale { margin-top: 16rpx; padding: 12rpx 16rpx; border-radius: 12rpx; background: #fff7ed;
+  color: #b45309; font-size: 24rpx; }

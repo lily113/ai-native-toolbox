@@ -181,6 +181,23 @@ fs.readdirSync(cfDir).forEach(name => {
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
+console.log('分享 / 首页概览 / 动作统计 / AI 行隐藏');
+ok(/onShareAppMessage\s*\(/.test(readIf(MP + '/pages/index/index.js')) && /onShareTimeline\s*\(/.test(readIf(MP + '/pages/index/index.js')),
+   '首页支持转发和朋友圈分享');
+ok(/onShareAppMessage\s*\(/.test(readIf(MP + '/packageExam/exam/exam.js')) && /onShareTimeline\s*\(/.test(readIf(MP + '/packageExam/exam/exam.js')),
+   '考级详情支持分享（路径带 key，别人点开是自己的同一级别）');
+ok(/buildOverview\s*\(/.test(readIf(MP + '/pages/index/index.js')) && /ov-stale/.test(readIf(MP + '/pages/index/index.wxml')),
+   '首页有本月/周目标/久未练习的概览卡');
+ok(/moveUsage\s*\(/.test(readIf(MP + '/utils/store.js')) && /sortByStale/.test(readIf(MP + '/pages/moves/moves.js'))
+   && /usageText/.test(readIf(MP + '/pages/moves/moves.wxml')),
+   '动作库显示练习次数/上次日期，并支持「最久没练」排序');
+ok(/copyRecordText\s*\(/.test(readIf(MP + '/pages/record/record.js')), '训练记录可一键复制文字');
+ok(/aiVisible/.test(readIf(MP + '/pages/settings/settings.js')) && /wx:if="\{\{aiVisible\}\}"/.test(readIf(MP + '/pages/settings/settings.wxml')),
+   '普通用户看不到「AI 教练」那一行（只有本人可见）');
+ok(/copyAllPoints\s*\(/.test(readIf(MP + '/packageExam/exam/exam.js')), '考级详情可复制「本级全部要点」（考前清单）');
+ok(/examMoveLinks\s*\(/.test(readIf(MP + '/utils/store.js')) && /examLinkedCount/.test(readIf(MP + '/packageExam/exam/exam.js')),
+   '动作↔考级互相关联（动作详情显示挂到哪些级别；考级显示已挂动作数）');
+
 console.log('考级列表：别把内置内容算成"我记的"');
 const examsWxml = readIf(MP + '/packageExam/exams/exams.wxml');
 const examsJs = readIf(MP + '/packageExam/exams/exams.js');
