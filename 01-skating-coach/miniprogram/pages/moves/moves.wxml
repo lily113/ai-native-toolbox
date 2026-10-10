@@ -17,7 +17,7 @@
 
   <view class="note-row" wx:if="{{!sortOn && !bulkOn}}">
     <text class="tabs-note">{{tab === 'all' ? '按最近添加排序' : '按分类查看'}}</text>
-    <text class="cnt-line" wx:if="{{masteredN}}">{{activeN}} 个动作 · 已掌握 {{masteredN}}/{{drillAll}} 个组合</text>
+    <text class="cnt-line" wx:if="{{masteredN || plainMastered}}">{{activeN}} 个动作<text wx:if="{{masteredN}}"> · 已掌握 {{masteredN}}/{{drillAll}} 个组合</text><text wx:if="{{plainMastered}}"> · {{plainMastered}} 个动作（未细分）已掌握</text></text>
     <text class="edit-link" bindtap="openCats">⚙ 分类管理</text>
   </view>
   <view class="note-row" wx:if="{{bulkOn}}">
@@ -43,7 +43,8 @@
           <view class="move-meta2">
             <text class="usage {{item.usageText === '还没练过' ? 'none' : ''}}" wx:if="{{!sortByStale}}">{{item.usageText}}</text>
             <text class="usage stale-txt" wx:if="{{sortByStale && item.staleText}}">{{item.staleText}}</text>
-            <text class="stale-tag" wx:if="{{item.mastered}}">✅ 组合都掌握了</text>
+            <text class="stale-tag" wx:if="{{item.mastered && item.byDrill}}">✅ 组合都掌握了</text>
+            <text class="stale-tag" wx:if="{{item.mastered && !item.byDrill}}">✅ 已掌握（整个动作）</text>
             <text class="stale-tag" wx:if="{{item.masteredN && !item.mastered}}">✅ {{item.masteredN}}/{{item.drillN}} 组合已掌握</text>
             <text class="stale-tag" wx:if="{{item.stale && !item.mastered && !sortByStale}}">⏱ 超过 30 天没练</text>
           </view>

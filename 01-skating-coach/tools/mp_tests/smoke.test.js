@@ -221,7 +221,8 @@ ok(/addedDays/.test(stJs) && /never/.test(stJs),
    '"从没练过但加进库超过 30 天"的组合也算荒');
 ok(/最久没练：/.test(mvJs) && /staleText/.test(mvWxml), '行里显示最荒的那个组合名和天数');
 ok(!/coverageText/.test(mvJs) && !/cover-tip/.test(mvWxml), '顶部不再放数据覆盖说明（按反馈去掉）');
-ok(/个练习组合超过 30 天没练/.test(readIf(MP + '/pages/index/index.wxml')), '首页提示也改成组合级');
+ok(/项超过 30 天没练/.test(readIf(MP + '/pages/index/index.wxml')) && /u\.byDrill/.test(readIf(MP + '/pages/index/index.js')),
+   '首页提示覆盖两种粒度（组合 + 没细分组合的动作），文案用"项"');
 
 console.log('回顾页大数字字号');
 const rvWxml = readIf(MP + '/pages/review/review.wxml');
@@ -232,7 +233,7 @@ ok(/numCls/.test(rvJs) && /num-lg|num-md/.test(readIf(MP + '/pages/review/review
 ok(!/min-height:\s*1[0-9][0-9]px/.test(readIf(MP + '/pages/review/review.wxss')),
    '两张卡不再用大 min-height 撑高（flex 行内本来就等高）');
 
-console.log('已掌握是"练习组合"的状态（不是动作）');
+console.log('已掌握：粒度跟着数据走（有组合按组合，没组合按动作）');
 const stJs2 = readIf(MP + '/utils/store.js');
 ok(/setDrillStatus/.test(stJs2) && /setDrillsStatus/.test(stJs2), '组合级的状态开关（单个 + 批量）');
 ok(/masterOf\[d\.id\]/.test(stJs2) && /d\.status === 'mastered'/.test(stJs2),
@@ -243,7 +244,14 @@ ok(/d\.mastered\) return;/.test(readIf(MP + '/pages/index/index.js')), '首页�
 ok(/allMastered/.test(readIf(MP + '/pages/moves/moves.js')) && /只看在练/.test(readIf(MP + '/pages/moves/moves.wxml')),
    '动作库：组合全部掌握的动作会被「只看在练」收起 + 显示掌握进度');
 ok(/toggleDrillStatus/.test(readIf(MP + '/pages/move/move.js')) && /markSelMastered/.test(readIf(MP + '/pages/move/move.js')),
-   '动作详情：每个组合可单独标 / 选择模式下可批量标');
+   '动作详情：有组合时每个组合可单独标 / 选择模式下可批量标');
+const mvJs3 = readIf(MP + '/pages/move/move.js');
+ok(/toggleMoveStatus/.test(mvJs3) && /!drills\.length/.test(readIf(MP + '/pages/move/move.wxml')),
+   '动作详情：没有组合的动作，按整个动作标');
+ok(/没有练习组合.*请逐个组合标记|请逐个组合标记/.test(stJs2), '数据层强制：有组合的动作不许标动作级');
+ok(/byDrill/.test(readIf(MP + '/utils/store.js')) && /moveMastered/.test(readIf(MP + '/utils/store.js')),
+   '对外统一暴露 byDrill / moveMastered，页面不用各判断一遍');
+ok(/整个动作/.test(readIf(MP + '/pages/moves/moves.js')), '没有组合的动作在"最久没练"里按整个动作说话');
 
 console.log('第二批：报告图 / 教练字段 / 考级提醒');
 ok(/makeReport\s*\(/.test(readIf(MP + '/pages/review/review.js')) && /type="2d"/.test(readIf(MP + '/pages/review/review.wxml')),

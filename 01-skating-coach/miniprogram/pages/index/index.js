@@ -155,6 +155,11 @@ Page({
       store.ensureMoves().forEach(m => {
         const u = usage[m.id];
         if (!u || !u.last) return;                       // 整个动作从没练过：不算荒
+        if (!u.byDrill) {
+          // 没细分练习组合的动作：按动作本身算（已掌握的跳过）
+          if (!u.moveMastered && Number(u.days) > 30) { staleN++; if (!staleName) staleName = m.name + '（整个动作）'; }
+          return;
+        }
         Object.keys(u.drills || {}).forEach(did => {
           const d = u.drills[did];
           if (d.mastered) return;                        // 已掌握的组合不再提醒

@@ -431,7 +431,8 @@ function catMap() {
 
 function normName(x) { return String(x == null ? '' : x).replace(/\s+/g, '').toLowerCase(); }
 function cloneMove(m) {
-  return {
+  const drills = (Array.isArray(m.drills) ? m.drills : []).map(d => Object.assign({}, d));
+  const c = {
     id: m.id || uid(),
     name: m.name,
     category: validCat ? validCat(m.category) : (m.category || 'other'),
@@ -439,10 +440,17 @@ function cloneMove(m) {
     c: (typeof m.c === 'number') ? m.c : 0,
     points: Array.isArray(m.points) ? m.points.slice() : [],
     detail: m.detail || '',
-    // ⚠️「已掌握」是**练习组合**的状态，不是动作的（动作级别不存这个字段）。
-    //    组合用 Object.assign 全量复制，所以 drill.status / statusAt 会自然保留。
-    drills: (Array.isArray(m.drills) ? m.drills : []).map(d => Object.assign({}, d))
+    drills: drills
   };
+  // 掌握状态的粒度跟着数据走（用户定的规则）：
+  //   有练习组合 → 只认组合上的状态（drill.status，上面全量复制已保留）
+  //   没有组合   → 动作级状态才有意义，这里保留
+  //   两个都留着会出现"两个层级"，所以有组合时**不写**动作级字段（不变式）。
+  if (!drills.length) {
+    c.status = (m.status === 'mastered') ? 'mastered' : 'active';
+    c.statusAt = Number(m.statusAt) || 0;
+  }
+  return c;
 }
 // 把 b 的组合/要点并进 a（同名组合算同一个；绝不因为"另一边更少/更旧"就丢掉组合）
 function absorbMove(a, b, drillMap) {
@@ -475,6 +483,11 @@ function absorbMove(a, b, drillMap) {
   keep.points = pts;
   ['detail'].forEach(f => { if (!keep[f] && b[f]) keep[f] = b[f]; });
   if (!keep.c && b.c) keep.c = b.c;
+  // 动作级状态（只对"没有组合"的动作有意义）同样按"最后改过的那边"赢
+  if (Number(b.statusAt) > Number(keep.statusAt)) {
+    keep.status = (b.status === 'mastered') ? 'mastered' : 'active';
+    keep.statusAt = Number(b.statusAt) || 0;
+  }
   return keep;
 }
 // 合并两份动作库：同 id 或同名同分类就合成一条（组合取并集）。
@@ -571,10 +584,13 @@ function moveUsage() {
       if (!counted[f.move.id]) { u.n++; counted[f.move.id] = 1; }
     });
   });
-  // 收尾：算天数、组合的掌握状态、以及"最荒的组合"
+  // 收尾：算天数、掌握状态、以及"最荒的组合"
   // ⚠️ 掌握状态一次性取好（别在循环里反复 ensureMoves()，那是 O(n²)）
-  const masterOf = {};
-  moves.forEach(m => (m.drills || []).forEach(d => { masterOf[d.id] = (d.status === 'mastered'); }));
+  const masterOf = {}, moveMaster = {};
+  moves.forEach(m => {
+    moveMaster[m.id] = (m.status === 'mastered');
+    (m.drills || []).forEach(d => { masterOf[d.id] = (d.status === 'mastered'); });
+  });
   Object.keys(out).forEach(k => {
     const u = out[k];
     u.days = u.last ? daysOf(u.last) : -1;
@@ -586,7 +602,11 @@ function moveUsage() {
       u.drillN++;
       if (d.mastered) u.masteredN++;
     });
-    u.allMastered = u.drillN > 0 && u.masteredN === u.drillN;   // 只对"有组合"的动作成立
+    // 对外只暴露一个"掌握了没"：
+    //   有组合 → 看组合是否全掌握；没组合 → 看动作本身
+    u.byDrill = u.drillN > 0;
+    u.moveMastered = !u.byDrill && !!moveMaster[k];
+    u.allMastered = u.byDrill ? (u.masteredN === u.drillN) : u.moveMastered;
     let worst = null;
     Object.keys(u.drills).forEach(did => {
       const d = u.drills[did];
@@ -602,8 +622,10 @@ function moveUsage() {
       }
     });
     u.staleDrill = worst;
-    // 排序键：这个动作"最荒的组合"的天数；没有荒组合时用动作自身的天数
-    u.staleDays = worst ? worst.days : u.days;
+    // 排序键：有组合 → 用"最荒的组合"的天数；没组合 → 用动作自身的天数
+    u.staleDays = u.byDrill ? (worst ? worst.days : u.days) : u.days;
+    // 已掌握的一律不参与提醒（无组合动作标了就是标了）
+    if (u.allMastered) u.staleDays = -1;
   });
   return out;
 }
@@ -653,6 +675,19 @@ function examLinkedMoveIds() {
 function examLinkedCount(ov) {
   const extra = (ov && ov.itemExtra) || {};
   return Object.keys(extra).filter(k => extra[k] && extra[k].moveId).length;
+}
+
+// 标记**整个动作**的状态——只在"这个动作还没有练习组合"时允许。
+// 有组合的动作必须逐个标组合，否则就会出现两个层级的掌握状态（用户明确不要）。
+function setMoveStatus(id, status) {
+  const moves = ensureMoves();
+  const m = moves.filter(x => x.id === id)[0];
+  if (!m) return { ok: false, reason: '找不到这个动作' };
+  if ((m.drills || []).length) return { ok: false, reason: '这个动作有练习组合，请逐个组合标记' };
+  m.status = (status === 'mastered') ? 'mastered' : 'active';
+  m.statusAt = Date.now();
+  saveMoves(moves);
+  return { ok: true, status: m.status, name: m.name };
 }
 
 // 标记**练习组合**的状态：'active' 在练 / 'mastered' 已掌握
@@ -819,16 +854,22 @@ function ensureMoves() {
     if (typeof m.sort !== 'number') m.sort = n - 1;
     if (typeof m.c !== 'number') m.c = 0;
   });
-  // 迁移（2026-10）：早期版本把「已掌握」标在**动作**上，现在改成标在**练习组合**上。
-  // 把旧的标记落到它下面的每个组合，再删掉动作级字段——用户之前标过的东西不能丢。
+  // 掌握状态的粒度规则（用户定的）：有组合就标组合，没组合就标动作。
+  // 这里做一次规范化（幂等、只有真变了才写盘）：
+  //   · 有组合 + 动作级是"已掌握" → 把已掌握推给它下面每个组合，然后清掉动作级字段
+  //     （这样"先标了动作、后来又拆了组合"的旧数据也不会丢标记）
+  //   · 有组合 + 动作级是"在练" → 直接清掉动作级字段（避免留下没意义的状态）
+  //   · 没有组合 → 保留动作级字段（这就是它唯一合法的位置）
   let movedStatus = false;
   moves.forEach(m => {
-    if (m.status === 'mastered' || m.statusAt) {
-      if (m.status === 'mastered') {
-        (m.drills || []).forEach(d => {
-          if (d.status !== 'mastered') { d.status = 'mastered'; d.statusAt = Number(m.statusAt) || Date.now(); }
-        });
-      }
+    const hasDrills = !!(m.drills || []).length;
+    if (!hasDrills) return;
+    if (m.status === 'mastered') {
+      (m.drills || []).forEach(d => {
+        if (d.status !== 'mastered') { d.status = 'mastered'; d.statusAt = Number(m.statusAt) || Date.now(); }
+      });
+    }
+    if (m.status !== undefined || m.statusAt !== undefined) {
       delete m.status;
       delete m.statusAt;
       movedStatus = true;
@@ -850,7 +891,9 @@ function ensureMoves() {
         const catCnt2 = {};
         deduped.forEach(m => { const c = validCat(m.category); catCnt2[c] = (catCnt2[c] || 0) + 1; });
         const n = (catCnt2[d.category] = (catCnt2[d.category] || 0) + 1);
-        deduped.push({ id: uid(), name: d.name, category: d.category, drills: [], sort: n - 1, c: 0 });
+        // 用和 cloneMove 一样的字段形状，免得第一次跑完还要再写一次盘
+        deduped.push({ id: uid(), name: d.name, category: validCat(d.category), drills: [],
+          sort: n - 1, c: 0, points: [], detail: '' });
       }
     });
     meta.movesStdV1 = true;
@@ -1041,7 +1084,7 @@ module.exports = {
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS,
-  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus,
+  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus, setMoveStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey
 };

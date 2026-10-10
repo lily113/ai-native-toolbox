@@ -260,6 +260,31 @@ ok(store.mergeMoveLibraries(mA, mB).moves[0].drills[0].status === 'mastered', '�
 const mC = [{ id: 'cm1', name: '转三', category: 'step', drills: [{ id: 'cd1', name: '前外转三', status: 'active', statusAt: 900 }] }];
 ok(store.mergeMoveLibraries(mA, mC).moves[0].drills[0].status === 'active', '反过来也一样（900 更新）');
 
+console.log('⑪.7 粒度跟着数据走：有组合按组合，没组合按动作本身');
+store.saveMoves([
+  { id: 'gA', name: '有组合的', category: 'step', drills: [{ id: 'gA1', name: '组合一' }, { id: 'gA2', name: '组合二' }] },
+  { id: 'gB', name: '没组合的', category: 'step', drills: [] }
+]);
+ok(store.setMoveStatus('gB', 'mastered').ok, '没组合的动作：允许标动作级');
+ok(!store.setMoveStatus('gA', 'mastered').ok, '有组合的动作：拒绝标动作级（必须逐个组合标）');
+let ug = store.moveUsage();
+ok(ug['gB'].byDrill === false && ug['gB'].moveMastered === true && ug['gB'].allMastered === true,
+   '没组合的：对外报"按动作掌握"');
+ok(ug['gA'].byDrill === true && ug['gA'].allMastered === false, '有组合的：对外报"按组合掌握"（还没标所以是在练）');
+ok(ug['gB'].staleDays === -1, '标了整动作 → 不参与最久没练');
+store.setDrillStatus('gA', 'gA1', 'mastered');
+store.setDrillStatus('gA', 'gA2', 'mastered');
+ug = store.moveUsage();
+ok(ug['gA'].allMastered === true && ug['gA'].staleDays === -1, '组合全标 → 同样退出提醒');
+// 不变式：有组合的动作身上不允许留动作级状态
+const gA = store.ensureMoves().filter(m => m.id === 'gA')[0];
+ok(gA.status === undefined, '有组合的动作上没有动作级 status 字段（数据层强制）');
+// 先标了动作、后来拆了组合 → 标记推给组合，不丢
+store.save(store.KEYS.moves, [{ id: 'gC', name: '后来拆的', category: 'step', status: 'mastered', statusAt: 1700000000000,
+  drills: [{ id: 'gC1', name: '新组合', c: 1 }] }]);
+const gC = store.ensureMoves()[0];
+ok(gC.status === undefined && gC.drills[0].status === 'mastered', '旧的动作级标记推给了组合（不丢）');
+
 console.log('⑫ 最久没练只算"练过、且还在练"的（这条是用户提的）');
 const usageNow = store.moveUsage();
 const considered = store.ensureMoves().filter(m => m.status !== 'mastered' && usageNow[m.id] && usageNow[m.id].last && Number(usageNow[m.id].days) > 30);

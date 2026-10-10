@@ -17,6 +17,7 @@ Page({
     // 「移动组合到别的动作」选择模式
     examLinks: [],
     masteredText: '',
+    moveStatus: 'active',
     drillSelOn: false,
     drillPickN: 0,
     pickOn: false,
@@ -72,6 +73,7 @@ Page({
     try { links = store.examMoveLinks(m.id).map(x => ({ label: x.kindName + ' · ' + x.level, title: x.title || x.secName })); } catch (e) {}
     const masteredN = drills.filter(d => d.mastered).length;
     this.setData({
+      moveStatus: (m.status === 'mastered') ? 'mastered' : 'active',
       masteredText: drills.length ? (masteredN ? (masteredN + '/' + drills.length + ' 个组合已标记掌握') : '') : '',
       usageText: usageText,
       examLinks: links,
@@ -86,6 +88,28 @@ Page({
   // ---------- 练习组合的「已掌握 / 在练」----------
   // 「已掌握」属于**练习组合**：一个动作里可能"前外转三会了、后外转三还得练"。
   // 不建议为了"太简单了"删除组合：删了历史记录里的引用会断链（我们修过的"失效条目行"）。
+  // 没有练习组合的动作：直接标整个动作（粒度跟着数据走）
+  toggleMoveStatus() {
+    const cur = this.data.moveStatus === 'mastered';
+    const next = cur ? 'active' : 'mastered';
+    const run = () => {
+      const out = store.setMoveStatus(this.data.id, next);
+      if (!out.ok) { wx.showToast({ title: out.reason || '操作失败', icon: 'none' }); return; }
+      this.reload();
+      wx.showToast({ title: next === 'mastered' ? '已标记为已掌握' : '已退回在练', icon: 'none' });
+    };
+    if (next === 'mastered') {
+      wx.showModal({
+        title: '标记为已掌握',
+        content: '「' + this.data.name + '」还没有细分练习组合，所以按整个动作标记。\n\n名称、要点、历史记录全部保留，不再进"最久没练"提醒；以后给它加了练习组合，掌握状态就改成按组合区分。',
+        confirmText: '标记已掌握',
+        success: r => { if (r.confirm) run(); }
+      });
+      return;
+    }
+    run();
+  },
+
   toggleDrillStatus(e) {
     const did = e.currentTarget.dataset.id;
     const dr = (this.data.drills || []).filter(d => d.id === did)[0];

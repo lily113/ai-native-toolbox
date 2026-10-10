@@ -3,6 +3,11 @@
     <view class="head-name" bindtap="renameMove">{{name}}<text class="rename-ico">✏️</text></view>
     <text class="cat-badge tappable" bindtap="pickCat">🏷️ {{catName}} ▾</text>
     <view class="usage-line">{{usageText}}</view>
+    <!-- 没有练习组合的动作：按整个动作标（粒度跟着数据走） -->
+    <view class="stat-row" wx:if="{{!drills.length}}">
+      <text class="status-badge {{moveStatus === 'mastered' ? 'on' : ''}}" bindtap="toggleMoveStatus">{{moveStatus === 'mastered' ? '✅ 已掌握（整个动作）' : '在练中'}}</text>
+      <text class="stat-hint" bindtap="toggleMoveStatus">{{moveStatus === 'mastered' ? '点一下退回在练' : '这个动作还没有细分组合，点一下按整个动作标'}}</text>
+    </view>
     <view class="stat-row" wx:if="{{masteredText}}">
       <text class="stat-hint">✅ {{masteredText}}</text>
     </view>
