@@ -530,41 +530,74 @@ function dedupeMoves(moves) {
 // 数据本来就有（记录里存着 moves / drills 的 id），以前只在记录页内部用过一次，
 // 结果"我哪个动作很久没练了"这个问题在动作库里看不到。
 function moveUsage() {
-  const out = {};                       // moveId -> { n, last, drills: {drillId:{n,last}} }
+  const out = {};                       // moveId -> { n, last, days, drills:{id:{n,last,days}}, staleDrill, staleDays }
   const today = todayKey();
-  const days = d => {
+  const daysOf = d => {
     if (!d) return -1;
     const t = new Date(today + 'T00:00:00');
     const p0 = String(d).split('-').map(Number);
     if (!p0[0]) return -1;
     return Math.floor((t - new Date(p0[0], p0[1] - 1, p0[2])) / 86400000);
   };
+  const tsDays = ts => {                 // 时间戳（组合/动作的创建时间）距今多少天
+    const n = Number(ts) || 0;
+    if (n < 100000000000) return -1;     // 迁移时补的小序号不算真实时间
+    return Math.floor((Date.now() - n) / 86400000);
+  };
+  // 先把库里所有动作和组合铺上（组合"从没练过"也要能进统计）
+  const moves = ensureMoves();
+  moves.forEach(m => {
+    const u = out[m.id] || (out[m.id] = { n: 0, last: '', days: -1, drills: {} });
+    (m.drills || []).forEach(d => {
+      u.drills[d.id] = u.drills[d.id] || { n: 0, last: '', days: -1, name: d.name, addedDays: tsDays(d.c) };
+    });
+  });
+  // 再按记录累加
+  let firstDrillDate = '';               // 最早一条"有组合级信息"的记录日期（用来提示数据覆盖）
   loadRecords().forEach(r => {
     const date = r.date || '';
-    const counted = {};                 // 这一次记录里已经算过的动作，避免重复计数
+    const counted = {};
     (r.moves || []).forEach(id => {
       if (!id) return;
-      const u = out[id] || (out[id] = { n: 0, last: '', drills: {} });
+      const u = out[id] || (out[id] = { n: 0, last: '', days: -1, drills: {} });
       u.n++;
       counted[id] = 1;
       if (date > u.last) u.last = date;
     });
+    if ((r.drills || []).length && date && (!firstDrillDate || date < firstDrillDate)) firstDrillDate = date;
     (r.drills || []).forEach(id => {
       const f = drillById(id);
       if (!f) return;
-      const u = out[f.move.id] || (out[f.move.id] = { n: 0, last: '', drills: {} });
-      const d0 = u.drills[id] || (u.drills[id] = { n: 0, last: '' });
+      const u = out[f.move.id] || (out[f.move.id] = { n: 0, last: '', days: -1, drills: {} });
+      const d0 = u.drills[id] || (u.drills[id] = { n: 0, last: '', days: -1, name: f.drill.name, addedDays: tsDays(f.drill.c) });
       d0.n++;
       if (date > d0.last) d0.last = date;
       if (date > u.last) u.last = date;
-      // 极少数老记录只存了组合没存动作 → 这里补一次"练过"
       if (!counted[f.move.id]) { u.n++; counted[f.move.id] = 1; }
     });
   });
+  // 收尾：算天数和"最荒的组合"
   Object.keys(out).forEach(k => {
-    out[k].days = days(out[k].last);        // 距今天数（-1 = 没记录）
-    out[k].lastText = out[k].last ? out[k].last.slice(5).replace('-', '/') : '';
+    const u = out[k];
+    u.days = u.last ? daysOf(u.last) : -1;
+    let worst = null;
+    Object.keys(u.drills).forEach(did => {
+      const d = u.drills[did];
+      d.days = d.last ? daysOf(d.last) : -1;
+      if (d.days > 30) {
+        // 练过、但超过 30 天
+        if (!worst || d.days > worst.days) worst = { id: did, name: d.name, days: d.days, never: false };
+      } else if (d.last === '' && d.addedDays > 30) {
+        // 从没练过，但加进库已经超过 30 天 —— 用户的口径：这也算"荒了"
+        const d0 = d.addedDays;
+        if (!worst || d0 > worst.days) worst = { id: did, name: d.name, days: d0, never: true };
+      }
+    });
+    u.staleDrill = worst;
+    // 排序键：这个动作"最荒的组合"的天数；没有荒组合时用动作自身的天数
+    u.staleDays = worst ? worst.days : u.days;
   });
+  out._firstDrillDate = firstDrillDate;   // 挂在对象上带出去（下划线开头，不会和动作 id 冲突）
   return out;
 }
 // 给动作列表/详情用的一行摘要

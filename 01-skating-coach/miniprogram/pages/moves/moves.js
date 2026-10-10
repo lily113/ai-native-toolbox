@@ -1,5 +1,14 @@
 const store = require('../../utils/store');
 
+// 「最久没练」那一行显示什么：优先显示这个动作下最荒的组合
+function staleLine(u) {
+  if (!u || !u.staleDrill) return '';
+  const d = u.staleDrill;
+  return d.never
+    ? ('最久没练：' + d.name + ' · 加了 ' + d.days + ' 天还没练过')
+    : ('最久没练：' + d.name + ' · ' + d.days + ' 天');
+}
+
 const ROW_H = 64; // 拖动行高（固定，方便算序号）
 
 Page({
@@ -52,14 +61,14 @@ Page({
         .sort((a, b) => (a.sort || 0) - (b.sort || 0));
     }
     if (this.data.sortByStale) {
-      // 「最久没练」只针对"练过、且还在练"的动作：
-      //   · 从没练过的 → 根本没开始，不算荒了（排到最后）
-      //   · 已掌握的   → 不再需要提醒（也排到最后）
+      // 「最久没练」按**组合**排（用户口径）：
+      //   排序键 = 这个动作下最荒的练习组合的天数；没有组合的动作用动作自身。
+      //   沉底不变：整个动作从没练过 / 已掌握 → 排到最后。
       const gap = m => {
         if (m.status === 'mastered') return -1;
         const u = usage[m.id];
-        if (!u || !u.last) return -1;
-        const d = Number(u.days);
+        if (!u || !u.last) return -1;               // 这个动作根本没练过
+        const d = Number(u.staleDays);
         return isNaN(d) ? -1 : d;
       };
       shown = shown.slice().sort((a, b) => gap(b) - gap(a));
@@ -81,8 +90,9 @@ Page({
       drillCount: Array.isArray(m.drills) ? m.drills.length : 0,
       dateText: (Number(m.c) || 0) > 100000000000 ? store.dateKey(new Date(m.c)) : '',
       usageText: store.moveUsageText(usage[m.id]),
+      staleText: staleLine(usage[m.id]),
       mastered: m.status === 'mastered',
-      stale: !!(usage[m.id] && usage[m.id].last && Number(usage[m.id].days) > 30),
+      stale: !!(usage[m.id] && usage[m.id].last && Number(usage[m.id].staleDays) > 30),
       picked: sel.indexOf(m.id) > -1
     }));
     const sortList = shown.map((m, i) => ({
@@ -94,10 +104,15 @@ Page({
     }));
     const shownIds = list.map(x => x.id);
 
+    const firstDrill = usage._firstDrillDate || '';
+    const coverageText = firstDrill
+      ? ('组合级记录从 ' + firstDrill.slice(5).replace('-', '/') + ' 起，更早的记录只到动作级')
+      : '';
     const masteredN = moves.filter(m => m.status === 'mastered').length;
     this.setData({
       activeN: moves.length - masteredN,
       masteredN: masteredN,
+      coverageText: coverageText,
       tab: tab,
       tabs: tabs,
       list: list,

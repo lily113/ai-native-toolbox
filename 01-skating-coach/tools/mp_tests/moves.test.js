@@ -246,6 +246,48 @@ store.setMoveStatus('mu2', 'mastered');
 const considered2 = store.ensureMoves().filter(m => m.status !== 'mastered' && usageNow[m.id] && usageNow[m.id].last && Number(usageNow[m.id].days) > 30);
 ok(considered2.filter(m => m.id === 'mu2').length === 0, '已掌握的也不在名单里');
 
+console.log('⑬ 最久没练按"组合"排（这一版的重点）');
+const D = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+const oldTs = Date.now() - 90 * 86400000;      // 90 天前加进库的组合
+store.saveMoves([
+  // A：动作级"最近练过"，但底下一个组合很荒 → 排序键应该用组合的
+  { id: 'z1', name: '动作A', category: 'step', sort: 0, c: oldTs, status: 'active', drills: [
+    { id: 'za', name: '组合A-最近', c: oldTs }, { id: 'zb', name: '组合A-很荒', c: oldTs }] },
+  // B：动作级就很荒
+  { id: 'z2', name: '动作B', category: 'step', sort: 1, c: oldTs, status: 'active', drills: [
+    { id: 'zc', name: '组合B-一般', c: oldTs }] },
+  // C：从没练过 → 沉底
+  { id: 'z3', name: '动作C', category: 'step', sort: 2, c: oldTs, status: 'active', drills: [
+    { id: 'zd', name: '组合C-没练过', c: oldTs }] },
+  // D：新加的组合（10 天前），没练过 → 不算荒
+  { id: 'z4', name: '动作D', category: 'step', sort: 3, c: oldTs, status: 'active', drills: [
+    { id: 'ze', name: '组合D-刚加', c: Date.now() - 10 * 86400000 }] }
+]);
+store.saveRecords([
+  mkRec('zr1', D(2), ['z1'], ['za']),        // 动作A：2 天前练了"最近"那个组合
+  mkRec('zr2', D(45), ['z1'], ['zb']),       // 那个"很荒"的组合是 45 天前练的
+  mkRec('zr3', D(50), ['z2'], ['zc']),
+  mkRec('zr4', D(3), ['z4'], [])             // 动作D 整体练过（为了不被"从没练过"沉底）
+]);
+const u2 = store.moveUsage();
+ok(u2['z1'].last === D(2), '动作A 动作级最近是 2 天前');
+ok(u2['z1'].staleDrill && u2['z1'].staleDrill.name === '组合A-很荒',
+   'A 的"最荒组合"选中了很荒的那个（' + (u2['z1'].staleDrill ? u2['z1'].staleDrill.name : '—') + '）');
+ok(Number(u2['z1'].staleDays) === 45, 'A 的排序键 = 组合的 45 天（不是动作级的 2 天）');
+ok(Number(u2['z2'].staleDays) === 50 && u2['z2'].staleDays > u2['z1'].staleDays,
+   'B(50 天) 比 A(45 天) 更荒 → 排序时 B 在 A 前面（实际 B=' + u2['z2'].staleDays + ', A=' + u2['z1'].staleDays + '）');
+ok(Number(u2['z3'].staleDays) === -1 || !u2['z3'].last, '动作C 从没练过 → 沉底（不是"最荒"）');
+ok(u2['z4'].staleDrill === null, '动作D 的组合刚加 10 天、没练过 → 不算荒');
+ok(!!u2._firstDrillDate, '带出"组合级记录起始日期"用于提示：' + u2._firstDrillDate);
+
+// 从没练过但加了很久的组合 → 也算荒（用户口径）
+store.saveMoves(store.ensureMoves().map(m => m.id === 'z4'
+  ? Object.assign({}, m, { drills: [{ id: 'ze', name: '组合D-刚加', c: Date.now() - 10 * 86400000 }, { id: 'zf', name: '组合D-加了很久没练', c: oldTs }] })
+  : m));
+const u3 = store.moveUsage();
+ok(u3['z4'].staleDrill && u3['z4'].staleDrill.name === '组合D-加了很久没练' && u3['z4'].staleDrill.never === true,
+   '"加了 90 天一次没练"的组合也算荒，且标 never');
+
 console.log('⑪ 考级 ↔ 动作 关联');
 store.saveExams(store.ensureExams().map(e => e.key === 'free-4'
   ? Object.assign({}, e, { itemExtra: { 'e2': { points: ['x'], moveId: 'mu1' } } }) : e));
