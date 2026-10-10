@@ -278,7 +278,7 @@ ok(Number(u2['z2'].staleDays) === 50 && u2['z2'].staleDays > u2['z1'].staleDays,
    'B(50 天) 比 A(45 天) 更荒 → 排序时 B 在 A 前面（实际 B=' + u2['z2'].staleDays + ', A=' + u2['z1'].staleDays + '）');
 ok(Number(u2['z3'].staleDays) === -1 || !u2['z3'].last, '动作C 从没练过 → 沉底（不是"最荒"）');
 ok(u2['z4'].staleDrill === null, '动作D 的组合刚加 10 天、没练过 → 不算荒');
-ok(!!u2._firstDrillDate, '带出"组合级记录起始日期"用于提示：' + u2._firstDrillDate);
+ok(u2._firstDrillDate === undefined, '不再计算"组合级记录起始日期"（顶部提示已去掉）');
 
 // 从没练过但加了很久的组合 → 也算荒（用户口径）
 store.saveMoves(store.ensureMoves().map(m => m.id === 'z4'

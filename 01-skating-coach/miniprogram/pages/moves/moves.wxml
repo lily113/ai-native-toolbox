@@ -25,7 +25,6 @@
     <text class="edit-link" bindtap="bulkAll">{{allSel ? '取消全选' : '全选本页'}}</text>
   </view>
   <view class="muted sort-hint" wx:if="{{sortOn}}">按住并上下拖动调整顺序，松手自动保存</view>
-  <view class="cover-tip" wx:if="{{sortByStale && coverageText}}">{{coverageText}}</view>
 
   <!-- 普通浏览 / 批量整理 -->
   <block wx:if="{{!sortOn}}">

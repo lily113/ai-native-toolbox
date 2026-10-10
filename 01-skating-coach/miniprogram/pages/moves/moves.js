@@ -104,15 +104,10 @@ Page({
     }));
     const shownIds = list.map(x => x.id);
 
-    const firstDrill = usage._firstDrillDate || '';
-    const coverageText = firstDrill
-      ? ('组合级记录从 ' + firstDrill.slice(5).replace('-', '/') + ' 起，更早的记录只到动作级')
-      : '';
     const masteredN = moves.filter(m => m.status === 'mastered').length;
     this.setData({
       activeN: moves.length - masteredN,
       masteredN: masteredN,
-      coverageText: coverageText,
       tab: tab,
       tabs: tabs,
       list: list,
