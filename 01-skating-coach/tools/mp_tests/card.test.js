@@ -99,5 +99,72 @@ ok(previewed === 1, '同时调了转发/预览（没有 showShareImageMenu 时�
 ok(fakeCanvas.width === sc.CARD_W * 2 && fakeCanvas.height === sc.CARD_H * 2,
    '画布按 dpr 放大成 ' + fakeCanvas.width + '×' + fakeCanvas.height + '（导出正好 1080×1440，3:4）');
 
+console.log('⑤ A 卡（阶段报告）：钩子句 + 这个月练了什么');
+const today = store.todayKey(), ym = today.slice(0, 7);
+store.saveMoves([
+  { id: 'a1', name: '转三', category: 'step', drills: [] },
+  { id: 'a2', name: '乔克塔步', category: 'step', drills: [] },
+  { id: 'a3', name: '新动作甲', category: 'step', drills: [] }
+]);
+const r2 = (id, date, mv) => ({ id: id, date: date, type: 'ice', mode: 'self', duration: 90, content: '', moves: mv, drills: [], examPicks: [], itemOrder: [] });
+store.saveRecords([
+  r2('m1', ym + '-02', ['a1']), r2('m2', ym + '-03', ['a1']), r2('m3', ym + '-04', ['a1']),
+  r2('m4', ym + '-05', ['a2']),
+  r2('m5', ym + '-06', ['a3']),
+  r2('m6', '2026-06-01', ['a2'])
+]);
+const freeIdx = store.ensureExams().filter(e => e.key === 'free-4')[0];
+store.saveExams(store.ensureExams().map(e => e.key === 'free-4' ? Object.assign({}, e, { star: true, date: '2026-11-01' }) : e));
+const md = sc.monthCardData(ym, {});
+ok(md.count === 5 && md.days === 5, '本月 5 次训练、5 天上冰（按天去重）');
+ok(md.trend.length === 12 && md.trend[11].current === true, '近 12 个月趋势、最后一个是当月');
+const byName = {};
+md.actions.forEach(a => { byName[a.name] = a; });
+ok(byName['转三'] && byName['转三'].isNew === true, '「转三」这个月第一次练 → 标记为新学');
+ok(byName['乔克塔步'] && byName['乔克塔步'].pickedBack === true, '「乔克塔步」之前 6 月练过、这个月又练 → 标记为捡回来');
+ok(byName['新动作甲'] && byName['新动作甲'].n === 1, '新动作甲 1 次');
+ok(byName['转三'].n === 3 && md.actions[0].name === '转三', '按次数排序，练得多的在前');
+ok(md.hooks[0].indexOf('还有') > -1, '钩子第一优先是考级倒计时：' + md.hooks[0]);
+ok(md.hooks.some(h => h.indexOf('捡回来了') > -1) && md.hooks.some(h => h.indexOf('新学了') > -1),
+   '钩子里同时有"新学"和"捡回来"：' + md.hooks.join('｜'));
+ok(md.hooks.length <= 3, '最多给 3 个候选句子（实际 ' + md.hooks.length + '）');
+ok(md.minutes === 0, '默认不显示时长');
+ok(sc.monthCardData(ym, { withDuration: true }).minutes === 450, '开关打开 → 本月 450 分钟');
+ok(!('累计' in md) && JSON.stringify(md).indexOf('累计') < 0, 'A 卡数据里没有任何"累计"字段');
+const mdHook = sc.monthCardData(ym, { hook: '我自己挑的一句话' });
+ok(mdHook.hook === '我自己挑的一句话', '用户挑的句子会覆盖默认钩子');
+
+console.log('⑥ A 卡版式：不越界、柱状数字不再压标题');
+const ops2 = [];
+const ctx2 = {
+  font: '', fillStyle: '', textAlign: 'left',
+  measureText: s2 => ({ width: String(s2).length * 13 }),
+  fillText: (t, x, y) => ops2.push({ t: String(t), y: Math.round(y) }),
+  fillRect: () => {}, beginPath: () => {}, moveTo: () => {}, arcTo: () => {},
+  closePath: () => {}, fill: () => {}, stroke: () => {}, scale: () => {}
+};
+sc.drawMonthCard(ctx2, Object.assign({}, md, { hook: md.hooks[0] }));
+const maxY = Math.max.apply(null, ops2.map(o => o.y));
+ok(maxY < sc.CARD_H, '所有内容都在 ' + sc.CARD_H + ' 高度内（最低 y=' + maxY + '）');
+const titleOp = ops2.filter(o => o.t.indexOf('近 12 个月次数') === 0)[0];
+const hit = ops2.filter(o => o.y > titleOp.y && o.y < titleOp.y + 20);
+ok(hit.length === 0, '标题下方 20px 内没有任何其他文字（柱状数字不再撞标题，之前的 bug）');
+ok(ops2.some(o => o.t.indexOf('花样滑冰训练') === 0), '底部有水印');
+
+console.log('⑦ 回顾页入口：多个钩子时先让用户挑一句');
+let sheet = null, drew = 0;
+global.wx.createSelectorQuery = () => ({ select: () => ({ fields: () => ({ exec: cb => cb([{ node: { width: 0, height: 0, getContext: () => ctx2 } }]) }) }) });
+global.wx.showActionSheet = o => { sheet = o.itemList; if (o.success) o.success({ tapIndex: 1 }); };
+global.wx.canvasToTempFilePath = o => { drew++; if (o.success) o.success({ tempFilePath: '/tmp/a.png' }); };
+let cap2 = null; global.Page = o => { cap2 = o; };
+delete require.cache[require.resolve(MP + '/pages/review/review.js')];
+require(MP + '/pages/review/review.js');
+const rv = Object.create(null); Object.keys(cap2).forEach(k => { rv[k] = cap2[k]; });
+rv.data = JSON.parse(JSON.stringify(cap2.data || {})); rv.setData = function (o, cb) { Object.assign(this.data, o); if (cb) cb(); };
+rv.onLoad();
+rv.makeReport();
+ok(sheet && sheet.length === 3, '弹出 3 个候选句子让用户挑：' + JSON.stringify(sheet));
+ok(drew === 1, '挑完就生成（导出被调用 ' + drew + ' 次）');
+
 console.log(fail ? ('\n✗ 失败 ' + fail + ' 项') : '\n✓ 全部通过：分享卡只放过程、不放隐私，版式不越界');
 process.exit(fail ? 1 : 0);

@@ -278,6 +278,181 @@ function drawTrainingCard(ctx, d) {
   watermark(ctx, '花样滑冰训练');
 }
 
+// ---------- A 卡：阶段（月度）报告卡 ----------
+// 主角从"统计数字"换成"这个月练了什么"，并给一句能被引用的话（hook）。
+// 不放：累计上冰/上课次数、通栏类型占比条、隐私声明。
+function ymOf(dateStr) { return String(dateStr || '').slice(0, 7); }
+
+function monthCardData(ym, opts) {
+  const o = opts || {};
+  const recs = store.loadRecords();
+  const month = recs.filter(r => ymOf(r.date) === ym);
+  const dayOf = d => { const p = String(d).split('-').map(Number); return p[0] ? new Date(p[0], p[1] - 1, p[2]) : null; };
+
+  // 这个月练过的动作
+  const hit = {}, prevLast = {};
+  const bump = (id, date) => {
+    if (!id) return;
+    const u = hit[id] || (hit[id] = { id: id, n: 0, first: date, last: date, before: '' });
+    u.n++;
+    if (date < u.first) u.first = date;
+    if (date > u.last) u.last = date;
+  };
+  month.forEach(r => {
+    const seen = {};
+    (r.moves || []).forEach(id => { if (id && !seen[id]) { seen[id] = 1; bump(id, r.date); } });
+    (r.drills || []).forEach(did => {
+      const f = store.drillById(did);
+      if (f && !seen[f.move.id]) { seen[f.move.id] = 1; bump(f.move.id, r.date); }
+    });
+  });
+  // 之前练到哪天（用于判断"新学"和"捡回来"）
+  const firstThis = {};
+  Object.keys(hit).forEach(id => { firstThis[id] = hit[id].first; });
+  recs.forEach(r => {
+    if (ymOf(r.date) === ym) return;
+    const ids = {};
+    (r.moves || []).forEach(id => { if (id) ids[id] = 1; });
+    (r.drills || []).forEach(did => { const f = store.drillById(did); if (f) ids[f.move.id] = 1; });
+    Object.keys(ids).forEach(id => {
+      if (!hit[id]) return;
+      if (!hit[id].before || r.date > hit[id].before) hit[id].before = r.date;
+    });
+  });
+  const actions = Object.keys(hit).map(id => {
+    const u = hit[id];
+    const mv = store.moveById(id) || {};
+    const isNew = !u.before;
+    let picked = false;                       // 荒了很久又被捡起来
+    if (u.before && firstThis[id]) {
+      const a = dayOf(u.before), b = dayOf(firstThis[id]);
+      if (a && b && (b - a) / 86400000 > 30) picked = true;
+    }
+    return { id: id, name: mv.name || '', n: u.n, isNew: isNew, pickedBack: picked };
+  }).filter(a => a.name).sort((a, b) => b.n - a.n);
+
+  // 近 12 个月趋势
+  const now = new Date();
+  const trend = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2);
+    const n = recs.filter(r => ymOf(r.date) === key).length;
+    trend.push({ label: (d.getMonth() + 1) + '月', count: n, current: i === 0 });
+  }
+  const trendMax = Math.max(1, ...trend.map(t => t.count));
+
+  // 关注的考级 + 倒计时
+  let exam = '', examCd = '';
+  const starred = store.ensureExams().filter(e => e && e.star && e.date).sort((a, b) => a.date < b.date ? -1 : 1)[0];
+  if (starred) {
+    exam = ((EXAM_KINDS[starred.kind] || {}).name || '') + ' · ' + starred.level;
+    examCd = util.countdownText(starred.date, exam);
+  }
+
+  // 可以被引用的一句话（给用户挑，最多三个候选）
+  const hooks = [];
+  if (examCd) hooks.push(examCd);
+  const fresh = actions.filter(a => a.isNew)[0];
+  if (fresh) hooks.push('这个月新学了「' + fresh.name + '」，练了 ' + fresh.n + ' 次');
+  const back = actions.filter(a => a.pickedBack)[0];
+  if (back) hooks.push('把「' + back.name + '」捡回来了');
+  const freq = actions.filter(a => a.n >= 3)[0];
+  if (freq) hooks.push('这个月「' + freq.name + '」练了 ' + freq.n + ' 次');
+  const minutes = month.reduce((a, r) => a + (Number(r.duration) || 0), 0);
+  hooks.push(month.length
+    ? ('这个月上了 ' + month.length + ' 次冰' + (actions.length ? ('，练了 ' + actions.length + ' 个动作') : ''))
+    : '这个月还没上冰');
+
+  return {
+    label: ym.replace('-', ' 年 ') + ' 月',
+    count: month.length,
+    days: month.map(r => r.date).filter((d, i, a) => a.indexOf(d) === i).length,
+    minutes: o.withDuration ? minutes : 0,
+    actions: actions,
+    trend: trend, trendMax: trendMax,
+    exam: exam, examCd: examCd,
+    hooks: hooks.filter((x, i, a) => a && a.indexOf(x) === i).slice(0, 3),
+    hook: o.hook || hooks[0] || ''
+  };
+}
+
+// A 卡的版式：钩子句当主角，趋势图做小、柱顶数字不再压到标题
+function drawMonthCard(ctx, d) {
+  const W = CARD_W, H = CARD_H, PAD = 30;
+  ctx.fillStyle = '#f0f9ff';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#0369a1';
+  ctx.font = 'bold 22px sans-serif';
+  ctx.fillText((d.label || '') + ' · 我的训练', PAD, 52);
+
+  // 钩子句：整张图的主角
+  const hookY = 96;
+  ctx.font = 'bold 21px sans-serif';
+  ctx.fillStyle = '#0f172a';
+  const hookLines = wrapText(ctx, d.hook || '', W - PAD * 2, 2);
+  hookLines.forEach((ln, i) => ctx.fillText(ln, PAD, hookY + i * 28));
+  let y = hookY + hookLines.length * 28 + 6;
+  ctx.font = '14px sans-serif';
+  ctx.fillStyle = '#64748b';
+  const bits = [];
+  if (d.count) bits.push('训练 ' + d.count + ' 次');
+  if (d.days) bits.push('上冰 ' + d.days + ' 天');
+  if (d.minutes) bits.push(d.minutes + ' 分钟');
+  if (bits.length) { ctx.fillText(bits.join(' · '), PAD, y); y += 20; }
+
+  // 练了哪些动作
+  y += 12;
+  ctx.font = '13px sans-serif';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText('这个月练了', PAD, y);
+  y += 14;
+  const labels = (d.actions || []).map(a => a.name + ' · ' + a.n + '次').slice(0, 10);
+  const chipOpt = { h: 30, font: '15px sans-serif', bg: '#e0f2fe', color: '#0369a1' };
+  if (labels.length) {
+    y = drawChips(ctx, labels, PAD, y, W - PAD * 2, chipOpt) + 2;
+  } else {
+    ctx.font = '14px sans-serif';
+    ctx.fillStyle = '#cbd5e1';
+    ctx.fillText('（这个月没有勾选动作）', PAD, y + 16);
+    y += 34;
+  }
+
+  // 近 12 个月（做小，且柱顶数字画在柱内上限之下，不会压到标题）
+  const chY = Math.max(y + 46, 400);
+  const chH = 120;
+  ctx.font = '13px sans-serif';
+  ctx.fillStyle = '#94a3b8';
+  ctx.fillText('近 12 个月次数（最高 ' + d.trendMax + ' 次）', PAD, chY - 14);
+  const trend = d.trend || [];
+  const slot = (W - PAD * 2) / Math.max(1, trend.length);
+  const bw = Math.max(10, slot - 8);
+  trend.forEach((t, i) => {
+    const x = PAD + i * slot;
+    const h = t.count ? Math.max(6, Math.round(t.count / Math.max(1, d.trendMax) * chH)) : 0;
+    if (h) {
+      ctx.fillStyle = t.current ? '#0284c7' : '#93c9ea';
+      roundRect(ctx, x, chY + chH - h, bw, h, 5);
+      ctx.fill();
+    }
+    ctx.fillStyle = t.current ? '#0284c7' : '#94a3b8';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(t.label, x + bw / 2, chY + chH + 16);
+    ctx.textAlign = 'left';
+  });
+  y = chY + chH + 26;
+
+  if (d.examCd) {
+    ctx.font = '15px sans-serif';
+    ctx.fillStyle = '#b45309';
+    ctx.fillText('⏳ ' + d.examCd, PAD, Math.min(y + 10, H - 54));
+  }
+  watermark(ctx, '花样滑冰训练');
+}
+
 // 统一的导出流程：找画布 → 按 dpr 放大 → 交给调用方画 → 导出文件 → 存相册 → 可转发
 function exportImage(opts, draw) {
   const o = opts || {};
@@ -325,5 +500,6 @@ function exportImage(opts, draw) {
 module.exports = {
   CARD_W, CARD_H, NO_SHARE,
   roundRect, wrapText, drawText, drawChips, chipsSize, drawCard, watermark,
-  splitNoteLines, exportImage, recordCardData, drawTrainingCard, weekdayCn
+  splitNoteLines, exportImage, recordCardData, drawTrainingCard, weekdayCn,
+  monthCardData, drawMonthCard
 };

@@ -74,7 +74,7 @@
     <button class="ghost-btn" bindtap="makeReport">🖼 生成这个月的报告图</button>
   </view>
 
-  <!-- 画布：2d 模式，离屏也要挂在页面上；尺寸用 px 由 js 指定 -->
+  <!-- 画布：2d 模式，离屏也要挂在页面上。尺寸跟分享卡一致 540×720（导出 1080×1440） -->
   <canvas type="2d" id="reportCanvas"
-          style="width:{{cvW}}px;height:{{cvH}}px;position:fixed;left:-9999px;top:0;"></canvas>
+          style="width:540px;height:720px;position:fixed;left:-9999px;top:0;"></canvas>
 </view>
