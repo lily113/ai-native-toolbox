@@ -1,5 +1,5 @@
 <view class="page">
-  <view class="muted tip">考纲只内置<text class="tip-b">级别与分节名称</text>（官方正文请查《国家花样滑冰等级测试大纲（第2版）》）；每一级都能补充「我的要点 / 我的易犯错误」，也可以自建分节与条目。</view>
+  <view class="muted tip">内置的是每一级的<text class="tip-b">测试内容与时长</text>这类要点（官方正文请查《国家花样滑冰等级测试大纲（第2版）》）；每一级都能补充「我的要点 / 我的易犯错误」，也可以自建分节与条目。</view>
 
   <!-- 我的考级：关注过的 / 设了考级日期的级别 -->
   <view class="mine-head">
@@ -16,8 +16,7 @@
       <view class="ec-cd" wx:if="{{it.cdText}}">⏳ {{it.cdText}}</view>
       <view class="ec-meta">
         <text wx:if="{{it.date}}">📅 {{it.date}}</text>
-        <text wx:if="{{it.itemCount}}">📝 {{it.itemCount}} 条</text>
-        <text wx:if="{{it.myCount}}">★ 我的 {{it.myCount}}</text>
+        <text wx:if="{{it.myCount}}">📝 自己记了 {{it.myCount}} 条</text>
         <text wx:if="{{it.imgCount}}">📷 {{it.imgCount}}</text>
       </view>
       <view class="ec-note" wx:if="{{it.note}}">{{it.note}}</view>
@@ -40,14 +39,13 @@
       <view class="exam-card" wx:for="{{g.list}}" wx:for-item="it" wx:key="id"
             bindtap="open" data-id="{{it.id}}">
         <view class="ec-top">
-          <view class="ec-level">{{it.level}}<text class="ec-tag" wx:if="{{it.builtin}}">内置考纲</text></view>
+          <view class="ec-level">{{it.level}}</view>
           <view class="ec-star {{it.star ? 'on' : ''}}" catchtap="toggleStar" data-id="{{it.id}}">{{it.star ? '⭐' : '☆'}}</view>
         </view>
         <view class="ec-cd" wx:if="{{it.cdText}}">⏳ {{it.cdText}}</view>
         <view class="ec-meta">
           <text wx:if="{{it.date}}">📅 {{it.date}}</text>
-          <text wx:if="{{it.itemCount}}">📝 {{it.itemCount}} 条</text>
-          <text wx:if="{{it.myCount}}">★ 我的 {{it.myCount}}</text>
+          <text wx:if="{{it.myCount}}">📝 自己记了 {{it.myCount}} 条</text>
           <text wx:if="{{it.imgCount}}">📷 {{it.imgCount}}</text>
         </view>
         <view class="ec-note" wx:if="{{it.note}}">{{it.note}}</view>

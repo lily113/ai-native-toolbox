@@ -12,11 +12,26 @@ Page({
     const arr = store.ensureExams();
     const all = [];
 
+    // 只统计"用户自己记的东西"：
+    //   ① 自己加的条目（myItems）
+    //   ② 给内置条目补的要点/易犯错误/备注，或挂到动作库的动作（itemExtra）
+    // 内置考纲本身的内容不算，否则每级都显示"11 条"，看着像自己记了很多
+    const myNoteCount = ov => {
+      let n = (ov.myItems || []).length;
+      const ex = ov.itemExtra || {};
+      Object.keys(ex).forEach(k => {
+        const v = ex[k] || {};
+        if ((v.points && v.points.length) || (v.mistakes && v.mistakes.length) ||
+            (v.note && String(v.note).trim()) || v.moveId) n++;
+      });
+      return n;
+    };
+
     // ① 内置考纲：一条 = 一个级别
     Object.keys(EXAM_KINDS).forEach(k => {
       SYLLABUS.filter(s => s.kind === k).forEach(sy => {
         const ov = arr.filter(e => e && e.key === sy.key)[0] || {};
-        const syItems = (sy.sections || []).reduce((n, s) => n + ((s.items || []).length), 0);
+        const mine = myNoteCount(ov);
         all.push({
           id: ov.id || ('sy_' + sy.key),
           kind: k, kindName: EXAM_KINDS[k].name, level: sy.level,
@@ -25,8 +40,8 @@ Page({
           date: ov.date || '',
           cdText: util.countdownText(ov.date),
           imgCount: (ov.images || []).length,
-          itemCount: syItems + ((ov.myItems || []).length),
-          myCount: (ov.myItems || []).length
+          itemCount: mine,
+          myCount: mine
         });
       });
     });

@@ -1,7 +1,8 @@
 <view class="page">
   <view class="card head">
     <view class="h-title">{{kindName}} · {{level}}</view>
-    <view class="h-badge" wx:if="{{key}}">📖 内置考纲（只读）</view>
+    <!-- 这里以前挂了个"只读"标签，去掉了：点条目本身就会弹出「补充我的要点」 -->
+
     <picker mode="date" value="{{date}}" bindchange="setDate">
       <view class="h-date">📅 {{date || '设置考级日期'}}</view>
     </picker>
