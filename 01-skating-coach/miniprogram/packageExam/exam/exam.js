@@ -74,6 +74,10 @@ Page({
         });
         (used[s.key] || []).forEach(x => items.push(x));
         const imgs = s.images || [];
+        // 内置分节如果既没有考纲内容、也没有你自己加过东西、也没有图 → 不渲染这个空盒子
+        // （以前点开是"测试内容 0 条 / 评判标准 0 条"，看着像坏了）
+        // 「我的要点」永远保留（那是你自己写东西的地方），即使现在是空的
+        if (!items.length && !imgs.length && s.key !== 'my-points') return;
         const defOpen = (s.key === 'pattern' || s.key === 'my-points');
         sections.push({
           id: s.key, name: s.name, builtin: true, images: imgs, userAdd: s.userAdd === true, items: items,
