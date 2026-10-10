@@ -1,4 +1,4 @@
-const { APP_VERSION, TYPES, MODES, DEFAULT_MOVES, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES, EXAM_SECTIONS, SYLLABUS } = require('./const');
+const { APP_VERSION, TYPES, MODES, DEFAULT_MOVES, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES, EXAM_SECTIONS, EXAM_KINDS, SYLLABUS } = require('./const');
 
 const KEYS = {
   records: 'figure_skating_planner_records_v1',
@@ -512,6 +512,96 @@ function mergeMoveLibraries(local, incoming) {
 function dedupeMoves(moves) {
   return mergeMoveLibraries([], moves).moves;
 }
+// ---------- 动作练习统计 ----------
+// 从训练记录里算：每个动作练过几次、最近一次是哪天、哪个组合最近练过。
+// 数据本来就有（记录里存着 moves / drills 的 id），以前只在记录页内部用过一次，
+// 结果"我哪个动作很久没练了"这个问题在动作库里看不到。
+function moveUsage() {
+  const out = {};                       // moveId -> { n, last, drills: {drillId:{n,last}} }
+  const today = todayKey();
+  const days = d => {
+    if (!d) return -1;
+    const t = new Date(today + 'T00:00:00');
+    const p0 = String(d).split('-').map(Number);
+    if (!p0[0]) return -1;
+    return Math.floor((t - new Date(p0[0], p0[1] - 1, p0[2])) / 86400000);
+  };
+  loadRecords().forEach(r => {
+    const date = r.date || '';
+    const counted = {};                 // 这一次记录里已经算过的动作，避免重复计数
+    (r.moves || []).forEach(id => {
+      if (!id) return;
+      const u = out[id] || (out[id] = { n: 0, last: '', drills: {} });
+      u.n++;
+      counted[id] = 1;
+      if (date > u.last) u.last = date;
+    });
+    (r.drills || []).forEach(id => {
+      const f = drillById(id);
+      if (!f) return;
+      const u = out[f.move.id] || (out[f.move.id] = { n: 0, last: '', drills: {} });
+      const d0 = u.drills[id] || (u.drills[id] = { n: 0, last: '' });
+      d0.n++;
+      if (date > d0.last) d0.last = date;
+      if (date > u.last) u.last = date;
+      // 极少数老记录只存了组合没存动作 → 这里补一次"练过"
+      if (!counted[f.move.id]) { u.n++; counted[f.move.id] = 1; }
+    });
+  });
+  Object.keys(out).forEach(k => {
+    out[k].days = days(out[k].last);        // 距今天数（-1 = 没记录）
+    out[k].lastText = out[k].last ? out[k].last.slice(5).replace('-', '/') : '';
+  });
+  return out;
+}
+// 给动作列表/详情用的一行摘要
+function moveUsageText(u) {
+  if (!u || !u.n) return '还没练过';
+  const d = Number(u.days);
+  const ago = (d < 0) ? '' : (d === 0 ? '今天练过' : (d === 1 ? '昨天练过' : ('上次 ' + d + ' 天前')));
+  return '练过 ' + u.n + ' 次 · ' + ago;
+}
+
+// ---------- 动作 ↔ 考级 的关联 ----------
+// 考级页里可以把某个要求"挂到动作库的某个动作"（itemExtra.moveId）。这里做反向查询：
+//   ① 某个动作被挂到了哪些级别/哪条要求  ② 哪些动作被挂过（动作库列表打标）
+function examMoveLinks(moveId) {
+  const out = [];
+  if (!moveId) return out;
+  ensureExams().forEach(ov => {
+    const extra = ov.itemExtra || {};
+    const sy = ov.key ? syllabusByKey(ov.key) : null;
+    Object.keys(extra).forEach(k => {
+      const v = extra[k] || {};
+      if (v.moveId !== moveId) return;
+      let title = '', secName = '';
+      if (sy) {
+        (sy.sections || []).forEach(sec => (sec.items || []).forEach(it => {
+          if (it.key === k) { title = it.title; secName = sec.name; }
+        }));
+      }
+      out.push({
+        examId: ov.id || ('sy_' + ov.key), key: ov.key || '',
+        level: ov.level || '', kindName: (EXAM_KINDS[ov.kind] || {}).name || '',
+        itemKey: k, title: title, secName: secName
+      });
+    });
+  });
+  return out;
+}
+function examLinkedMoveIds() {
+  const set = {};
+  ensureExams().forEach(ov => {
+    const extra = ov.itemExtra || {};
+    Object.keys(extra).forEach(k => { const v = extra[k] || {}; if (v.moveId) set[v.moveId] = 1; });
+  });
+  return set;
+}
+function examLinkedCount(ov) {
+  const extra = (ov && ov.itemExtra) || {};
+  return Object.keys(extra).filter(k => extra[k] && extra[k].moveId).length;
+}
+
 // 改动作的名字（记录里引用的 id 不变，所以历史记录、卡片都不受影响）
 function renameMove(id, name) {
   const nm = String(name || '').trim();
@@ -859,7 +949,7 @@ module.exports = {
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS,
-  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo,
+  ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey
 };

@@ -15,6 +15,7 @@ Page({
     editDate: '',
     editPoints: [],
     // 「移动组合到别的动作」选择模式
+    examLinks: [],
     drillSelOn: false,
     drillPickN: 0,
     pickOn: false,
@@ -30,6 +31,16 @@ Page({
     this.reload();
   },
 
+  onShareAppMessage() {
+    // ⚠️ 动作 id 是每台设备随机生成的，分享这一页给别人只会"动作不存在"。
+    // 所以分享的是首页（别人打开就是他自己的空库/自己的数据），标题说清这是什么。
+    const n = (this.data.drills || []).length;
+    return {
+      title: '我把花滑动作和教练说的要点都记在这儿了' + (n ? ('（像「' + this.data.name + '」这种，一个动作下挂 ' + n + ' 个组合）') : ''),
+      path: '/pages/index/index'
+    };
+  },
+
   reload() {
     const m = store.moveById(this.data.id);
     if (!m) { wx.showToast({ title: '动作不存在', icon: 'none' }); setTimeout(() => wx.navigateBack(), 400); return; }
@@ -43,7 +54,22 @@ Page({
     }));
     const sel = this.data.drillSel || {};
     drills.forEach(d => { d.picked = !!sel[d.id]; });
+    // 练习统计：这个动作练过几次、最近一次；每个组合各练过几次
+    let usage = {}, usageText = '还没练过';
+    try {
+      usage = store.moveUsage();
+      usageText = store.moveUsageText(usage[m.id]);
+      drills.forEach(d => {
+        const du = (usage[m.id] && usage[m.id].drills) ? usage[m.id].drills[d.id] : null;
+        d.usageText = du && du.n ? ('练过 ' + du.n + ' 次 · ' + (du.last ? du.last.slice(5).replace('-', '/') : '')) : '';
+      });
+    } catch (e) {}
+    // 这个动作被挂到哪些考级要求上（在考级页里「挂到动作」建立的关系）
+    let links = [];
+    try { links = store.examMoveLinks(m.id).map(x => ({ label: x.kindName + ' · ' + x.level, title: x.title || x.secName })); } catch (e) {}
     this.setData({
+      usageText: usageText,
+      examLinks: links,
       name: m.name,
       catName: store.catName(store.validCat(m.category)),
       movePoints: (m.points || []).slice(),

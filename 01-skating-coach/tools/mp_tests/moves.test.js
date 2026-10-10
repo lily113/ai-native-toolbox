@@ -202,5 +202,36 @@ lib = store.ensureMoves();
 ok(lib.filter(m => m.id === 'mv_bianren')[0].drills.length === 2, '页面操作把 2 个组合移回了「变刃步伐串」');
 ok(pg.data.pickOn === false && pg.data.drillSelOn === false, '移完自动退出选择模式');
 
+console.log('⑩ 练习统计：练过几次、上次哪天、最久没练');
+const todayK = store.todayKey();
+const mkRec = (id, date, moves, drills) => ({ id: id, date: date, type: 'ice', mode: 'self', duration: 90, content: '', moves: moves, drills: drills, examPicks: [], itemOrder: [] });
+store.saveMoves([
+  { id: 'mu1', name: '转三', category: 'step', sort: 0, c: 1, drills: [{ id: 'dd1', name: '前外转三' }, { id: 'dd2', name: '后外转三' }] },
+  { id: 'mu2', name: '外勾步', category: 'step', sort: 1, c: 2, drills: [{ id: 'dd3', name: '外勾组合' }] },
+  { id: 'mu3', name: '燕式步', category: 'step', sort: 2, c: 3, drills: [] }
+]);
+store.saveRecords([
+  mkRec('u1', '2026-09-01', ['mu1'], ['dd1']),
+  mkRec('u2', '2026-09-20', ['mu1'], ['dd1', 'dd2']),
+  mkRec('u3', '2026-06-01', ['mu2'], ['dd3']),      // 很早练过 → 属于"荒了"
+  mkRec('u4', todayK, [], ['dd2'])                   // 只存了组合没存动作：也要算一次
+]);
+const us = store.moveUsage();
+ok(us['mu1'] && us['mu1'].n === 3, '同一条记录里的动作+组合只算一次（实际 ' + (us['mu1'] ? us['mu1'].n : 0) + ' 次）');
+ok(us['mu1'].drills['dd1'].n === 2 && us['mu1'].drills['dd2'].n === 2, '组合各自计数：dd1 两次、dd2 两次');
+ok(us['mu2'] && Number(us['mu2'].days) > 30, '外勾步上次是 6/1，超过 30 天（' + (us['mu2'] ? us['mu2'].days : '?') + ' 天）');
+ok(/练过 3 次/.test(store.moveUsageText(us['mu1'])), '摘要文案：' + store.moveUsageText(us['mu1']));
+ok(store.moveUsageText(us['mu3']) === '还没练过', '没练过的动作写「还没练过」');
+
+console.log('⑪ 考级 ↔ 动作 关联');
+store.saveExams(store.ensureExams().map(e => e.key === 'free-4'
+  ? Object.assign({}, e, { itemExtra: { 'e2': { points: ['x'], moveId: 'mu1' } } }) : e));
+const links = store.examMoveLinks('mu1');
+ok(links.length === 1 && links[0].level === '四级' && links[0].title === '跳跃',
+   '反查动作被挂到哪：' + JSON.stringify(links[0]));
+ok(store.examLinkedMoveIds()['mu1'] === 1, '已挂动作集合里有 mu1');
+ok(store.examLinkedCount(store.ensureExams().filter(e => e.key === 'free-4')[0]) === 1, '四级已挂 1 个动作');
+ok(store.examMoveLinks('mu3').length === 0, '没挂过的动作返回空');
+
 console.log(fail ? ('\n✗ 失败 ' + fail + ' 项') : '\n✓ 全部通过：动作库的组合不会再被合并吃掉');
 process.exit(fail ? 1 : 0);

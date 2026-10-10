@@ -610,6 +610,32 @@ Page({
 
 
 
+  // 复制这次训练的文字版（发给教练 / 自己存微信）
+  copyRecordText() {
+    try {
+      const t = this.data.types.filter(x => x.k === this.data.type)[0];
+      const m = (this.data.modes || []).filter(x => x.k === this.data.mode)[0];
+      const d = this.data.date || '';
+      const wd = '一二三四五六日'[new Date(d + 'T12:00:00').getDay()] || '';
+      const lines = [];
+      lines.push(d + (wd ? ('（周' + wd + '）') : '') + ' · ' + ((t && t.n) || t && t.name || '') + (m ? (' · ' + (m.name || m.n || '')) : ''));
+      if (this.data.mode === 'lesson') {
+        lines.push('节数：' + (this.data.units || 1) + ' 节' + (this.data.timeStart ? (' · ' + this.data.timeStart + (this.data.timeEnd ? ('-' + this.data.timeEnd) : '')) : ''));
+      } else {
+        lines.push('时长：' + (this.data.duration || 0) + ' 分钟');
+      }
+      const body = String(this.data.content || '').trim();
+      if (body) lines.push('', body);
+      const text = lines.join('\n');
+      wx.setClipboardData({
+        data: text,
+        success: () => wx.showToast({ title: '已复制，可粘给教练', icon: 'none', duration: 2200 })
+      });
+    } catch (e) {
+      wx.showToast({ title: '复制失败', icon: 'none' });
+    }
+  },
+
   // ---------- 复制上次这条训练（只复制“设置 + 勾选 + 顺序”，不复制日期/时间/笔记文字） ----------
   copyLast() {
     const recs = store.loadRecords();

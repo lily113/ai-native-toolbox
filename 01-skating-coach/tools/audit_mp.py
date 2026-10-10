@@ -350,7 +350,14 @@ def declared_names(js):
 
 def audit_consts():
     bad = 0
-    for jsf, _ in page_pairs():
+    # 页面 + utils/*.js 都要扫：之前只扫页面，store.js 里"忘了引入 EXAM_KINDS"
+    # 这种错误一直没被抓到（运行时才炸）。
+    targets = [f for f, _ in page_pairs()]
+    for f in all_js():
+        if '/utils/' in f.replace(os.sep, '/'):
+            targets.append(f)      # 含 const.js 自己（里面的大写常量都是声明过的，不会误报）
+    targets = sorted(set(targets))
+    for jsf in targets:
         js = strip_code(read(jsf))
         declared = declared_names(js)
         used = set()

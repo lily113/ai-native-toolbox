@@ -11,6 +11,7 @@ Page({
     lessonBase: 0,
     openid: '',
     aiStatus: '检查中…',
+    aiVisible: false,     // 只有你是本人时才显示「AI 教练」这一行
     dataWhere: '本机 0 条 · 云端 ? 条',
     syncErr: '',
     syncStatus: '未配置',
@@ -161,12 +162,10 @@ Page({
     const app = getApp();
     const apply = () => {
       const g = (app && app.globalData) || {};
-      let s;
-      if (g.ownerConfigured === false) s = '未开放：云函数还没配 OWNER_OPENID';
-      else if (g.isOwner) s = '已开放（仅你自己能用）';
-      else if (g.ownerConfigured === true) s = '已关闭（你不是配置里的本人）';
-      else s = '检查中…';
-      this.setData({ aiStatus: s });
+      // 普通用户不需要知道"本人/鉴权"这些内部概念：只有你是本人时才显示这一行
+      const visible = !!g.isOwner;
+      const s = g.isOwner ? '已开放（仅你自己能用）' : '';
+      this.setData({ aiVisible: visible, aiStatus: s });
     };
     apply();
     try {

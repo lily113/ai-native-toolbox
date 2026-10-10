@@ -12,6 +12,32 @@
     <view class="fr-l fr-dim">数据只存在你自己的账号下；「设置 → 数据备份」可以随时导出。</view>
   </view>
 
+  <!-- 首页概览：本月 + 周目标 + 久未练习（一眼看到"我现在练得怎么样"） -->
+  <view class="ov card" wx:if="{{ov && !firstRun}}">
+    <view class="ov-row">
+      <view class="ov-item" bindtap="goReview2">
+        <view class="ov-num">{{ov.monthN}}</view><view class="ov-lb">本月训练</view>
+      </view>
+      <view class="ov-item" bindtap="goReview2">
+        <view class="ov-num">{{ov.monthMin}}<text class="ov-unit">分</text></view><view class="ov-lb">本月时长</view>
+      </view>
+      <view class="ov-item" bindtap="goReview2">
+        <view class="ov-num">{{ov.iceN}}<text class="ov-unit">/{{ov.lessonN}}</text></view><view class="ov-lb">上冰 / 上课</view>
+      </view>
+    </view>
+    <view class="ov-goal" wx:if="{{ov.goal}}">
+      <view class="ov-goal-top">
+        <text>本周 {{ov.weekMin}} 分钟 · 目标 {{ov.goal}} 分钟</text>
+        <text class="ov-pct">{{ov.weekPct}}%</text>
+      </view>
+      <view class="ov-bar"><view class="ov-bar-in" style="width:{{ov.weekPct}}%"></view></view>
+      <view class="ov-goal-sub">近 4 周平均 {{ov.avg4}} 分钟<text wx:if="{{ov.streak}}"> · 已连续 {{ov.streak}} 周达标 🔥</text></view>
+    </view>
+    <view class="ov-stale" wx:if="{{ov.staleN}}" bindtap="goStaleMoves">
+      ⏱ 有 {{ov.staleN}} 个动作超过 30 天没练（比如「{{ov.staleName}}」）→
+    </view>
+  </view>
+
   <view class="month-bar">
     <text class="mh-btn" bindtap="switchMonth" data-dir="prev">‹</text>
     <view class="mh-center">

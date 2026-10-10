@@ -36,7 +36,7 @@
       <text class="kv-val">{{openid || '获取中…'}}</text>
       <text class="copy-link" wx:if="{{openid}}" bindtap="copyOpenid">复制</text>
     </view>
-    <view class="kv"><text class="kv-label">AI 教练</text><text class="kv-val">{{aiStatus}}</text></view>
+    <view class="kv" wx:if="{{aiVisible}}"><text class="kv-label">AI 教练</text><text class="kv-val">{{aiStatus}}</text></view>
     <view class="kv"><text class="kv-label">上次同步</text><text class="kv-val">{{syncStatus}}</text></view>
     <view class="kv"><text class="kv-label">数据在哪</text><text class="kv-val">{{dataWhere}}</text></view>
     <view class="sync-err" wx:if="{{syncErr}}">

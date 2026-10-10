@@ -10,6 +10,8 @@
     <view class="h-actions">
       <view class="mini-btn" bindtap="toMilestone">🎖️ 记入纪念日</view>
       <view class="mini-btn" bindtap="copyMyMistakes">📋 复制我的易错</view>
+      <view class="mini-btn" bindtap="copyAllPoints">📋 复制本级全部要点</view>
+      <view class="mini-btn" wx:if="{{linkedN}}">🎓 已挂 {{linkedN}} 个动作</view>
     </view>
   </view>
 

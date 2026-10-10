@@ -14,7 +14,8 @@ Page({
     bulkOn: false,
     selIds: [],
     selCount: 0,
-    allSel: false
+    allSel: false,
+    sortByStale: false      // 「最久没练」优先
   },
 
   onShow() {
@@ -24,6 +25,8 @@ Page({
   refresh() {
     const cats = store.cats();
     const moves = store.dedupeMoves(store.ensureMoves());
+    // 练习统计（练过几次 / 上次哪天）——数据来自训练记录
+    const usage = store.moveUsage();
     let tab = this.data.tab;
     if (tab !== 'all' && !cats.some(c => c.id === tab)) tab = 'all';   // 分类被删掉后回到「全部」
 
@@ -45,6 +48,16 @@ Page({
         .filter(m => store.validCat(m.category) === tab)
         .sort((a, b) => (a.sort || 0) - (b.sort || 0));
     }
+    if (this.data.sortByStale) {
+      // 「最久没练」排前面；从没练过的排最前（那才是真荒了）
+      const gap = m => {
+        const u = usage[m.id];
+        if (!u || !u.last) return 99999;
+        const d = Number(u.days);
+        return isNaN(d) ? 99999 : d;
+      };
+      shown = shown.slice().sort((a, b) => gap(b) - gap(a));
+    }
 
     // 批量整理：选中项跨分类保留，但清掉已经不存在的动作
     const alive = {};
@@ -57,6 +70,8 @@ Page({
       catName: nameOf[store.validCat(m.category)] || '其他',
       drillCount: Array.isArray(m.drills) ? m.drills.length : 0,
       dateText: (Number(m.c) || 0) > 100000000000 ? store.dateKey(new Date(m.c)) : '',
+      usageText: store.moveUsageText(usage[m.id]),
+      stale: !!(usage[m.id] && usage[m.id].last && Number(usage[m.id].days) > 30),
       picked: sel.indexOf(m.id) > -1
     }));
     const sortList = shown.map((m, i) => ({
@@ -80,6 +95,9 @@ Page({
     });
   },
 
+  toggleStale() {
+    this.setData({ sortByStale: !this.data.sortByStale }, () => this.refresh());
+  },
   switchTab(e) {
     this.setData({ tab: e.currentTarget.dataset.k, sortOn: false });
     this.refresh();

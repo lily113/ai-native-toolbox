@@ -41,3 +41,5 @@
 .pick-row { padding: 12px 4px; border-bottom: 1px solid #eef2f7; }
 .pick-row-name { font-size: 15px; color: #0f172a; font-weight: 600; }
 .pick-row-sub { margin-top: 2px; font-size: 12px; color: #94a3b8; }
+.usage-line { margin-top: 6px; font-size: 12px; color: #0f766e; }
+.drill-use { margin-left: 8px; font-size: 11px; color: #0f766e; }
