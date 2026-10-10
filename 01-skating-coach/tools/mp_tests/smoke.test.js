@@ -181,6 +181,14 @@ fs.readdirSync(cfDir).forEach(name => {
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
+console.log('动作状态与"最久没练"口径');
+ok(/setMoveStatus/.test(readIf(MP + '/utils/store.js')) && /status === 'mastered'/.test(readIf(MP + '/utils/store.js')),
+   '动作有「在练 / 已掌握」状态（合并时按最后修改时间保留）');
+ok(/m\.status === 'mastered'/.test(readIf(MP + '/pages/index/index.js')),
+   '首页"久未练习"提醒排除已掌握的动作');
+ok(/onlyActive/.test(readIf(MP + '/pages/moves/moves.js')) && /只看在练/.test(readIf(MP + '/pages/moves/moves.wxml')),
+   '动作库有「只看在练」筛选 + 在练/已掌握计数');
+
 console.log('第二批：报告图 / 教练字段 / 考级提醒');
 ok(/makeReport\s*\(/.test(readIf(MP + '/pages/review/review.js')) && /type="2d"/.test(readIf(MP + '/pages/review/review.wxml')),
    '回顾页能生成月度报告图（canvas 2d，保存相册 + 转发）');

@@ -15,7 +15,10 @@ Page({
     selIds: [],
     selCount: 0,
     allSel: false,
-    sortByStale: false      // 「最久没练」优先
+    sortByStale: false,     // 「最久没练」优先
+    onlyActive: false,      // 只看在练（收起"已掌握"）
+    activeN: 0,
+    masteredN: 0
   },
 
   onShow() {
@@ -49,14 +52,21 @@ Page({
         .sort((a, b) => (a.sort || 0) - (b.sort || 0));
     }
     if (this.data.sortByStale) {
-      // 「最久没练」排前面；从没练过的排最前（那才是真荒了）
+      // 「最久没练」只针对"练过、且还在练"的动作：
+      //   · 从没练过的 → 根本没开始，不算荒了（排到最后）
+      //   · 已掌握的   → 不再需要提醒（也排到最后）
       const gap = m => {
+        if (m.status === 'mastered') return -1;
         const u = usage[m.id];
-        if (!u || !u.last) return 99999;
+        if (!u || !u.last) return -1;
         const d = Number(u.days);
-        return isNaN(d) ? 99999 : d;
+        return isNaN(d) ? -1 : d;
       };
       shown = shown.slice().sort((a, b) => gap(b) - gap(a));
+    }
+    if (this.data.onlyActive) {
+      // 只看在练：把「已掌握」收起来（数据还在，切回来就能看到）
+      shown = shown.filter(m => m.status !== 'mastered');
     }
 
     // 批量整理：选中项跨分类保留，但清掉已经不存在的动作
@@ -71,6 +81,7 @@ Page({
       drillCount: Array.isArray(m.drills) ? m.drills.length : 0,
       dateText: (Number(m.c) || 0) > 100000000000 ? store.dateKey(new Date(m.c)) : '',
       usageText: store.moveUsageText(usage[m.id]),
+      mastered: m.status === 'mastered',
       stale: !!(usage[m.id] && usage[m.id].last && Number(usage[m.id].days) > 30),
       picked: sel.indexOf(m.id) > -1
     }));
@@ -83,7 +94,10 @@ Page({
     }));
     const shownIds = list.map(x => x.id);
 
+    const masteredN = moves.filter(m => m.status === 'mastered').length;
     this.setData({
+      activeN: moves.length - masteredN,
+      masteredN: masteredN,
       tab: tab,
       tabs: tabs,
       list: list,
@@ -95,6 +109,9 @@ Page({
     });
   },
 
+  toggleActive() {
+    this.setData({ onlyActive: !this.data.onlyActive }, () => this.refresh());
+  },
   toggleStale() {
     this.setData({ sortByStale: !this.data.sortByStale }, () => this.refresh());
   },

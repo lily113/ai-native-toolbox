@@ -152,6 +152,7 @@ Page({
       let staleN = 0, staleName = '';
       const usage = store.moveUsage();
       store.ensureMoves().forEach(m => {
+        if (m.status === 'mastered') return;              // 已掌握的不用再提醒
         const u = usage[m.id];
         if (!u || !u.last) return;                       // 从没练过的不算"荒了"
         if (Number(u.days) > 30) { staleN++; if (!staleName) staleName = m.name; }

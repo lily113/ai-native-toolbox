@@ -223,6 +223,29 @@ ok(us['mu2'] && Number(us['mu2'].days) > 30, '外勾步上次是 6/1，超过 30
 ok(/练过 3 次/.test(store.moveUsageText(us['mu1'])), '摘要文案：' + store.moveUsageText(us['mu1']));
 ok(store.moveUsageText(us['mu3']) === '还没练过', '没练过的动作写「还没练过」');
 
+console.log('⑪ 动作状态：已掌握 / 在练（比删除温和，且合并时不会丢）');
+ok(store.setMoveStatus('mu2', 'mastered').ok, '标记已掌握成功');
+ok(store.ensureMoves().filter(m => m.id === 'mu2')[0].status === 'mastered', '状态存下来了');
+ok(store.ensureMoves().filter(m => m.id === 'mu2')[0].drills.length === 1, '标记不影响它的组合');
+// 合并时状态不能丢（cloneMove 是白名单式，漏字段就会被吃掉）
+const libA = [{ id: 'sm1', name: '转三', category: 'step', status: 'mastered', statusAt: 200, drills: [] }];
+const libB = [{ id: 'sm1', name: '转三', category: 'step', status: 'active', statusAt: 100, drills: [{ id: 'sd1', name: 'x' }] }];
+const merged = store.mergeMoveLibraries(libA, libB).moves[0];
+ok(merged.status === 'mastered', '合并时保留"最后改过"的状态（标记时间是 200 的那边赢）');
+const rev = store.mergeMoveLibraries(libB, libA).moves[0];
+ok(rev.status === 'mastered', '反过来合并也不丢');
+ok(rev.drills.length === 1, '合并不影响组合');
+ok(store.setMoveStatus('mu2', 'active').ok && store.ensureMoves().filter(m => m.id === 'mu2')[0].status === 'active', '可以退回在练');
+
+console.log('⑫ 最久没练只算"练过、且还在练"的（这条是用户提的）');
+const usageNow = store.moveUsage();
+const considered = store.ensureMoves().filter(m => m.status !== 'mastered' && usageNow[m.id] && usageNow[m.id].last && Number(usageNow[m.id].days) > 30);
+ok(considered.every(m => usageNow[m.id].last), '没练过的不在"超过 30 天"名单里');
+// 把 mu2（131 天前练的）标成已掌握，它就该从提醒名单里消失
+store.setMoveStatus('mu2', 'mastered');
+const considered2 = store.ensureMoves().filter(m => m.status !== 'mastered' && usageNow[m.id] && usageNow[m.id].last && Number(usageNow[m.id].days) > 30);
+ok(considered2.filter(m => m.id === 'mu2').length === 0, '已掌握的也不在名单里');
+
 console.log('⑪ 考级 ↔ 动作 关联');
 store.saveExams(store.ensureExams().map(e => e.key === 'free-4'
   ? Object.assign({}, e, { itemExtra: { 'e2': { points: ['x'], moveId: 'mu1' } } }) : e));
