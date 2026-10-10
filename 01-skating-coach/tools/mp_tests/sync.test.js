@@ -138,23 +138,30 @@ console.log('本机 ' + localN + ' 条 · payload ' + Math.round(payloadChars / 
   store.saveRecords(recs);
   const cfgKey = 'planner_sync_meta_v1';
   const cu = mem[cfgKey] || {}; cu.lastEdit = Date.now() + 5000; cu.upload = null; mem[cfgKey] = cu;
-  cloud.failIdx = [9, 10, 11, 12, 13, 14];      // 后 6 块写不进去（模拟传到 9/15 断掉）
+  // 块数是跟着数据量走的（payload 一变，块数就变），所以这里按实际块数动态取"最后 6 块"
+  const nChunks = (cloud.docs['planner_data/OME'] || {}).n || 15;
+  const failFrom = Math.max(1, nChunks - 6);
+  const failIdx = [];
+  for (let i = failFrom; i < nChunks; i++) failIdx.push(i);
+  cloud.failIdx = failIdx;                       // 最后 6 块写不进去（模拟传到一半断网）
   cloud.failManifest = true;                     // 而且断网了：退回单文档也写不进去
   cloud.failOnce = {};
   const setsBefore = cloud.writes;
   await sync.push(true);
   const prog = (mem[cfgKey] || {}).upload || {};
-  ok((prog.done || []).length === 9, '失败时已成功写入 9/15 块并记下来了（实际 ' + (prog.done || []).length + '）');
-  ok(/已写入 9\/15/.test(sync.stats().error), '提示写清进度：' + sync.stats().error.slice(0, 40) + '…');
+  ok((prog.done || []).length === failFrom,
+     '失败时已成功写入 ' + failFrom + '/' + nChunks + ' 块并记下来了（实际 ' + (prog.done || []).length + '）');
+  ok(new RegExp('已写入 ' + failFrom + '/' + nChunks).test(sync.stats().error),
+     '提示写清进度：' + sync.stats().error.slice(0, 44) + '…');
   cloud.failIdx = [];                            // 网络恢复
   cloud.failManifest = false;
   const chunkWrites1 = cloud.log.filter(x => /__(\d+):/.test(x)).length;
   await sync.push(true);
   const chunkWrites2 = cloud.log.filter(x => /__(\d+):/.test(x)).length;
   const wroteThisRound = chunkWrites2 - chunkWrites1;
-  ok(wroteThisRound <= 6, '恢复后只补了 ' + wroteThisRound + ' 块（不是把 15 块全部重传）');
+  ok(wroteThisRound <= 6, '恢复后只补了 ' + wroteThisRound + ' 块（不是把 ' + nChunks + ' 块全部重传）');
   const manR = cloud.docs['planner_data/OME'];
-  ok(!!manR && manR.chunked && manR.n === 15, '最终仍然拼成完整的一份（15 块 + 清单）');
+  ok(!!manR && manR.chunked && manR.n === nChunks, '最终仍然拼成完整的一份（' + nChunks + ' 块 + 清单）');
   const back = JSON.parse(remotePayloadOf(cloud));
   ok(back.records.length === recs.length, '续传后的内容完整：' + back.records.length + ' 条');
 

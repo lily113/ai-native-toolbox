@@ -68,4 +68,13 @@
   </block>
 
   <view class="empty" wx:else>这个月还没有训练记录。</view>
+
+  <!-- 生成一张月度报告图（保存到相册 / 分享给朋友） -->
+  <view class="rv-actions" wx:if="{{stats.count}}">
+    <button class="ghost-btn" bindtap="makeReport">🖼 生成这个月的报告图</button>
+  </view>
+
+  <!-- 画布：2d 模式，离屏也要挂在页面上；尺寸用 px 由 js 指定 -->
+  <canvas type="2d" id="reportCanvas"
+          style="width:{{cvW}}px;height:{{cvH}}px;position:fixed;left:-9999px;top:0;"></canvas>
 </view>

@@ -54,7 +54,9 @@
         </view>
       </view>
       <view class="field">
-        <view class="field-label">上课形式</view>
+        <view class="field-label">教练（可选）</view>
+      <input class="input" value="{{coach}}" bindinput="onCoach" placeholder="跟谁上的课，例如：张教练" maxlength="20" />
+      <view class="field-label">上课形式</view>
         <view class="seg">
           <view class="seg-btn {{lessonForm == item.k ? 'active' : ''}}" wx:for="{{formOptions}}" wx:key="k"
                 bindtap="setLessonForm" data-k="{{item.k}}">{{item.n}}</view>

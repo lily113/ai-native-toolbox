@@ -11,7 +11,8 @@ Page({
     lessonBase: 0,
     openid: '',
     aiStatus: '检查中…',
-    aiVisible: false,     // 只有你是本人时才显示「AI 教练」这一行
+    aiVisible: false,     // 只有你是本人时才会显示「AI 教练」这一行
+    remindText: '未开启',
     dataWhere: '本机 0 条 · 云端 ? 条',
     syncErr: '',
     syncStatus: '未配置',
@@ -37,6 +38,7 @@ Page({
       openid: app.globalData.openid,
       auto: sync.getAuto(),
       ver: require('../../utils/const').APP_VERSION,
+      remindText: this.remindInfo(),
       recN: store.loadRecords().length
     });
     if (app.globalData.openid) this.refreshSync();
@@ -147,6 +149,39 @@ Page({
         this.onShow();
       })
       .catch(() => { clearTimeout(guard); wx.hideLoading(); wx.showToast({ title: '上传失败，稍后再试', icon: 'none' }); });
+  },
+
+  // 考级提醒：订阅消息（需要先在公众平台申请模板，把模板 ID 填进 const.js）
+  setupReminder() {
+    const TMPL = require('../../utils/const').SUBSCRIBE_TMPL;
+    if (!TMPL) {
+      wx.showModal({
+        title: '考级提醒还没配好',
+        content: '小程序给你发微信提醒，需要先在微信公众平台申请一个「订阅消息」模板：\n\n1. 公众平台 → 功能 → 订阅消息 → 公共模板库，搜索"考试"或"日程提醒"，选一个合适的模板\n2. 把模板 ID 填进 `utils/const.js` 的 SUBSCRIBE_TMPL\n3. 部署云函数 `remind`（它的 config.json 里已经写好每天 9 点的定时触发器）\n4. 回到这里点一下，微信会弹一次授权\n\n没配之前这一项不影响其他功能。',
+        showCancel: false,
+        confirmText: '知道了'
+      });
+      return;
+    }
+    wx.requestSubscribeMessage({
+      tmplIds: [TMPL],
+      success: res => {
+        const ok = res[TMPL] === 'accept';
+        const meta = store.load(store.KEYS.meta) || {};
+        meta.subscribeExam = { on: ok, at: Date.now() };
+        store.save(store.KEYS.meta, meta);
+        this.setData({ remindOn: ok });
+        wx.showToast({ title: ok ? '已开启考级提醒' : '你拒绝了授权', icon: 'none' });
+      },
+      fail: () => wx.showToast({ title: '订阅失败，稍后再试', icon: 'none' })
+    });
+  },
+  remindInfo() {
+    const TMPL = require('../../utils/const').SUBSCRIBE_TMPL;
+    const meta = store.load(store.KEYS.meta) || {};
+    const st = meta.subscribeExam || {};
+    if (!TMPL) return '未配置（点一下看怎么配）';
+    return st.on ? '已开启（考级前 7 天提醒一次）' : '未开启';
   },
 
   copyOpenid() {

@@ -1,0 +1,7 @@
+{
+  "name": "remind",
+  "version": "1.0.0",
+  "description": "考级提醒：定时给还有 7 天考级的用户发订阅消息",
+  "main": "index.js",
+  "dependencies": { "wx-server-sdk": "~2.6.3" }
+}

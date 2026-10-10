@@ -37,3 +37,4 @@
 .tb-dot.rehab { background: #a5b4fc; }
 
 .rv-sub { font-size: 12px; color: #64748B; margin-top: 8px; }
+.rv-actions { margin: 24rpx 24rpx 40rpx; }

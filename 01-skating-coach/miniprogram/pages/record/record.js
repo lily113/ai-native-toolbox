@@ -88,6 +88,7 @@ Page({
     startIdx: [0, 0],
     endIdx: [0, 0],
     content: '',
+    coach: '',
     orphanLines: [], orphanCount: 0,
     units: 2,
     unitOptions: [1, 2, 3, 4],
@@ -131,6 +132,7 @@ Page({
       endIdx: timeToSlots((rec && rec.time ? String(rec.time).split('-')[1] : '') || ''),
       durOptions: (function (dv) { const base = [60, 90, 120, 150]; if (dv && base.indexOf(Number(dv)) < 0) base.push(Number(dv)); return base.sort(function (a, b) { return a - b; }); })(rec ? rec.duration : 90),
       content: rec ? mergeLegacyNotes(rec) : '',
+      coach: rec ? (rec.coach || '') : '',
       units: rec ? (Number(rec.units) || 2) : 2,
       lessonForm: rec ? (rec.lessonForm || 'one') : ((store.load(store.KEYS.meta) || {}).lastLessonForm || 'one')
     });
@@ -234,6 +236,7 @@ Page({
   toggleOnlyPicked() {
     this.setData({ onlyPicked: !this.data.onlyPicked }, () => this.refreshMoves());
   },
+  onCoach(e) { this.setData({ coach: e.detail.value }); },
   onMoveQuery(e) { this.setData({ moveQuery: e.detail.value }, () => this.refreshMoves()); },
   clearMoveQuery() { this.setData({ moveQuery: '' }, () => this.refreshMoves()); },
   toggleRecent() { this.setData({ recentOnly: !this.data.recentOnly }, () => this.refreshMoves()); },
@@ -618,9 +621,11 @@ Page({
       const d = this.data.date || '';
       const wd = '一二三四五六日'[new Date(d + 'T12:00:00').getDay()] || '';
       const lines = [];
-      lines.push(d + (wd ? ('（周' + wd + '）') : '') + ' · ' + ((t && t.n) || t && t.name || '') + (m ? (' · ' + (m.name || m.n || '')) : ''));
+      lines.push(d + (wd ? ('（周' + wd + '）') : '') + ' · ' + ((t && (t.e || t.name)) || '')
+        + (m ? (' · ' + (m.e || m.name || '')) : ''));
       if (this.data.mode === 'lesson') {
-        lines.push('节数：' + (this.data.units || 1) + ' 节' + (this.data.timeStart ? (' · ' + this.data.timeStart + (this.data.timeEnd ? ('-' + this.data.timeEnd) : '')) : ''));
+        lines.push('节数：' + (this.data.units || 1) + ' 节' + (this.data.timeStart ? (' · ' + this.data.timeStart + (this.data.timeEnd ? ('-' + this.data.timeEnd) : '')) : '')
+          + (this.data.coach ? (' · 教练：' + this.data.coach) : ''));
       } else {
         lines.push('时长：' + (this.data.duration || 0) + ' 分钟');
       }
@@ -666,6 +671,7 @@ Page({
     this.setData({
       type: src.type,
       mode: MODES[src.mode] ? src.mode : 'self',
+      coach: String(src.coach || ''),
       units: Number(src.units) || 2,
       lessonForm: src.lessonForm || 'one',
       duration: String(dur),
@@ -834,7 +840,7 @@ Page({
   },
 
   save() {
-    const { id, date, type, mode, duration, content, units, lessonForm, timeStart, timeEnd } = this.data;
+    const { id, date, type, mode, duration, content, coach, units, lessonForm, timeStart, timeEnd } = this.data;
     if (!date) { wx.showToast({ title: '请选择日期', icon: 'none' }); return; }
     const rec = {
       id: id || store.uid(),
@@ -843,6 +849,7 @@ Page({
       time: (timeStart && timeEnd) ? (timeStart + '-' + timeEnd) : (timeStart || ''),
       units: mode === 'lesson' ? (Number(units) || 2) : 1,
       lessonForm: mode === 'lesson' ? (lessonForm || 'one') : '',
+      coach: mode === 'lesson' ? String(coach || '').trim() : '',
       content,
       notes: '',
       lessonSummary: '',

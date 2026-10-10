@@ -181,6 +181,16 @@ fs.readdirSync(cfDir).forEach(name => {
   ok(problems.length === 0, 'cloudfunctions/' + name + (problems.length ? ' → ' + problems.join('；') : ''));
 });
 
+console.log('第二批：报告图 / 教练字段 / 考级提醒');
+ok(/makeReport\s*\(/.test(readIf(MP + '/pages/review/review.js')) && /type="2d"/.test(readIf(MP + '/pages/review/review.wxml')),
+   '回顾页能生成月度报告图（canvas 2d，保存相册 + 转发）');
+ok(/coach/.test(readIf(MP + '/utils/store.js')) && /onCoach/.test(readIf(MP + '/pages/record/record.js')),
+   '训练记录有「教练」字段（存得下、复制带走）');
+ok(/SUBSCRIBE_TMPL/.test(readIf(MP + '/utils/const.js')) && /setupReminder/.test(readIf(MP + '/pages/settings/settings.js')),
+   '设置页有考级提醒入口（未配模板时给出配置说明）');
+ok(fs.existsSync(MP + '/cloudfunctions/remind/index.js') && /triggers/.test(readIf(MP + '/cloudfunctions/remind/config.json')),
+   '考级提醒云函数 + 定时触发器配置都在');
+
 console.log('分享 / 首页概览 / 动作统计 / AI 行隐藏');
 ok(/onShareAppMessage\s*\(/.test(readIf(MP + '/pages/index/index.js')) && /onShareTimeline\s*\(/.test(readIf(MP + '/pages/index/index.js')),
    '首页支持转发和朋友圈分享');

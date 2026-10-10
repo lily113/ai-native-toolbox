@@ -1,6 +1,6 @@
 // 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
-const APP_VERSION = '2026.10.08.22';
+const APP_VERSION = '2026.10.08.23';
 
 // ---------- 对外发布的功能开关 ----------
 // 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
@@ -133,6 +133,10 @@ const EXAM_SECTIONS = {
 //   所以这个 App **只内置「结构」**——级别、官方分节名称、以及用户自己写的内容；
 //   **不复制官方正文**（要点、评判说明等正文一律留空，由用户自己在「我的要点」里记）。
 //   官方原文请查阅纸质书或官方渠道。
+// 订阅消息模板 ID（公众平台 → 订阅消息 → 申请「考级提醒」模板后粘到这里）。
+// 留空时设置页会告诉你怎么配，不会报错、也不会发任何消息。
+const SUBSCRIBE_TMPL = '';
+
 const SYLLABUS_SOURCE = '《国家花样滑冰等级测试大纲（第2版）》· 中国花样滑冰协会 审定 · 人民体育出版社';
 
 // 每个项目的官方分节名称（取自原书目录，只有"节的名字"，没有正文）
@@ -459,5 +463,5 @@ const SYLLABUS = [
 module.exports = {
   APP_VERSION, POSE_ENABLED, TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
   DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
-  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS
+  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS, SUBSCRIBE_TMPL
 };
