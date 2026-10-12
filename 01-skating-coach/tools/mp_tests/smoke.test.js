@@ -262,11 +262,12 @@ ok(starWxml.length === 0, '所有 wxml 里都没有会原样显示的 markdown �
 
 console.log('组合的掌握开关（真机上点不动时的兜底）');
 const mvWxml2 = readIf(MP + '/pages/move/move.wxml');
-ok(/class="drill-no[^"]*"[\s\S]{0,90}catchtap="toggleDrillStatus"/.test(mvWxml2),
-   '序号圆点本身就是「已掌握」开关（不再多一个小圆点）');
-ok(mvWxml2.indexOf('drill-master') < 0, '没有多余的第二个圆点（按反馈去掉的）');
-ok(/catchlongpress="noop"/.test(mvWxml2), '长按圆点不会误触发父级的"长按删除"');
-ok(/drill-no\.mastered/.test(readIf(MP + '/pages/move/move.wxss')), '标了之后圆点变绿 ✓');
+ok(/class="drill-chk[^"]*"[\s\S]{0,110}catchtap="toggleDrillStatus"/.test(mvWxml2),
+   '「已掌握」是行尾的方框勾选（像待办清单）');
+ok(!/drill-no[^"]*mastered/.test(mvWxml2) && !/\.drill-no\.mastered/.test(readIf(MP + '/pages/move/move.wxss')),
+   '序号圆点不再兼任开关、也不再变色（序号和勾选各归各位）');
+ok(/catchlongpress="noop"/.test(mvWxml2), '长按勾选框不会误触发父级的"长按删除"');
+ok(/\.drill-chk\.on \.chk-box/.test(readIf(MP + '/pages/move/move.wxss')), '勾上之后方框变绿 ✓');
 ok(/status-btn[\s\S]{0,80}bindtap="toggleMoveStatus"/.test(mvWxml2),
    '没有组合的动作：整行按钮（不是小徽章），点一下就能切换');
 ok(/editMastered/.test(mvWxml2) && /onEditMastered/.test(readIf(MP + '/pages/move/move.js')),
