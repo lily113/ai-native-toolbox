@@ -383,7 +383,7 @@ Page({
     wx.showModal({
       title: '清理 ' + orphan.length + ' 行失效条目',
       content: '这些行对应的动作/考级已经不在你的库里了，无法通过取消勾选删除：\n\n' + show + '\n\n确定从训练笔记里删掉它们吗？（只删笔记里的这几行，不动其它文字）',
-      confirmText: '删除这几行',
+      confirmText: '删除',
       confirmColor: '#dc2626',
       success: r => {
         if (!r.confirm) return;

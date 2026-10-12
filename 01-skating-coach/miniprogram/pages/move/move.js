@@ -103,7 +103,7 @@ Page({
       wx.showModal({
         title: '标记为已掌握',
         content: '「' + this.data.name + '」还没有细分练习组合，所以按整个动作标记。\n\n名称、要点、历史记录全部保留，不再进"最久没练"提醒；以后给它加了练习组合，掌握状态就改成按组合区分。',
-        confirmText: '标记已掌握',
+        confirmText: '标记',
         success: r => { if (r.confirm) run(); }
       });
       return;
@@ -125,7 +125,7 @@ Page({
       wx.showModal({
         title: '标记为已掌握',
         content: '「' + dr.name + '」会标成已掌握：\n\n· 组合、要点、日期全部保留，历史记录照旧能翻到\n· 不再出现在"最久没练"提醒里\n\n以后想复习，随时可以退回「在练」。',
-        confirmText: '标记已掌握',
+        confirmText: '标记',
         success: r => { if (r.confirm) this.applyDrillStatus([did], next); }
       });
       return;

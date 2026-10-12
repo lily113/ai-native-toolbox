@@ -371,6 +371,21 @@ def audit_consts():
     say('⑥ 未定义大写常量', bad)
 
 
+# ---------- ⑥.5 弹窗按钮文案长度 ----------
+# wx.showModal 的 confirmText / cancelText 最多 4 个字符；超了 API 直接失败，
+# 表现是"点了没有任何反应"（我们真踩过：confirmText: '标记已掌握' 5 个字）。
+def audit_modal_text():
+    bad = 0
+    for jsf in sorted(set([f for f, _ in page_pairs()] + [f for f in all_js() if '/utils/' in f.replace(os.sep, '/')])):
+        js = read(jsf)
+        for m in re.finditer(r"(confirmText|cancelText)\s*:\s*'([^']*)'", js):
+            if len(m.group(2)) > 4:
+                bad += 1
+                print('     ❌ %s %s: %s（%d 字，最多 4 字，否则弹窗不出现）'
+                      % (jsf, m.group(1), m.group(2), len(m.group(2))))
+    say('⑥.5 弹窗按钮文案 ≤4 字', bad)
+
+
 # ---------- ⑦ wxml 非法调用 ----------
 def audit_wxml_calls():
     bad = 0
@@ -485,6 +500,7 @@ if __name__ == '__main__':
     audit_fields()
     audit_wxss()
     audit_consts()
+    audit_modal_text()
     audit_wxml_calls()
     audit_syntax()
     audit_undef_vars()
