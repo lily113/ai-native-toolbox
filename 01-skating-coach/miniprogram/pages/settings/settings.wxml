@@ -113,7 +113,7 @@
         <button class="ghost-btn" bindtap="repairMoves">🔧 修复动作库（找回丢掉的组合）</button>
       </view>
       <view class="danger-zone">
-        <view class="muted">下面两个操作会**覆盖或清掉**数据，普通使用不需要；点之前请先「导出为文件」。</view>
+        <view class="muted">下面两个操作会「覆盖或清掉」数据，普通使用不需要；点之前请先「导出为文件」。</view>
         <view class="btn-row">
           <button class="ghost-btn danger half" bindtap="cloudUpload">⬆️ 用本机覆盖云端</button>
           <button class="ghost-btn danger half" bindtap="clearData">🧨 清空本机数据</button>

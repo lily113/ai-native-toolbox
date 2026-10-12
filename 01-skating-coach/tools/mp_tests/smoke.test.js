@@ -233,6 +233,33 @@ ok(/numCls/.test(rvJs) && /num-lg|num-md/.test(readIf(MP + '/pages/review/review
 ok(!/min-height:\s*1[0-9][0-9]px/.test(readIf(MP + '/pages/review/review.wxss')),
    '两张卡不再用大 min-height 撑高（flex 行内本来就等高）');
 
+console.log('弹窗按钮文案 ≤4 字（超了弹窗直接不出现）');
+let longBtn = [];
+['pages', 'packageExam'].forEach(dir => {
+  const walk = d => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
+    const f = path.join(d, e.name);
+    if (e.isDirectory()) return walk(f);
+    if (!/\.js$/.test(f)) return;
+    const src = fs.readFileSync(f, 'utf8');
+    const re = /(confirmText|cancelText)\s*:\s*'([^']*)'/g;
+    let m;
+    while ((m = re.exec(src))) if (m[2].length > 4) longBtn.push(f + ' ' + m[1] + ':' + m[2]);
+  });
+  walk(path.join(MP, dir));
+});
+ok(longBtn.length === 0, '没有超过 4 字的弹窗按钮文案' + (longBtn.length ? '：' + longBtn.join(' | ') : ''));
+let starWxml = [];
+['pages', 'packageExam'].forEach(dir => {
+  const walk = d => fs.readdirSync(d, { withFileTypes: true }).forEach(e => {
+    const f = path.join(d, e.name);
+    if (e.isDirectory()) return walk(f);
+    if (!/\.wxml$/.test(f)) return;
+    if (/\*\*/.test(fs.readFileSync(f, 'utf8'))) starWxml.push(f);
+  });
+  walk(path.join(MP, dir));
+});
+ok(starWxml.length === 0, '所有 wxml 里都没有会原样显示的 markdown 星号' + (starWxml.length ? '：' + starWxml.join(' | ') : ''));
+
 console.log('组合的掌握开关（真机上点不动时的兜底）');
 const mvWxml2 = readIf(MP + '/pages/move/move.wxml');
 ok(/class="drill-no[^"]*"[\s\S]{0,90}catchtap="toggleDrillStatus"/.test(mvWxml2),

@@ -382,7 +382,7 @@ Page({
     wx.showModal({
       title: '考级日期已设置',
       content: cd + '\n是否记入纪念日（方便提醒）？',
-      confirmText: '记入纪念日',
+      confirmText: '记入',
       cancelText: '暂不',
       success: r => { if (r.confirm) this.toMilestone(true); }
     });

@@ -314,7 +314,7 @@ Page({
         wx.showModal({
           title: '找回 ' + gained + ' 个组合',
           content: '本机原来 ' + before + ' 个组合 → 现在 ' + after + ' 个（来自 ' + srcs.length + ' 份数据）。\n\n' + detail,
-          confirmText: '保存并上传',
+          confirmText: '保存',
           success: r2 => {
             if (!r2.confirm) return;
             store.saveMoves(lib);
