@@ -235,9 +235,13 @@ ok(!/min-height:\s*1[0-9][0-9]px/.test(readIf(MP + '/pages/review/review.wxss'))
 
 console.log('组合的掌握开关（真机上点不动时的兜底）');
 const mvWxml2 = readIf(MP + '/pages/move/move.wxml');
-ok(/<view class="drill-master[\s\S]{0,80}catchtap="toggleDrillStatus"/.test(mvWxml2),
-   '开关是 <view> + catchtap（不是行内 <text>，点击区更大）');
-ok(/catchlongpress="noop"/.test(mvWxml2), '长按不会误触发父级的"长按删除"');
+ok(/class="drill-no[^"]*"[\s\S]{0,90}catchtap="toggleDrillStatus"/.test(mvWxml2),
+   '序号圆点本身就是「已掌握」开关（不再多一个小圆点）');
+ok(mvWxml2.indexOf('drill-master') < 0, '没有多余的第二个圆点（按反馈去掉的）');
+ok(/catchlongpress="noop"/.test(mvWxml2), '长按圆点不会误触发父级的"长按删除"');
+ok(/drill-no\.mastered/.test(readIf(MP + '/pages/move/move.wxss')), '标了之后圆点变绿 ✓');
+ok(/status-btn[\s\S]{0,80}bindtap="toggleMoveStatus"/.test(mvWxml2),
+   '没有组合的动作：整行按钮（不是小徽章），点一下就能切换');
 ok(/editMastered/.test(mvWxml2) && /onEditMastered/.test(readIf(MP + '/pages/move/move.js')),
    '组合编辑弹层里也有「已掌握」开关（备用入口）');
 const mvJs4 = readIf(MP + '/pages/move/move.js');

@@ -5,8 +5,9 @@
     <view class="usage-line">{{usageText}}</view>
     <!-- 没有练习组合的动作：按整个动作标（粒度跟着数据走） -->
     <view class="stat-row" wx:if="{{!drills.length}}">
-      <text class="status-badge {{moveStatus === 'mastered' ? 'on' : ''}}" bindtap="toggleMoveStatus">{{moveStatus === 'mastered' ? '✅ 已掌握（整个动作）' : '在练中'}}</text>
-      <text class="stat-hint" bindtap="toggleMoveStatus">{{moveStatus === 'mastered' ? '点一下退回在练' : '这个动作还没有细分组合，点一下按整个动作标'}}</text>
+      <view class="status-btn {{moveStatus === 'mastered' ? 'on' : ''}}" bindtap="toggleMoveStatus">
+        {{moveStatus === 'mastered' ? '✅ 已掌握（整个动作）· 点一下退回在练' : '○ 在练中 · 点一下标记为已掌握'}}
+      </view>
     </view>
     <view class="stat-row" wx:if="{{masteredText}}">
       <text class="stat-hint">✅ {{masteredText}}</text>
@@ -30,10 +31,8 @@
     <view class="block-title">🏷️ 练习组合（drills）<text class="edit-link" bindtap="toggleDrillSel">{{drillSelOn ? '完成' : '⇄ 移动组合'}}</text></view>
     <view class="sel-tip" wx:if="{{drillSelOn}}">点选要移动的组合（可多选，已选 {{drillPickN}} 个），再点下面的「移到别的动作」。</view>
     <view class="drill {{drillSelOn && item.picked ? 'picked' : ''}}" wx:for="{{drills}}" wx:key="id" bindtap="tapDrill" bindlongpress="delDrill" data-id="{{item.id}}">
-      <view class="drill-no">{{drillSelOn ? (item.picked ? '✓' : '') : item.no}}</view>
-      <view class="drill-master {{item.mastered ? 'on' : ''}}" catchtap="toggleDrillStatus" catchlongpress="noop" data-id="{{item.id}}">
-        <text>{{item.mastered ? '✅' : '○'}}</text>
-      </view>
+      <view class="drill-no {{item.mastered ? 'mastered' : ''}}"
+            catchtap="toggleDrillStatus" catchlongpress="noop" data-id="{{item.id}}">{{drillSelOn ? (item.picked ? '✓' : '') : (item.mastered ? '✓' : item.no)}}</view>
       <view class="drill-body">
         <view class="drill-name">{{item.name}}<text class="drill-date" wx:if="{{item.dateText}}">{{item.dateText}}</text><text class="drill-use" wx:if="{{item.usageText}}">{{item.usageText}}</text></view>
         <view class="pt-item" wx:for="{{item.points}}" wx:for-item="pt" wx:key="index">· {{pt}}</view>
@@ -48,7 +47,7 @@
     </view>
   </view>
 
-  <view class="tip">提示：点动作名可以改名；点按组合可编辑名称与要点（可多条），长按删除；每个组合右边的 ○/✅ 是「已掌握」开关——标了就不再进「最久没练」提醒；点右上「⇄ 移动组合」可以把组合挪到别的动作下面（历史记录里的归属会一起跟过去）。</view>
+  <view class="tip">提示：点动作名可以改名；点组合这一行可编辑名称与要点（可多条），长按删除；**点左边的序号圆点**就是标记 / 取消「已掌握」（标了会变绿 ✓，且不再进「最久没练」提醒）；点右上「⇄ 移动组合」可以把组合挪到别的动作下面（历史记录里的归属会一起跟过去）。</view>
 
   <!-- 共性要点弹层 -->
   <view class="mask {{ptsOn ? 'show' : ''}}" bindtap="closePts">
