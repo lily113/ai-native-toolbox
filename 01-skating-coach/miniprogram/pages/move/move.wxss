@@ -56,3 +56,11 @@
 .drill-master.on { color: #15803d; }
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .switch-t { font-size: 15px; color: #0f172a; font-weight: 600; }
+/* 序号圆点就是「已掌握」开关：点击区 28px，比原来 20px 好点中 */
+.drill-no { width: 28px !important; height: 28px !important; font-size: 13px; font-weight: 700; }
+.drill-no.mastered { background: #dcfce7; color: #15803d; }
+.drill.picked .drill-no.mastered { background: #10b981; color: #fff; }
+/* 没有组合的动作：整行按钮，一眼看出能点 */
+.status-btn { flex: 1; text-align: center; padding: 12px 10px; border-radius: 12px;
+  background: #e0f2fe; color: #0369a1; font-size: 14px; font-weight: 600; }
+.status-btn.on { background: #dcfce7; color: #15803d; }
