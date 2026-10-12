@@ -57,9 +57,11 @@
 .switch-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .switch-t { font-size: 15px; color: #0f172a; font-weight: 600; }
 /* 「已掌握」= 行尾的方框勾选（像待办清单）：左边序号保持原样，两者不打架 */
-.drill-chk { flex: none; width: 40px; align-self: center; display: flex; align-items: center; justify-content: center; }
-.chk-box { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid #cbd5e1; background: #fff;
-  color: #fff; font-size: 14px; line-height: 20px; text-align: center; }
+/* 勾选框：小一点、贴最右边、和组合名那一行对齐（多行组合也对得齐） */
+.drill-chk { flex: none; width: 34px; height: 24px; margin-top: 1px; align-self: flex-start;
+  display: flex; align-items: center; justify-content: flex-end; }
+.chk-box { width: 18px; height: 18px; box-sizing: border-box; border-radius: 6px; border: 1.5px solid #cbd5e1;
+  background: #fff; color: #fff; font-size: 12px; line-height: 15px; text-align: center; }
 .drill-chk.on .chk-box { background: #22c55e; border-color: #22c55e; }
 /* 没有组合的动作：整行按钮，一眼看出能点 */
 .status-btn { flex: 1; text-align: center; padding: 12px 10px; border-radius: 12px;

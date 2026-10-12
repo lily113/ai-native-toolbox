@@ -268,6 +268,10 @@ ok(!/drill-no[^"]*mastered/.test(mvWxml2) && !/\.drill-no\.mastered/.test(readIf
    '序号圆点不再兼任开关、也不再变色（序号和勾选各归各位）');
 ok(/catchlongpress="noop"/.test(mvWxml2), '长按勾选框不会误触发父级的"长按删除"');
 ok(/\.drill-chk\.on \.chk-box/.test(readIf(MP + '/pages/move/move.wxss')), '勾上之后方框变绿 ✓');
+const mvWxss = readIf(MP + '/pages/move/move.wxss');
+ok(/justify-content: flex-end/.test(mvWxss) && /align-self: flex-start/.test(mvWxss),
+   '勾选框统一贴最右边、并与组合名首行对齐（多行组合也对得齐）');
+ok(/width: 18px; height: 18px/.test(mvWxss), '勾选框 18px（比上一版小一圈）');
 ok(/status-btn[\s\S]{0,80}bindtap="toggleMoveStatus"/.test(mvWxml2),
    '没有组合的动作：整行按钮（不是小徽章），点一下就能切换');
 ok(/editMastered/.test(mvWxml2) && /onEditMastered/.test(readIf(MP + '/pages/move/move.js')),
