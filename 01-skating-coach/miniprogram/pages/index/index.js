@@ -1,4 +1,5 @@
 const store = require('../../utils/store');
+const util = require('../../utils/util');
 const { POSE_ENABLED, TYPES, MODES, WEEK, EXAM_KINDS, LESSON_FORMS } = require('../../utils/const');
 
 Page({
@@ -149,6 +150,24 @@ Page({
       if (goal > 0) { for (let i = weeks.length - 1; i >= 0; i--) { if (weeks[i] >= goal) streak++; else break; } }
       const weekPct = goal > 0 ? Math.min(100, Math.round((weekMin / goal) * 100)) : 0;
 
+      // 考级倒计时：只在"设了考级日期、且还没考"的时候出现，取最近的那个
+      // （日期在「考级」页填；填了才提醒，不填就不占地方）
+      let examCd = '', examCls = '', examLabel = '';
+      (function () {
+        const today0 = store.todayKey();
+        const up = store.ensureExams()
+          .filter(e => e && e.date && String(e.date) >= today0)
+          .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+        if (!up.length) return;
+        const e = up[0];
+        const label = ((EXAM_KINDS[e.kind] || {}).name || '') + ' · ' + e.level;
+        const d = util.daysUntil(e.date);
+        examLabel = label;
+        if (d === 0) examCd = '今天就是 ' + label + ' 考级，加油！';
+        else examCd = '距 ' + label + ' 考级还有 ' + d + ' 天';
+        examCls = (d <= 7) ? 'soon' : '';      // 一周之内用更醒目的颜色
+      })();
+
       // 久未练习：动作库里有、但超过 30 天没碰过的
       // 组合级：数一数"荒了的练习组合"（练过且超 30 天，或加了超 30 天没练过）
       let staleN = 0, staleName = '';
@@ -175,6 +194,7 @@ Page({
         ov: {
           monthN: monthN, monthMin: monthMin, lessonN: lessonN,
           weekMin: weekMin, goal: goal, weekPct: weekPct, avg4: avg4, streak: streak,
+          examCd: examCd, examCls: examCls, examLabel: examLabel,
           staleN: staleN, staleName: staleName
         }
       });
