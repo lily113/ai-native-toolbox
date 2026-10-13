@@ -1,6 +1,11 @@
 .head { text-align: left; }
 .h-title { font-size: 18px; font-weight: 800; color: #0c4a6e; }
-.h-date { font-size: 13px; color: #0284c7; margin-top: 6px; }
+.h-date-row { display: flex; align-items: center; gap: 10rpx; margin-top: 6px; }
+.h-date-pick { flex: 1; min-width: 0; }
+.h-date { font-size: 13px; color: #0284c7; }
+/* 「清除日期」：要低调但不能看不见 —— 设错了得能退回去 */
+.h-clear { flex: none; font-size: 12px; color: #64748B; padding: 2px 10px;
+  border: 1px solid #e2e8f0; border-radius: 999px; background: #f8fafc; }
 .h-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .mini-btn { font-size: 12px; font-weight: 600; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 6px 12px; }
 

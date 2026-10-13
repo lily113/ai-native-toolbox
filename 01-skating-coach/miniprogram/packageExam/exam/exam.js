@@ -387,6 +387,21 @@ Page({
       success: r => { if (r.confirm) this.toMilestone(true); }
     });
   },
+  // 清除考级日期（用户反馈："设置考级日期不能取消" —— picker 只能选，不能清）
+  clearDate() {
+    wx.showModal({
+      title: '清除考级日期',
+      content: '清除后这一级的倒计时就没有了。如果它没有 ⭐ 关注，也会从「我的考级」里移出去。',
+      confirmText: '清除',
+      success: r => {
+        if (!r.confirm) return;
+        this.saveOverlay(ex => { ex.date = ''; return ex; });
+        this.setData({ date: '', cdText: '' });
+        wx.showToast({ title: '已清除考级日期', icon: 'none' });
+      }
+    });
+  },
+
   // 判断一条纪念日的 note 是不是老版本自动写进去的倒计时（"距考级还有 12 天"这种）
   isAutoCountdown(t) {
     const s = String(t == null ? '' : t).trim();

@@ -54,10 +54,11 @@
       <view class="time-hint" wx:if="{{timeHint}}">{{timeHint}}</view>
     </view>
 
-    <!-- 教练只属于冰课：舞蹈 / 健身房团课没有"跟哪个教练"这回事，陆地记录不问 -->
-    <view class="field" wx:if="{{mode === 'lesson' && type === 'ice'}}">
-      <view class="field-label">教练（可选）</view>
-      <input class="input" value="{{coach}}" bindinput="onCoach" placeholder="跟谁上的课，例如：张教练" maxlength="20" />
+    <!-- 教练：只要上课就能填（冰课、陆地/舞蹈课都要 —— 陆地老师也是老师） -->
+    <view class="field" wx:if="{{mode === 'lesson'}}">
+      <view class="field-label">教练 / 老师（可选）</view>
+      <input class="input coach-input" value="{{coach}}" bindinput="onCoach"
+             placeholder="跟谁上的课，例如：张教练" maxlength="20" />
     </view>
 
     <!-- 冰课专属：节数（1 节 = 30 分钟）+ 上课形式。陆地/舞蹈课是团课，没有这两样 -->

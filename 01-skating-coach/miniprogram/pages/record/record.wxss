@@ -115,3 +115,8 @@
 .lc-chip.on { color: #fff; background: #0284c7; border-color: #0284c7; font-weight: 600; }
 .lc-chip.gone { border-style: dashed; color: #94a3b8; }
 .lc-empty { font-size: 12.5px; color: #94a3b8; line-height: 1.6; }
+
+/* 教练 / 老师输入框：名字要看得清 —— 显式给满宽和大字号，
+   不靠通用 .input（那个被两处规则覆盖过，宽度容易出意外） */
+.coach-input { width: 100%; box-sizing: border-box; min-height: 52px; font-size: 17px;
+  letter-spacing: .3px; }

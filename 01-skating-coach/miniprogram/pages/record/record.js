@@ -79,8 +79,8 @@ Page({
     mode: 'self',
     duration: '90',
     durOptions: [60, 90, 120, 150],
-    durOptionsIce: [60, 90, 120, 150],
-    durOptionsLand: [30, 45, 60, 90, 120],
+    durOptionsIce: [30, 60, 90, 120, 150],   // 30 分钟：冰上短练很常见（就练一会儿步法/旋转）
+    durOptionsLand: [60, 90, 120],           // 舞蹈/陆地课一般 60 或 90 分钟，最多 2 小时
     timeStart: '',
     timeEnd: '',
     timeHint: '',
@@ -135,7 +135,13 @@ Page({
       timeEnd: (rec && rec.time ? String(rec.time).split('-')[1] : '') || '',
       startIdx: timeToSlots((rec && rec.time ? String(rec.time).split('-')[0] : '') || ''),
       endIdx: timeToSlots((rec && rec.time ? String(rec.time).split('-')[1] : '') || ''),
-      durOptions: (function (dv) { const base = [60, 90, 120, 150]; if (dv && base.indexOf(Number(dv)) < 0) base.push(Number(dv)); return base.sort(function (a, b) { return a - b; }); })(rec ? rec.duration : 90),
+      durOptions: (function (dv, isLand) {
+        // 档位按记录类型给：陆地课用陆地的档位；老记录里如果是个不在档位里的时长（比如 45 分钟），
+        // 也把它补进去，免得打开旧记录时看不到自己那个值
+        const base = (isLand ? [60, 90, 120] : [30, 60, 90, 120, 150]).slice();
+        if (dv && base.indexOf(Number(dv)) < 0) base.push(Number(dv));
+        return base.sort(function (a, b) { return a - b; });
+      })(rec ? rec.duration : 90, !!(rec && (rec.type === 'land' || rec.type === 'rehab'))),
       content: rec ? mergeLegacyNotes(rec) : '',
       coach: rec ? (rec.coach || '') : '',
       // 单选：老记录里如果存过多项，只取第一项（不打开这条记录就不会被动过）
