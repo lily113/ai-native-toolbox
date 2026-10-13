@@ -555,11 +555,19 @@ function normLandCatList(arr) {
   return out;
 }
 // 当前生效的「练了什么」列表：
-//   存过（哪怕是空数组，说明用户删光了）就用存的那份，没存过就是预置 8 项
+//   没存过 → 预置；存过 → 用存的那份（哪怕存成了空数组，说明用户删光了，就得是空的）
+//   另外：以后版本新加的预置项，会在"用户没删过它"的前提下自动补进来；
+//   用户删过的项有墓碑（landCatsGone），不会被自动复活——否则删了又冒出来更吓人。
 function landCats() {
   const raw = load(KEYS.landCats);
-  if (Array.isArray(raw)) return normLandCatList(raw);
-  return LAND_CATS.map(c => ({ id: c.id, name: c.name }));
+  if (!Array.isArray(raw)) return LAND_CATS.map(c => ({ id: c.id, name: c.name }));
+  const list = normLandCatList(raw);
+  const gone = {};
+  landCatsGone().forEach(g => { gone[g.id] = 1; });
+  const have = {};
+  list.forEach(c => { have[c.id] = 1; });
+  const add = LAND_CATS.filter(c => !have[c.id] && !gone[c.id]);
+  return add.length ? list.concat(add.map(c => ({ id: c.id, name: c.name }))) : list;
 }
 function saveLandCats(list) {
   const l = normLandCatList(list);

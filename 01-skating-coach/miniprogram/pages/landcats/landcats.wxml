@@ -27,6 +27,6 @@
   <view class="muted foot" wx:else>列表是空的 —— 记陆地训练时就没东西可选了，先加几项。</view>
 
   <button class="btn" bindtap="add">＋ 新增内容</button>
-  <button class="ghost-btn" wx:if="{{!isPreset}}" bindtap="reset">↺ 恢复成预置 8 项</button>
+  <button class="ghost-btn" wx:if="{{!isPreset}}" bindtap="reset">↺ 恢复成预置内容</button>
   <view class="tip">点名字改名；↑↓ 换顺序；× 删除（有用的记录会先告诉你「有几条用过」，删了记录也不丢）。</view>
 </view>
