@@ -16,13 +16,13 @@
   <view class="ov card" wx:if="{{ov && !firstRun}}">
     <view class="ov-row">
       <view class="ov-item" bindtap="goReview2">
-        <view class="ov-num">{{ov.monthN}}</view><view class="ov-lb">本月上冰</view>
+        <view class="ov-num">{{ov.monthDays}}<text class="ov-unit">天</text></view><view class="ov-lb">本月上冰</view>
       </view>
       <view class="ov-item" bindtap="goReview2">
         <view class="ov-num">{{ov.monthMin}}<text class="ov-unit">分</text></view><view class="ov-lb">上冰时长</view>
       </view>
       <view class="ov-item" bindtap="goReview2">
-        <view class="ov-num">{{ov.lessonN}}</view><view class="ov-lb">其中冰课</view>
+        <view class="ov-num">{{ov.allLesson}}<text class="ov-unit">次</text></view><view class="ov-lb">累计冰课</view>
       </view>
     </view>
     <view class="ov-exam {{ov.examCls}}" wx:if="{{ov.examCd}}" bindtap="goExams">

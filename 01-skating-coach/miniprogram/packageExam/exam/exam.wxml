@@ -3,9 +3,13 @@
     <view class="h-title">{{kindName}} · {{level}}</view>
     <!-- 这里以前挂了个"只读"标签，去掉了：点条目本身就会弹出「补充我的要点」 -->
 
-    <picker mode="date" value="{{date}}" bindchange="setDate">
-      <view class="h-date">📅 {{date || '设置考级日期'}}</view>
-    </picker>
+    <view class="h-date-row">
+      <picker class="h-date-pick" mode="date" value="{{date}}" bindchange="setDate">
+        <view class="h-date">📅 {{date || '设置考级日期'}}</view>
+      </picker>
+      <!-- 设了就得能取消：picker 本身没有"清空"这个动作 -->
+      <view class="h-clear" wx:if="{{date}}" catchtap="clearDate">清除日期</view>
+    </view>
     <view class="cd-bar" wx:if="{{cdText}}">⏳ {{cdText}}</view>
     <view class="h-actions">
       <view class="mini-btn" bindtap="toMilestone">🎖️ 记入纪念日</view>

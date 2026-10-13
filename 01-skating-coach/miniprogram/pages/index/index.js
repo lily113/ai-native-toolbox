@@ -122,18 +122,24 @@ Page({
       const goal = Number(meta.weeklyIceGoal) || 0;
 
       // 首页统计只算上冰：陆地是冰面的辅助，不进这些数字（陆地去「回顾」里看）
-      let monthN = 0, monthMin = 0, weekMin = 0, lessonN = 0;
+      //   本月上冰用「天数」而不是「次数」—— 同一天可能先自己练一会儿、再上一节冰课，
+      //   按次数会把一天算成两次，看不出"这个月到底上了几次冰"。
+      let monthDays = 0, monthMin = 0, weekMin = 0;
+      const monthDaySet = {};
       recs.forEach(r => {
         if (r.type !== 'ice') return;
         const d = r.date || '';
         const dur = Number(r.duration) || 0;
         if (d.slice(0, 7) === ym) {
-          monthN++;
+          monthDaySet[d] = 1;
           monthMin += dur;
-          if (r.mode === 'lesson') lessonN++;      // 「冰课」= 上冰的记录里属于上课的那些
         }
         if (d >= mondayKey && d <= day) weekMin += dur;
       });
+      monthDays = Object.keys(monthDaySet).length;
+      // 累计冰课：所有上冰课次数 + 基线（和「回顾」里的累计上课同一套算法，两处数字必须对得上）
+      const lessonBase = Number((store.load(store.KEYS.meta) || {}).lessonBase) || 0;
+      const allLesson = recs.filter(r => r.type === 'ice' && r.mode === 'lesson').length + lessonBase;
 
       // 周均（近 4 周）与"连续达标周"：以每周总时长 >= 目标 算达标
       const weeks = [];
@@ -193,7 +199,7 @@ Page({
 
       this.setData({
         ov: {
-          monthN: monthN, monthMin: monthMin, lessonN: lessonN,
+          monthDays: monthDays, monthMin: monthMin, allLesson: allLesson,
           weekMin: weekMin, goal: goal, weekPct: weekPct, avg4: avg4, streak: streak,
           examCd: examCd, examCls: examCls, examLabel: examLabel,
           staleN: staleN, staleName: staleName
