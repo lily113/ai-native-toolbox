@@ -92,13 +92,13 @@
     </view>
 
     <view class="field">
-      <view class="field-label">训练笔记（可选）<text class="edit-link" bindtap="copyRecordText">📋 复制这次训练</text></view>
-      <textarea class="textarea note" value="{{content}}" data-k="content" bindinput="input" auto-height placeholder="勾选动作/考级会自动写入条目；这里可补充要点、教练的话、身体状态、下次目标…" maxlength="-1"></textarea>
+      <view class="field-label">训练笔记{{hidePicks ? '（这次训练的内容）' : '（可选）'}}<text class="edit-link" bindtap="copyRecordText">📋 复制这次训练</text></view>
+      <textarea class="textarea note" value="{{content}}" data-k="content" bindinput="input" auto-height placeholder="{{hidePicks ? '记一下课上练了什么、老师说了什么、身体感觉、下次要注意的…' : '勾选动作/考级会自动写入条目；这里可补充要点、教练的话、身体状态、下次目标…'}}" maxlength="-1"></textarea>
       <view class="orphan-tip" wx:if="{{orphanCount}}">
         <text>有 {{orphanCount}} 行条目和当前勾选对不上（动作/考级已删除或没勾上），取消勾选删不掉</text>
         <text class="orphan-do" bindtap="cleanOrphans">清理这几行</text>
       </view>
-      <view class="sel-block" wx:if="{{orderRows.length > 1}}">
+      <view class="sel-block" wx:if="{{orderRows.length > 1 && !hidePicks}}">
         <view class="sel-head">已选 · 用 ↑ ↓ 调整顺序（动作 = 整组移动；动作内的组合 = 组内移动）</view>
         <view class="sel-list">
           <view class="sort-row {{item.kind === 'head' ? 'head' : 'item'}} {{item.indent ? 'indent' : ''}} {{item.tag ? 'tag' : ''}}"
@@ -118,7 +118,8 @@
     </view>
 
 
-<view class="field">
+    <!-- 陆地 / 舞蹈上课：跟着老师上课，不用勾动作库，只写笔记 -->
+    <view class="field" wx:if="{{!hidePicks}}">
       <view class="field-label">训练动作 / 练习组合（可选）</view>
       <view class="mv-hint">点动作名 = 全选 / 取消它下面的组合；只想练其中几个就单独点组合（父框会显示 −）。组合全取消，这个动作也就不算记录了。</view>
       <view class="mv-search">
@@ -149,7 +150,7 @@
       <view class="muted" wx:else>{{onlyPicked ? "" : "没有匹配的动作，"}}{{emptyHint}}。</view>
     </view>
 
-    <view class="field">
+    <view class="field" wx:if="{{!hidePicks}}">
       <view class="field-label">考级备考（可选）</view>
       <block wx:if="{{examList.length}}">
         <view class="dr" wx:for="{{examList}}" wx:for-item="ex" wx:key="id"
