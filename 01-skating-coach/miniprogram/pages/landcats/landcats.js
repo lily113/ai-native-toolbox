@@ -57,7 +57,7 @@ Page({
 
   add() {
     const cats = store.landCats();
-    if (cats.length >= 16) { wx.showToast({ title: '最多 16 项，先删几个', icon: 'none' }); return; }
+    if (cats.length >= 20) { wx.showToast({ title: '最多 20 项，先删几个', icon: 'none' }); return; }
     wx.showModal({
       title: '新增内容',
       editable: true,
@@ -126,16 +126,18 @@ Page({
     wx.showToast({ title: '已删除「' + c.name + '」', icon: 'none' });
   },
 
-  // 改乱了能一键回到预置 8 项（记录里的旧分类不改，只是不再列出来）
+  // 改乱了能一键回到预置内容（记录里的旧分类不改，只是不再列出来）
   reset() {
     wx.showModal({
       title: '恢复预置',
-      content: '把列表恢复成预置的 8 项（芭蕾 / 基训 / 身韵 / 剧目 / 软开 / 跳转翻/毯功 / 陆地模拟 / 力量/康复）？'
-        + '已记训练记录一条都不会变，只是列表回到初始样子。',
+      content: '把列表恢复成预置的 ' + store.LAND_CATS.length + ' 项？已记的训练记录一条都不会变，'
+        + '只是列表回到初始样子。',
       confirmText: '恢复',
       success: r => {
         if (!r.confirm) return;
         store.saveLandCats(store.LAND_CATS);
+        // 恢复预置等于"这些项我又要了"，把它们的墓碑清掉，之后不会再被当成"用户删过的"
+        store.forgetLandCatsGone(store.LAND_CATS.map(c => c.id));
         this.reload();
         wx.showToast({ title: '已恢复预置' });
       }
