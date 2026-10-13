@@ -57,20 +57,21 @@
       <view class="dots" wx:if="{{item.has}}">
         <view class="dot dot-lesson" wx:if="{{item.lesson}}"></view>
         <view class="dot dot-self" wx:if="{{item.self}}"></view>
+        <view class="dot dot-land" wx:if="{{item.land}}"></view>
       </view>
     </view>
   </view>
 
     <view class="cal-legend">
-      <view class="lg-item"><view class="dot dot-lesson"></view><text>上课</text></view>
-      <view class="lg-item"><view class="dot dot-self"></view><text>自己训练</text></view>
+      <view class="lg-item"><view class="dot dot-lesson"></view><text>上冰课</text></view>
+      <view class="lg-item"><view class="dot dot-self"></view><text>自己上冰</text></view>
+      <view class="lg-item"><view class="dot dot-land"></view><text>陆地 / 舞蹈</text></view>
     </view>
 
   <view class="monthcard">
     <text class="mc-label">本月</text>
-    <text class="mc-item">{{monthCount}} 次</text>
-    <text class="mc-item">{{monthMin}} 分钟</text>
-    <text class="mc-item">{{monthLesson}} 课</text>
+    <text class="mc-item">共 {{monthCount}} 次 · {{monthMin}} 分钟</text>
+    <text class="mc-item">冰课 {{monthLesson}}</text>
   </view>
 
   <view class="stats">
