@@ -33,6 +33,32 @@
       </view>
     </view>
 
+    <view class="rv-card" wx:if="{{!stats.structure.empty}}">
+      <view class="rv-lb">训练结构（本月，按次数）</view>
+
+      <block wx:if="{{stats.structure.iceRows.length}}">
+        <view class="st-head">⛸️ 上冰 · 按动作分类</view>
+        <view class="st-row" wx:for="{{stats.structure.iceRows}}" wx:key="id">
+          <view class="st-name">{{item.name}}</view>
+          <view class="st-bar"><view class="st-fill ice" style="width:{{item.w}}%"></view></view>
+          <view class="st-n">{{item.n}} 次</view>
+        </view>
+      </block>
+
+      <block wx:if="{{stats.structure.landRows.length}}">
+        <view class="st-head">🩰 陆地 / 舞蹈 · 按内容</view>
+        <view class="st-row" wx:for="{{stats.structure.landRows}}" wx:key="id">
+          <view class="st-name">{{item.name}}</view>
+          <view class="st-bar"><view class="st-fill land" style="width:{{item.w}}%"></view></view>
+          <view class="st-n">{{item.n}} 次</view>
+        </view>
+      </block>
+
+      <view class="st-note">一次训练可能同时算多类（比如上冰练了两个板块、陆地同时练软开和力量），所以各项相加会大于总次数。</view>
+      <view class="st-note" wx:if="{{stats.structure.iceNoMove}}">有 {{stats.structure.iceNoMove}} 次上冰没勾动作，没算进上面的分类。</view>
+      <view class="st-note" wx:if="{{stats.structure.landUncat}}">有 {{stats.structure.landUncat}} 次陆地没选内容，没算进去。</view>
+    </view>
+
     <view class="rv-card">
       <view class="rv-lb">类型分布</view>
       <view class="rv-row">

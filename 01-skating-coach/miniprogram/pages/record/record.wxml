@@ -14,6 +14,14 @@
       </view>
     </view>
 
+    <view class="field" wx:if="{{type === 'land' || type === 'rehab'}}">
+      <view class="field-label">今天练了什么（可多选）</view>
+      <view class="lc-wrap">
+        <view class="lc-chip {{item.checked ? 'on' : ''}}" wx:for="{{landCatList}}" wx:key="id"
+              bindtap="toggleLandCat" data-id="{{item.id}}">{{item.name}}</view>
+      </view>
+    </view>
+
     <view class="field">
       <view class="field-label">日期 *</view>
       <picker mode="date" value="{{date}}" bindchange="setDate">

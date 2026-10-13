@@ -361,6 +361,9 @@ Page({
         unitsText: (r.mode === 'lesson' && (Number(r.units) || 1) > 1) ? (' · ' + (Number(r.units) || 1) + ' 节') : '',
         timeText: r.time ? String(r.time).replace('-', '–') : '',
         formText: (r.mode === 'lesson' && r.lessonForm && LESSON_FORMS[r.lessonForm]) ? (' · ' + LESSON_FORMS[r.lessonForm].name) : '',
+        // 陆地/舞蹈内容：挂在类型行后面小字显示
+        landText: (Array.isArray(r.landCats) && r.landCats.length)
+          ? r.landCats.map(id => store.landCatName(id) || id).join('、') : '',
         isLesson: r.mode === 'lesson',
         statusText: statusText,
         done: status === 'done'

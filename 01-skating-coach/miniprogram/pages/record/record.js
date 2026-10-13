@@ -1,5 +1,6 @@
 const store = require('../../utils/store');
 const sharecard = require('../../utils/sharecard');
+const { LAND_CATS } = require('../../utils/const');
 
 const GHEAD = 'g#';   // 分组标题行的键前缀（仅用于界面，不参与排序）
 
@@ -90,6 +91,9 @@ Page({
     endIdx: [0, 0],
     content: '',
     coach: '',
+    landCats: [],          // 陆地/舞蹈训练内容（多选）
+    landCatList: [],       // 供模板渲染（带 checked）
+
     orphanLines: [], orphanCount: 0,
     units: 2,
     unitOptions: [1, 2, 3, 4],
@@ -134,6 +138,7 @@ Page({
       durOptions: (function (dv) { const base = [60, 90, 120, 150]; if (dv && base.indexOf(Number(dv)) < 0) base.push(Number(dv)); return base.sort(function (a, b) { return a - b; }); })(rec ? rec.duration : 90),
       content: rec ? mergeLegacyNotes(rec) : '',
       coach: rec ? (rec.coach || '') : '',
+      landCats: rec && Array.isArray(rec.landCats) ? rec.landCats.slice() : [],
       units: rec ? (Number(rec.units) || 2) : 2,
       lessonForm: rec ? (rec.lessonForm || 'one') : ((store.load(store.KEYS.meta) || {}).lastLessonForm || 'one')
     });
@@ -143,6 +148,7 @@ Page({
       this.setData({ types: t });
     }
     if (this.data.mode === 'lesson') this.syncLessonDuration();
+    this.refreshLandCats();
     this.initMoves(rec);
     this.initExams(rec);
     if (id) wx.setNavigationBarTitle({ title: '编辑训练' });
@@ -640,6 +646,8 @@ Page({
       } else {
         lines.push('时长：' + (this.data.duration || 0) + ' 分钟');
       }
+      const lc = (this.data.landCats || []).map(id => store.landCatName(id) || id).filter(Boolean);
+      if (lc.length) lines.push('内容：' + lc.join('、'));
       const body = String(this.data.content || '').trim();
       if (body) lines.push('', body);
       const text = lines.join('\n');
@@ -683,6 +691,7 @@ Page({
       type: src.type,
       mode: MODES[src.mode] ? src.mode : 'self',
       coach: String(src.coach || ''),
+      landCats: (src.landCats || []).slice(),
       units: Number(src.units) || 2,
       lessonForm: src.lessonForm || 'one',
       duration: String(dur),
@@ -694,12 +703,36 @@ Page({
         if (!t.some(x => x.k === 'rehab')) t.push({ k: 'rehab', e: '💪 康复（旧）' });
         this.setData({ types: t });
       }
+      this.refreshLandCats(src.landCats || []);
       this.initMoves(src);
       this.initExams(src);
       if (this.data.mode === 'lesson') this.syncLessonDuration();
       setTimeout(() => this.syncContent(), 30);     // 等初始化回调完成后再生成笔记条目
       wx.showToast({ title: '已复制上次训练' });
     });
+  },
+
+  // 陆地/舞蹈训练内容：预置分类 + 用户自建分类，按当前已选打勾
+  refreshLandCats(picked) {
+    const sel = (picked || this.data.landCats || []).slice();
+    const extra = store.load(store.KEYS.landCats);
+    const all = LAND_CATS.concat(Array.isArray(extra) ? extra : []);
+    const seen = {};
+    const list = [];
+    all.forEach(c => {
+      if (!c || !c.id || seen[c.id]) return;
+      seen[c.id] = 1;
+      list.push({ id: c.id, name: c.name, checked: sel.indexOf(c.id) > -1 });
+    });
+    this.setData({ landCatList: list });
+  },
+
+  toggleLandCat(e) {
+    const id = e.currentTarget.dataset.id;
+    const cur = (this.data.landCats || []).slice();
+    const i = cur.indexOf(id);
+    if (i > -1) cur.splice(i, 1); else cur.push(id);
+    this.setData({ landCats: cur }, () => this.refreshLandCats(cur));
   },
 
   setType(e) {
@@ -710,7 +743,7 @@ Page({
     const cur = Number(this.data.duration);
     if (opts.indexOf(cur) < 0) opts.push(cur);
     opts.sort((a, b) => a - b);
-    this.setData({ type: k, durOptions: opts });
+    this.setData({ type: k, durOptions: opts }, () => this.refreshLandCats());
   },
   setMode(e) {
     this.setData({ mode: e.currentTarget.dataset.k });
@@ -861,6 +894,8 @@ Page({
       units: mode === 'lesson' ? (Number(units) || 2) : 1,
       lessonForm: mode === 'lesson' ? (lessonForm || 'one') : '',
       coach: mode === 'lesson' ? String(coach || '').trim() : '',
+      // 陆地/舞蹈内容只在陆地（和康复）记录上存；冰上记录留空数组
+      landCats: (type === 'land' || type === 'rehab') ? (this.data.landCats || []).slice() : [],
       content,
       notes: '',
       lessonSummary: '',
