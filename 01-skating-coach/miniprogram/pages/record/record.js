@@ -870,11 +870,14 @@ Page({
   //   'start' / 'duration' / 'units' / 'mode' → 由「开始 + 时长」推算结束
   //   'end'                                   → 由「开始→结束」反推时长（自己训练）
   syncTime(anchor) {
-    const mode = this.data.mode;
-    const effDur = mode === 'lesson' ? (Number(this.data.units) || 1) * 30 : (Number(this.data.duration) || 90);
+    // 「节数 × 30 分钟」只适用于**冰课**。陆地 / 舞蹈课没有节数，直接按时长算 ——
+    // 这里以前只判断 mode === 'lesson'，于是陆地课选了时长又被 units(0→1) × 30 顶回 30 分钟，
+    // 表现就是"陆地上课的时长不能选"。
+    const iceLesson = (this.data.mode === 'lesson' && this.data.type === 'ice');
+    const units = Number(this.data.units) || 1;
+    const effDur = iceLesson ? units * 30 : (Number(this.data.duration) || 90);
     let start = this.data.timeStart, end = this.data.timeEnd, hint = '';
-    // 上课：时长一律 = 节数 × 30（否则切成上课后仍留着 90 分钟，与节数矛盾）
-    let duration = mode === 'lesson' ? (Number(this.data.units) || 1) * 30 : this.data.duration;
+    let duration = iceLesson ? units * 30 : this.data.duration;
     let durOptions = this.data.durOptions;
 
     if (anchor === 'end') {
@@ -883,26 +886,26 @@ Page({
         start = fmtMin(toMin(end) - effDur);
       } else if (start && end) {
         const d = diffMin(start, end);
-        if (mode !== 'lesson') {
+        if (!iceLesson) {
           duration = String(d);
           if (durOptions.indexOf(d) < 0) { durOptions = durOptions.concat([d]).sort((x, y) => x - y); }
         } else if (d !== effDur) {
-          // 上课：时间段与「节数 × 30 分钟」不符时提醒（唯一需要提示的情况）
-          hint = '时间段是 ' + lenText(d).replace('共 ', '') + '，与「' + (Number(this.data.units) || 1) + ' 节 × 30 分钟」不一致';
+          // 冰课：时间段与「节数 × 30 分钟」不符时提醒（唯一需要提示的情况）
+          hint = '时间段是 ' + lenText(d).replace('共 ', '') + '，与「' + units + ' 节 × 30 分钟」不一致';
         }
       }
     } else {
       if (start) {
         end = fmtMin(toMin(start) + effDur);   // 自动推算结束时间（不提示）
       }
-      if (start && end && mode !== 'lesson') {
+      if (start && end && !iceLesson) {
         const d = diffMin(start, end);
         duration = String(d);
         if (durOptions.indexOf(d) < 0) { durOptions = durOptions.concat([d]).sort((x, y) => x - y); }
       }
-      if (start && end && mode === 'lesson') {
+      if (start && end && iceLesson) {
         const d = diffMin(start, end);
-        if (d !== effDur) hint = '时间段是 ' + lenText(d).replace('共 ', '') + '，与「' + (Number(this.data.units) || 1) + ' 节 × 30 分钟」不一致';
+        if (d !== effDur) hint = '时间段是 ' + lenText(d).replace('共 ', '') + '，与「' + units + ' 节 × 30 分钟」不一致';
       }
     }
     if (!start && !end) hint = '';
