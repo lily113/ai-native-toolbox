@@ -19,7 +19,7 @@
     </view>
 
     <view class="rv-card">
-      <view class="rv-lb">近 12 个月训练次数（月度最高 {{stats.trendMax}} 次）</view>
+      <view class="rv-lb">近 12 个月上冰次数（月度最高 {{stats.trendMax}} 次）</view>
       <view class="trend">
         <view class="tr-col" wx:for="{{stats.trend}}" wx:key="label">
           <view class="tr-wrap"><view class="tr-bar {{item.current ? 'cur' : ''}}" style="height:{{item.h}}%"></view></view>
