@@ -76,10 +76,10 @@
     <view class="rv-card">
       <view class="rv-lb">上课 / 自己训练</view>
       <view class="rv-row">
-        <view class="rv-item"><view class="rv-val">📖 {{stats.lesson}}</view><view class="rv-lb">上冰课（{{stats.monthUnits}} 节）</view></view>
-        <view class="rv-item"><view class="rv-val">🤸 {{stats.selfC}}</view><view class="rv-lb">上冰自己练</view></view>
+        <view class="rv-item"><view class="rv-val">📖 {{stats.lesson}}</view><view class="rv-lb">冰课（{{stats.monthUnits}} 节）</view></view>
+        <view class="rv-item"><view class="rv-val">🤸 {{stats.selfC}}</view><view class="rv-lb">上冰自练</view></view>
       </view>
-      <view class="rv-sub">这一栏只算上冰。陆地/舞蹈上课 或 自己练共 {{stats.land + stats.rehab}} 次（{{stats.landMinText}}），不按节算。</view>
+      <view class="rv-sub">这一栏只算上冰。陆地 上课 或 自己练共 {{stats.land + stats.rehab}} 次（{{stats.landMinText}}），不按节算。</view>
       <view class="rv-sub" wx:if="{{stats.formText}}">上课形式：{{stats.formText}}</view>
     </view>
 
