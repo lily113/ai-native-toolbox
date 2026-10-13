@@ -3,6 +3,7 @@
 /* 顶栏：品牌 + 设置入口 */
 .home-head { display: flex; align-items: center; justify-content: space-between; margin: 2px 2px 10px; }
 .brand { font-size: 17px; font-weight: 800; color: #0c4a6e; }
+.head-ops { display: flex; align-items: center; gap: 8px; }   /* 搜索 / 设置挨在一起 */
 .gear { width: 34px; height: 34px; border-radius: 10px; background: #fff; border: 1px solid #cfe8f7; color: #0284c7; font-size: 17px; display: flex; align-items: center; justify-content: center; }
 
 /* 月份栏 */
