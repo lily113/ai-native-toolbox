@@ -247,21 +247,26 @@ Page({
     if (!isNaN(y) && !isNaN(m)) this.buildMonth(y, m);
   },
 
-  // 给本月每一天标记“是否有训练”（小圆点）
+  // 给本月每一天标记"是否有训练"（小圆点）
+  //   冰上分两种：上冰课（橙）/ 自己上冰（蓝）
+  //   陆地（含康复 / 舞蹈）单独一种（紫），且不分上课还是自己练 —— 一眼能看出那天练没练陆地
   refreshDayMarks() {
-    // 按天统计：条数 + 是否含「上课」「自己训练」（日历小点区分用）
     const byDate = {};
     store.loadRecords().forEach(r => {
-      const d = byDate[r.date] || (byDate[r.date] = { cnt: 0, lesson: false, self: false });
+      const d = byDate[r.date] || (byDate[r.date] = { cnt: 0, lesson: false, self: false, land: false });
       d.cnt++;
-      if (r.mode === 'lesson') d.lesson = true; else d.self = true;
+      if (r.type === 'ice') {
+        if (r.mode === 'lesson') d.lesson = true; else d.self = true;
+      } else {
+        d.land = true;               // 陆地 / 康复：不区分上课还是自己练
+      }
     });
     const cells = this.data.cells.map(c => {
       if (c.other) return c;
       const d = byDate[c.key];
       return Object.assign({}, c, {
         has: !!d, cnt: d ? d.cnt : 0,
-        lesson: !!(d && d.lesson), self: !!(d && d.self)
+        lesson: !!(d && d.lesson), self: !!(d && d.self), land: !!(d && d.land)
       });
     });
     this.setData({ cells });
@@ -274,9 +279,9 @@ Page({
     store.loadRecords().forEach(r => {
       const dd = store.keyToDate(r.date);
       if (dd.getFullYear() === y && dd.getMonth() === m) {
-        mc++;
+        mc++;                                   // 全部训练（上冰 + 陆地）
         mm += Number(r.duration) || 0;
-        if (r.mode === 'lesson') ml++;
+        if (r.type === 'ice' && r.mode === 'lesson') ml++;   // 「课」只算冰课，陆地课不按节/课算
       }
     });
     this.setData({ monthCount: mc, monthMin: mm, monthLesson: ml });
