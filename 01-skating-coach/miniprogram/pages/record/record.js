@@ -1,6 +1,5 @@
 const store = require('../../utils/store');
 const sharecard = require('../../utils/sharecard');
-const { LAND_CATS } = require('../../utils/const');
 
 const GHEAD = 'g#';   // 分组标题行的键前缀（仅用于界面，不参与排序）
 
@@ -712,20 +711,30 @@ Page({
     });
   },
 
-  // 陆地/舞蹈训练内容：预置分类 + 用户自建分类，按当前已选打勾
+  // 陆地/舞蹈训练内容：取用户可编辑的那份列表（store.landCats()），按当前已选打勾。
+  // 历史记录里可能有已经删掉的分类 —— 也要显示出来，否则用户会以为数据丢了。
   refreshLandCats(picked) {
     const sel = (picked || this.data.landCats || []).slice();
-    const extra = store.load(store.KEYS.landCats);
-    const all = LAND_CATS.concat(Array.isArray(extra) ? extra : []);
+    const list = store.landCats().map(c => ({ id: c.id, name: c.name, checked: sel.indexOf(c.id) > -1, gone: false }));
     const seen = {};
-    const list = [];
-    all.forEach(c => {
-      if (!c || !c.id || seen[c.id]) return;
-      seen[c.id] = 1;
-      list.push({ id: c.id, name: c.name, checked: sel.indexOf(c.id) > -1 });
+    list.forEach(c => { seen[c.id] = 1; });
+    sel.forEach(id => {
+      if (seen[id]) return;
+      const nm = store.landCatName(id);
+      if (!nm) return;
+      seen[id] = 1;
+      list.push({ id: id, name: nm, checked: true, gone: true });   // 已从列表删掉，但这条记录用过
     });
     this.setData({ landCatList: list });
   },
+
+  // 去「内容管理」改这份列表；回来时 onShow 会重新拉一次
+  goLandCats() {
+    wx.navigateTo({ url: '/pages/landcats/landcats' });
+  },
+
+  // 从「内容管理」返回时列表可能变了，重新渲染一次（已勾选的照旧保留）
+  onShow() { this.refreshLandCats(); },
 
   toggleLandCat(e) {
     const id = e.currentTarget.dataset.id;

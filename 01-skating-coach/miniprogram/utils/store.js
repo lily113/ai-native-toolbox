@@ -9,8 +9,10 @@ const KEYS = {
   meta: 'figure_skating_planner_meta_v1',
   aiKbUser: 'figure_skating_planner_ai_kb_user_v1',
   exams: 'figure_skating_planner_exams_v1',
-  // 陆地/舞蹈「练了什么」的自建分类（预置 8 个在 const.js LAND_CATS；这里只放用户自己加的）
+  // 陆地/舞蹈「练了什么」：用户编辑过的那份（没编辑过时用 const.js 的预置 LAND_CATS）
   landCats: 'figure_skating_planner_land_cats_v1',
+  // 被删掉的分类只留名字，历史记录里那一项还能显示成中文
+  landCatsGone: 'figure_skating_planner_land_cats_gone_v1',
     poseMap: 'figure_skating_planner_pose_map_v1',  // 姿态自查：关键点索引映射（校准后保存）
   upgradeSnap: 'figure_skating_planner_upgrade_snapshot_v1',   // 升级前的本地快照（可一键恢复）
   upgradeGuard: 'figure_skating_planner_upgrade_guard_v1'      // 升级自检结果（少没少东西）
@@ -541,29 +543,77 @@ function dedupeMoves(moves) {
   return mergeMoveLibraries([], moves).moves;
 }
 // ---------- 陆地/舞蹈训练内容 ----------
+function normLandCatList(arr) {
+  const out = [], seen = {};
+  (Array.isArray(arr) ? arr : []).forEach(c => {
+    if (!c || !c.id) return;
+    const name = String(c.name == null ? '' : c.name).trim();
+    if (!name || seen[c.id]) return;
+    seen[c.id] = 1;
+    out.push({ id: String(c.id), name: name });
+  });
+  return out;
+}
+// 当前生效的「练了什么」列表：
+//   存过（哪怕是空数组，说明用户删光了）就用存的那份，没存过就是预置 8 项
+function landCats() {
+  const raw = load(KEYS.landCats);
+  if (Array.isArray(raw)) return normLandCatList(raw);
+  return LAND_CATS.map(c => ({ id: c.id, name: c.name }));
+}
+function saveLandCats(list) {
+  const l = normLandCatList(list);
+  save(KEYS.landCats, l);
+  return l;
+}
+// 删掉的分类：名字记一份，历史记录里还能显示中文（记录本身一个字不动）
+function landCatsGone() { return normLandCatList(load(KEYS.landCatsGone)); }
+function forgetLandCatsGone(ids) {
+  const keep = (Array.isArray(ids) ? ids : []).filter(x => x);
+  const cur = landCatsGone().filter(x => keep.indexOf(x.id) < 0);
+  save(KEYS.landCatsGone, cur);
+}
+function rememberLandCatGone(cat) {
+  const g = landCatsGone().filter(x => x.id !== cat.id);
+  g.push({ id: cat.id, name: cat.name });
+  save(KEYS.landCatsGone, g);
+}
+// 找名字：当前列表 → 删掉的名字 → 预置（预置 id 永远能查回中文）
 function landCatName(id) {
-  const c = LAND_CATS.filter(x => x.id === id)[0];
-  if (c) return c.name;
-  const custom = load(KEYS.landCats);
-  const c2 = (Array.isArray(custom) ? custom : []).filter(x => x.id === id)[0];
-  return c2 ? c2.name : '';
+  const cur = landCats().filter(x => x.id === id)[0];
+  if (cur) return cur.name;
+  const gone = landCatsGone().filter(x => x.id === id)[0];
+  if (gone) return gone.name;
+  const preset = LAND_CATS.filter(x => x.id === id)[0];
+  return preset ? preset.name : '';
+}
+// 有没有记录在用这个分类（删除前提示用）
+function landCatUsage(id) {
+  return loadRecords().filter(r => (r.type === 'land' || r.type === 'rehab')
+    && Array.isArray(r.landCats) && r.landCats.indexOf(id) > -1).length;
 }
 // 陆地内容按"包含该类的记录数"统计（一条记录可能算多类，所以各项相加会大于总次数）
 function landStats(recs) {
   const out = {};
-  LAND_CATS.forEach(c => { out[c.id] = { id: c.id, name: c.name, n: 0 }; });
+  landCats().forEach(c => { out[c.id] = { id: c.id, name: c.name, n: 0, gone: false }; });
   let uncategorized = 0, landTotal = 0;
   (recs || []).forEach(r => {
     if (r.type !== 'land' && r.type !== 'rehab') return;
     landTotal++;
     const ids = Array.isArray(r.landCats) ? r.landCats : [];
     if (!ids.length) { uncategorized++; return; }
-    ids.forEach(id => { if (out[id]) out[id].n++; else out[id] = { id: id, name: landCatName(id) || id, n: 1 }; });
+    ids.forEach(id => {
+      if (out[id]) { out[id].n++; return; }
+      const nm = landCatName(id);
+      if (!nm) return;                                   // 完全不认识的历史 id：不编名字、不虚报
+      out[id] = { id: id, name: nm, n: 1, gone: true };  // 已从列表里删掉，但记录里还有：照样列出来对账
+    });
   });
   return {
     total: landTotal,
     uncategorized: uncategorized,
-    list: Object.keys(out).map(k => out[k]).filter(x => x.n > 0).sort((a, b) => b.n - a.n)
+    list: Object.keys(out).map(k => out[k]).filter(x => x.n > 0)
+      .sort((a, b) => (a.gone === b.gone) ? (b.n - a.n) : (a.gone ? 1 : -1))
   };
 }
 // 冰上：按"这次勾的动作所属分类"统计包含次数
@@ -1145,7 +1195,7 @@ module.exports = {
   normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes, migrateLessonForm, recordLines,
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
-  CAT_FALLBACK, DEFAULT_CATS, LAND_CATS, landCatName, landStats, iceCatStats,
+  CAT_FALLBACK, DEFAULT_CATS, LAND_CATS, landCats, saveLandCats, landCatName, landCatsGone, rememberLandCatGone, forgetLandCatsGone, landCatUsage, landStats, iceCatStats,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus, setMoveStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey

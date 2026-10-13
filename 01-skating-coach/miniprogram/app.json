@@ -7,6 +7,7 @@
     "pages/moves/moves",
     "pages/move/move",
     "pages/cats/cats",
+    "pages/landcats/landcats",
     "pages/milestone/milestone",
     "pages/review/review",
     "pages/settings/settings"
