@@ -130,12 +130,16 @@ Page({
       w: Math.max(6, pctOf(x.n, total))
     }));
 
-    // 近 12 个月趋势（次数）
+    // 近 12 个月上冰次数（只算上冰：陆地是辅助，混进来会把"上冰量"的走势抹平）
     const trend = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(y, m - i, 1);
       const yy = d.getFullYear(), mm = d.getMonth();
-      const cnt = all.filter(r => { const dd = store.keyToDate(r.date); return dd.getFullYear() === yy && dd.getMonth() === mm; }).length;
+      const cnt = all.filter(r => {
+        if (r.type !== 'ice') return false;
+        const dd = store.keyToDate(r.date);
+        return dd.getFullYear() === yy && dd.getMonth() === mm;
+      }).length;
       trend.push({ label: (mm + 1) + '月', count: cnt, current: i === 0 });
     }
     const trendMax = Math.max(1, ...trend.map(t => t.count));
