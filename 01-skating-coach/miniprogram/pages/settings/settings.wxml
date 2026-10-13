@@ -12,7 +12,7 @@
         <view class="chip" data-v="450" bindtap="quickGoal">450</view>
         <view class="chip" data-v="540" bindtap="quickGoal">540</view>
       </view>
-      <view class="muted goal-hint">点上方数字可快速选；只统计上冰时长 —— 陆地 / 舞蹈是冰面的辅助，不计入达标</view>
+      <view class="muted goal-hint">点上方数字可快速选；只统计上冰时长 —— 陆地是冰面的辅助，不计入达标</view>
   </view>
 
   <view class="card">
