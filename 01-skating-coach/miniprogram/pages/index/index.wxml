@@ -25,6 +25,10 @@
         <view class="ov-num">{{ov.lessonN}}</view><view class="ov-lb">其中冰课</view>
       </view>
     </view>
+    <view class="ov-exam {{ov.examCls}}" wx:if="{{ov.examCd}}" bindtap="goExams">
+      <text class="ov-exam-t">🎓 {{ov.examCd}}</text>
+      <text class="ov-exam-go">去看 ›</text>
+    </view>
     <view class="ov-goal" wx:if="{{ov.goal}}">
       <view class="ov-goal-top">
         <text>本周 {{ov.weekMin}} 分钟 · 目标 {{ov.goal}} 分钟</text>
