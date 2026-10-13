@@ -150,13 +150,14 @@ Page({
       if (goal > 0) { for (let i = weeks.length - 1; i >= 0; i--) { if (weeks[i] >= goal) streak++; else break; } }
       const weekPct = goal > 0 ? Math.min(100, Math.round((weekMin / goal) * 100)) : 0;
 
-      // 考级倒计时：只在"设了考级日期、且还没考"的时候出现，取最近的那个
-      // （日期在「考级」页填；填了才提醒，不填就不占地方）
+      // 考级倒计时：只提醒"你⭐关注过 + 填了日期 + 还没考"的级别，取最近的那个。
+      // 加 ⭐ 这一条是因为：光有日期可能是很早以前留下的，首页不该拿旧日期来催你。
+      // （⭐ 和日期都在「考级」页设置）
       let examCd = '', examCls = '', examLabel = '';
       (function () {
         const today0 = store.todayKey();
         const up = store.ensureExams()
-          .filter(e => e && e.date && String(e.date) >= today0)
+          .filter(e => e && e.star && e.date && String(e.date) >= today0)
           .sort((a, b) => String(a.date).localeCompare(String(b.date)));
         if (!up.length) return;
         const e = up[0];

@@ -387,6 +387,13 @@ Page({
       success: r => { if (r.confirm) this.toMilestone(true); }
     });
   },
+  // 判断一条纪念日的 note 是不是老版本自动写进去的倒计时（"距考级还有 12 天"这种）
+  isAutoCountdown(t) {
+    const s = String(t == null ? '' : t).trim();
+    if (!s) return false;
+    return /^(距.*考级还有\s*\d+\s*天|今天就是.*考级[！!]?|.*考级已过\s*\d+\s*天)$/.test(s);
+  },
+
   toMilestone(silent) {
     const ov = this.overlay();
     if (!ov) return;
@@ -394,17 +401,21 @@ Page({
     const key = 'exam:' + ov.id;
     const ms = store.ensureMilestones();
     const idx = ms.findIndex(m => m && m.key === key);
+    // 注意：**不把倒计时写进 note**。那是创建当天的快照（"距考级还有 47 天"），
+    // 写进纪念日之后就永远停在那个数字上，明天再看就是错的。
+    // 倒计时该看的时候现算 —— 考级页顶部那条 ⏳ 就是现算的。
     const data = {
       key: key, type: 'exam', date: ov.date,
-      title: this.data.kindName + ' · ' + ov.level,
-      note: util.countdownText(ov.date)
+      title: this.data.kindName + ' · ' + ov.level
     };
     if (idx > -1) {
       ms[idx] = Object.assign({}, ms[idx], data);
+      // 老版本写进去的倒计时文案顺手清掉（只清"长得像倒计时"的，用户自己写的字不动）
+      if (this.isAutoCountdown(ms[idx].note)) ms[idx].note = '';
       store.saveMilestones(ms);
       wx.showToast({ title: '纪念日已更新' });
     } else {
-      ms.push(Object.assign({ id: store.uid() }, data));
+      ms.push(Object.assign({ id: store.uid(), note: '' }, data));
       store.saveMilestones(ms);
       wx.showToast({ title: '已记入纪念日' });
     }
