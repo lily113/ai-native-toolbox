@@ -11,13 +11,14 @@
           bindtap="open" data-id="{{it.id}}">
       <view class="ec-top">
         <view class="ec-level"><text class="ec-kind">{{it.kindName}}</text>{{it.level}}</view>
-        <view class="ec-star on" catchtap="toggleStar" data-id="{{it.id}}">⭐</view>
+        <view class="ec-star {{it.star ? 'on' : ''}}" catchtap="toggleStar" data-id="{{it.id}}">{{it.star ? '⭐' : '☆'}}</view>
       </view>
       <view class="ec-cd" wx:if="{{it.cdText}}">⏳ {{it.cdText}}</view>
       <view class="ec-meta">
         <text wx:if="{{it.date}}">📅 {{it.date}}</text>
         <text wx:if="{{it.myCount}}">📝 自己记了 {{it.myCount}} 条</text>
         <text wx:if="{{it.imgCount}}">📷 {{it.imgCount}}</text>
+        <text class="ec-keep" wx:if="{{!it.star}}">设了考级日期，所以留在这里</text>
       </view>
       <view class="ec-note" wx:if="{{it.note}}">{{it.note}}</view>
     </view>
