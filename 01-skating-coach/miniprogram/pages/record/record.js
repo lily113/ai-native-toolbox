@@ -92,6 +92,7 @@ Page({
     coach: '',
     landCats: [],          // 陆地/舞蹈训练内容（单选；仍然用数组存，兼容老记录）
     landCatList: [],       // 供模板渲染（带 checked）
+    hidePicks: false,      // 陆地/康复 + 上课：不勾动作库也不勾考级，只写上课笔记
 
     orphanLines: [], orphanCount: 0,
     units: 2,
@@ -151,6 +152,7 @@ Page({
     this.refreshLandCats();
     this.initMoves(rec);
     this.initExams(rec);
+    this.syncPicks(false);     // 老记录里原有的勾选不动，只是把动作库/考级藏起来
     if (id) wx.setNavigationBarTitle({ title: '编辑训练' });
   },
 
@@ -640,9 +642,13 @@ Page({
       const lines = [];
       lines.push(d + (wd ? ('（周' + wd + '）') : '') + ' · ' + ((t && (t.e || t.name)) || '')
         + (m ? (' · ' + (m.e || m.name || '')) : ''));
-      if (this.data.mode === 'lesson') {
-        lines.push('节数：' + (this.data.units || 1) + ' 节' + (this.data.timeStart ? (' · ' + this.data.timeStart + (this.data.timeEnd ? ('-' + this.data.timeEnd) : '')) : '')
-          + (this.data.coach ? (' · 教练：' + this.data.coach) : ''));
+      const timePart = this.data.timeStart ? (' · ' + this.data.timeStart + (this.data.timeEnd ? ('-' + this.data.timeEnd) : '')) : '';
+      const coachPart = this.data.coach ? (' · 教练：' + this.data.coach) : '';
+      if (this.data.mode === 'lesson' && this.data.type === 'ice') {
+        // 节数是冰课的说法；陆地/舞蹈课跟教练课一样，只写时长
+        lines.push('节数：' + (this.data.units || 1) + ' 节' + timePart + coachPart);
+      } else if (this.data.mode === 'lesson') {
+        lines.push('时长：' + (this.data.duration || 0) + ' 分钟' + timePart + coachPart);
       } else {
         lines.push('时长：' + (this.data.duration || 0) + ' 分钟');
       }
@@ -706,11 +712,38 @@ Page({
       this.refreshLandCats(src.landCats || []);
       this.initMoves(src);
       this.initExams(src);
+      this.syncPicks(true);
       // 只有冰课才用节数反推时长；陆地课用记录里存的时长
       if (this.data.mode === 'lesson' && this.data.type === 'ice') this.syncLessonDuration();
       setTimeout(() => this.syncContent(), 30);     // 等初始化回调完成后再生成笔记条目
       wx.showToast({ title: '已复制上次训练' });
     });
+  },
+
+  // 陆地 / 舞蹈（含康复）上课 = 跟着老师上课，不勾动作库、不勾考级，只写笔记
+  picksHiddenBy(type, mode) {
+    return mode === 'lesson' && (type === 'land' || type === 'rehab');
+  },
+  // 类型/方式变了以后统一同步这件事。
+  // clearWhenHidden=true（用户主动切过来）时把已勾的动作/组合/考级清掉 —— 界面上看不见的东西不该被悄悄存进记录；
+  // 打开一条老记录时传 false，免得把人家记录里原有的勾选抹掉。
+  syncPicks(clearWhenHidden) {
+    const hidden = this.picksHiddenBy(this.data.type, this.data.mode);
+    const had = (this.data.selMoveIds || []).length + (this.data.selDrillIds || []).length + (this.data.selExamIds || []).length;
+    const patch = { hidePicks: hidden };
+    if (hidden && clearWhenHidden && had) {
+      patch.movesList = (this.data.movesList || []).map(m => Object.assign({}, m, {
+        checked: false,
+        drills: (m.drills || []).map(d => Object.assign({}, d, { checked: false }))
+      }));
+      patch.examList = (this.data.examList || []).map(e => Object.assign({}, e, { checked: false }));
+      patch.selMoveIds = [];
+      patch.selDrillIds = [];
+      patch.selExamIds = [];
+      patch.selOrder = [];
+      patch.orderRows = [];
+    }
+    this.setData(patch, () => { if (hidden && clearWhenHidden && had) this.syncContent(); });
   },
 
   // 陆地/舞蹈训练内容：取用户可编辑的那份列表（store.landCats()），按当前已选打勾。
@@ -754,10 +787,10 @@ Page({
     const cur = Number(this.data.duration);
     if (opts.indexOf(cur) < 0) opts.push(cur);
     opts.sort((a, b) => a - b);
-    this.setData({ type: k, durOptions: opts }, () => this.refreshLandCats());
+    this.setData({ type: k, durOptions: opts }, () => { this.refreshLandCats(); this.syncPicks(true); });
   },
   setMode(e) {
-    this.setData({ mode: e.currentTarget.dataset.k });
+    this.setData({ mode: e.currentTarget.dataset.k }, () => this.syncPicks(true));
     // 方式变了，时间提示要重算（自己训练会自动按时长，上课按节数校验）
     this.syncTime('mode');
   },
