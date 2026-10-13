@@ -84,9 +84,11 @@
     <view class="rec-card {{item.typeClass}}" wx:for="{{dayStats}}" wx:key="id" bindtap="editRecord" data-id="{{item.id}}">
       <view class="rec-top">
         <view class="rec-type">{{item.typeEmoji}} {{item.typeName}}<text class="rec-mode"> · {{item.modeName}}{{item.unitsText}}{{item.formText}}</text></view>
-        <view class="rec-land" wx:if="{{item.landText}}">🩰 {{item.landText}}</view>
         <view class="rec-status {{item.done ? 'ok' : 'not'}}">{{item.statusText}}</view>
       </view>
+      <!-- 陆地/舞蹈练了什么：单独一行的小标签。
+           不能塞进 .rec-top —— 那里是 flex 两端对齐，会把它挤在类型和「今天」中间 -->
+      <view class="rec-land" wx:if="{{item.landText}}">{{item.landText}}</view>
       <view class="rec-lines" wx:if="{{item.contentLines.length}}">
         <block wx:for="{{item.contentLines}}" wx:for-item="ln" wx:key="index">
           <view class="rl-head {{ln.tag ? 'tag' : ''}}" wx:if="{{ln.kind === 'head'}}">
