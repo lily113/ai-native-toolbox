@@ -942,6 +942,8 @@ Page({
       // 节数 / 上课形式是冰课体系的东西：陆地（舞蹈）课不写这两项，避免脏字段
       units: isIceLesson ? (Number(units) || 1) : 0,
       lessonForm: isIceLesson ? (lessonForm || 'one') : '',
+      // 教练不给陆地记录"新增"（输入框已经藏了），但这里不能按类型清空 ——
+      // 老陆地记录里已经填过的教练名要原样留着，免得用户只改个日期就把人家抹掉
       coach: mode === 'lesson' ? String(coach || '').trim() : '',
       // 陆地/舞蹈内容只在陆地（和康复）记录上存；冰上记录留空数组
       landCats: (type === 'land' || type === 'rehab') ? (this.data.landCats || []).slice() : [],
