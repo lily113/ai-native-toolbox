@@ -1,8 +1,11 @@
 <view class="page">
   <view class="home-head">
     <view class="brand">⛸️ 花样滑冰训练</view>
-    <view class="gear" bindtap="goSearch">🔍</view>
-    <view class="gear" bindtap="goSettings">⚙️</view>
+    <!-- 两个按钮要包成一组：直接用 space-between + 三个子元素，搜索键会被"均匀"扔到中间 -->
+    <view class="head-ops">
+      <view class="gear" bindtap="goSearch">🔍</view>
+      <view class="gear" bindtap="goSettings">⚙️</view>
+    </view>
   </view>
 
   <view class="first-run" wx:if="{{firstRun}}">
@@ -26,7 +29,8 @@
         <view class="ov-num">{{ov.monthLesson}}<text class="ov-unit">次</text></view><view class="ov-lb">累计冰课</view>
       </view>
     </view>
-    <view class="ov-since" wx:if="{{ov.sinceIceText}}">⛸️ {{ov.sinceIceText}}</view>
+    <!-- 没有周目标时，"距上次上冰"才需要独立一行；有目标就并到下面的小字里，省一行 -->
+    <view class="ov-since" wx:if="{{ov.sinceIceText && !ov.goal}}">⛸️ {{ov.sinceIceText}}</view>
     <view class="ov-exam {{ov.examCls}}" wx:if="{{ov.examCd}}" bindtap="goExams">
       <text class="ov-exam-t">🎓 {{ov.examCd}}</text>
       <text class="ov-exam-go">去看 ›</text>
@@ -37,7 +41,7 @@
         <text class="ov-pct">{{ov.weekPct}}%</text>
       </view>
       <view class="ov-bar"><view class="ov-bar-in" style="width:{{ov.weekPct}}%"></view></view>
-      <view class="ov-goal-sub">近 4 周平均 {{ov.avg4}} 分钟<text wx:if="{{ov.streak}}"> · 已连续 {{ov.streak}} 周达标 🔥</text></view>
+      <view class="ov-goal-sub">近 4 周平均 {{ov.avg4}} 分钟<text wx:if="{{ov.streak}}"> · 已连续 {{ov.streak}} 周达标 🔥</text><text wx:if="{{ov.sinceIceText}}"> · {{ov.sinceIceText}}</text></view>
     </view>
     <view class="ov-stale" wx:if="{{ov.staleN}}" bindtap="goStaleMoves">
       ⏱ 有 {{ov.staleN}} 项超过 30 天没练（比如「{{ov.staleName}}」）→
