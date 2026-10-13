@@ -92,7 +92,7 @@ Page({
     coach: '',
     landCats: [],          // 陆地/舞蹈训练内容（单选；仍然用数组存，兼容老记录）
     landCatList: [],       // 供模板渲染（带 checked）
-    hidePicks: false,      // 陆地/康复 + 上课：不勾动作库也不勾考级，只写上课笔记
+    hidePicks: false,      // 陆地/康复（不分上课/自己练）：不显示动作库和考级，只写笔记
 
     orphanLines: [], orphanCount: 0,
     units: 2,
@@ -720,15 +720,16 @@ Page({
     });
   },
 
-  // 陆地 / 舞蹈（含康复）上课 = 跟着老师上课，不勾动作库、不勾考级，只写笔记
-  picksHiddenBy(type, mode) {
-    return mode === 'lesson' && (type === 'land' || type === 'rehab');
+  // 动作库和考级都是冰课体系的东西 —— 只要是陆地 / 康复记录（上课、自己练都一样）都不显示。
+  // 陆地没有自己的动作库（用户口径：陆地不建动作库），要记"练了什么"就用上面的「今天练了什么」。
+  picksHiddenBy(type) {
+    return type === 'land' || type === 'rehab';
   },
   // 类型/方式变了以后统一同步这件事。
   // clearWhenHidden=true（用户主动切过来）时把已勾的动作/组合/考级清掉 —— 界面上看不见的东西不该被悄悄存进记录；
   // 打开一条老记录时传 false，免得把人家记录里原有的勾选抹掉。
   syncPicks(clearWhenHidden) {
-    const hidden = this.picksHiddenBy(this.data.type, this.data.mode);
+    const hidden = this.picksHiddenBy(this.data.type);
     const had = (this.data.selMoveIds || []).length + (this.data.selDrillIds || []).length + (this.data.selExamIds || []).length;
     const patch = { hidePicks: hidden };
     if (hidden && clearWhenHidden && had) {
@@ -746,7 +747,7 @@ Page({
     this.setData(patch, () => { if (hidden && clearWhenHidden && had) this.syncContent(); });
   },
 
-  // 陆地/舞蹈训练内容：取用户可编辑的那份列表（store.landCats()），按当前已选打勾。
+  // 陆地训练内容：取用户可编辑的那份列表（store.landCats()），按当前已选打勾。
   // 历史记录里可能有已经删掉的分类 —— 也要显示出来，否则用户会以为数据丢了。
   refreshLandCats(picked) {
     const sel = (picked || this.data.landCats || []).slice();
