@@ -90,7 +90,7 @@ Page({
     endIdx: [0, 0],
     content: '',
     coach: '',
-    landCats: [],          // 陆地/舞蹈训练内容（多选）
+    landCats: [],          // 陆地/舞蹈训练内容（单选；仍然用数组存，兼容老记录）
     landCatList: [],       // 供模板渲染（带 checked）
 
     orphanLines: [], orphanCount: 0,
@@ -137,7 +137,8 @@ Page({
       durOptions: (function (dv) { const base = [60, 90, 120, 150]; if (dv && base.indexOf(Number(dv)) < 0) base.push(Number(dv)); return base.sort(function (a, b) { return a - b; }); })(rec ? rec.duration : 90),
       content: rec ? mergeLegacyNotes(rec) : '',
       coach: rec ? (rec.coach || '') : '',
-      landCats: rec && Array.isArray(rec.landCats) ? rec.landCats.slice() : [],
+      // 单选：老记录里如果存过多项，只取第一项（不打开这条记录就不会被动过）
+      landCats: rec && Array.isArray(rec.landCats) ? rec.landCats.slice(0, 1) : [],
       units: rec ? (Number(rec.units) || 2) : 2,
       lessonForm: rec ? (rec.lessonForm || 'one') : ((store.load(store.KEYS.meta) || {}).lastLessonForm || 'one')
     });
@@ -736,12 +737,12 @@ Page({
   // 从「内容管理」返回时列表可能变了，重新渲染一次（已勾选的照旧保留）
   onShow() { this.refreshLandCats(); },
 
+  // 单选：点没选中的 → 换成它；点已选中的 → 取消（允许一项都不选）
   toggleLandCat(e) {
     const id = e.currentTarget.dataset.id;
-    const cur = (this.data.landCats || []).slice();
-    const i = cur.indexOf(id);
-    if (i > -1) cur.splice(i, 1); else cur.push(id);
-    this.setData({ landCats: cur }, () => this.refreshLandCats(cur));
+    const cur = this.data.landCats || [];
+    const next = (cur.length === 1 && cur[0] === id) ? [] : [id];
+    this.setData({ landCats: next }, () => this.refreshLandCats(next));
   },
 
   setType(e) {
