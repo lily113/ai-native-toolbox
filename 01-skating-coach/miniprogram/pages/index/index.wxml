@@ -121,6 +121,12 @@
     <view class="empty" wx:if="{{!dayStats.length}}">这一天还没有训练安排，点「＋ 添加训练」开始记录</view>
   </view>
 
+  <!-- 刚删掉一条训练：给一次撤销机会（十几秒后自动消失） -->
+  <view class="undo-bar" wx:if="{{undo}}">
+    <text class="undo-t">已删除 {{undo.text}}</text>
+    <text class="undo-do" bindtap="undoDelete">撤销</text>
+  </view>
+
   <view class="fab-bar"><button class="btn fab" bindtap="goAdd">＋ 添加训练</button></view>
 
   <view class="quick">

@@ -1015,11 +1015,19 @@ Page({
     if (!this.data.id) return;
     wx.showModal({
       title: '删除',
-      content: '确定删除这条训练？',
+      content: '确定删除这条训练？删完 1 分钟内可以在首页撤销。',
       success: r => {
         if (!r.confirm) return;
-        store.saveRecords(store.loadRecords().filter(x => x.id !== this.data.id));
-        wx.showToast({ title: '已删除' });
+        const all = store.loadRecords();
+        const i = all.findIndex(x => x.id === this.data.id);
+        if (i < 0) { wx.showToast({ title: '这条已经不在了', icon: 'none' }); return; }
+        const gone = all[i];
+        const rest = all.slice();
+        rest.splice(i, 1);
+        store.saveRecords(rest);
+        // 留一份给首页的「撤销」横条（不落盘，只活在这一分钟的会话里）
+        store.setUndo({ rec: gone, index: i });
+        wx.showToast({ title: '已删除，可在首页撤销', icon: 'none', duration: 2500 });
         setTimeout(() => wx.navigateBack(), 300);
       }
     });
