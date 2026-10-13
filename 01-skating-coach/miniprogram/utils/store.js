@@ -9,6 +9,8 @@ const KEYS = {
   meta: 'figure_skating_planner_meta_v1',
   aiKbUser: 'figure_skating_planner_ai_kb_user_v1',
   exams: 'figure_skating_planner_exams_v1',
+  // 陆地/舞蹈「练了什么」的自建分类（预置 8 个在 const.js LAND_CATS；这里只放用户自己加的）
+  landCats: 'figure_skating_planner_land_cats_v1',
     poseMap: 'figure_skating_planner_pose_map_v1',  // 姿态自查：关键点索引映射（校准后保存）
   upgradeSnap: 'figure_skating_planner_upgrade_snapshot_v1',   // 升级前的本地快照（可一键恢复）
   upgradeGuard: 'figure_skating_planner_upgrade_guard_v1'      // 升级自检结果（少没少东西）
