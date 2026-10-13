@@ -75,15 +75,41 @@ Page({
   },
 
   // 关注 / 取消关注（catchtap，不触发跳转）
+  //
+  // 「我的考级」= ⭐关注过的 **或** 设了考级日期的（考级是一级一级考的，只关心要考的那一两级）。
+  // 所以取消关注时如果这一级还设着日期，它会**因为日期继续留在列表里** ——
+  // 加上这一栏的星星原来是写死的 ⭐，看起来就像"点了没反应"。
+  // 现在：还带着日期就先问清楚要不要连日期一起清掉，清掉才是真的移出。
   toggleStar(e) {
     const id = e.currentTarget.dataset.id;
     const arr = store.ensureExams();
+    const cur = arr.filter(x => x && x.id === id)[0];
+    if (!cur) { wx.showToast({ title: '这条考级不存在', icon: 'none' }); return; }
+    if (cur.star && cur.date) {
+      wx.showModal({
+        title: '移出我的考级',
+        content: '这一级设了考级日期 ' + cur.date + '。只取消关注的话，它还会因为这个日期留在「我的考级」里。'
+          + '点「移出」会把日期也清掉（首页倒计时随之消失）。',
+        confirmText: '移出',
+        success: r => { if (r.confirm) this.applyStar(id, false, true); }
+      });
+      return;
+    }
+    this.applyStar(id, !cur.star, false);
+  },
+
+  applyStar(id, star, clearDate) {
+    const arr = store.ensureExams();
     const i = arr.findIndex(x => x && x.id === id);
-    if (i < 0) { wx.showToast({ title: '这条考级不存在', icon: 'none' }); return; }
-    arr[i].star = !arr[i].star;
+    if (i < 0) return;
+    arr[i].star = star;
+    if (clearDate) arr[i].date = '';
     store.saveExams(arr);
     this.refresh();
-    wx.showToast({ title: arr[i].star ? '已加入「我的考级」' : '已移出「我的考级」', icon: 'none' });
+    wx.showToast({
+      title: star ? '已加入「我的考级」' : (clearDate ? '已移出（考级日期也清掉了）' : '已移出「我的考级」'),
+      icon: 'none'
+    });
   },
 
   toggleAll() { this.setData({ allOn: !this.data.allOn }); },
