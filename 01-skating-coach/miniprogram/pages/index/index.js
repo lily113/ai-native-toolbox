@@ -16,6 +16,7 @@ Page({
     dayLesson: 0,
     monthCount: 0,
     monthMin: 0,
+    undo: null,          // 「已删除 · 撤销」横条
     monthLesson: 0,
     ymValue: '',
     aiOn: false,          // AI 教练入口：仅开发者本人可见（由 login 云函数确认）
@@ -55,6 +56,32 @@ Page({
     this.refreshDayMarks();
     this.refreshEntries();
     this.maybeSyncTip();
+    this.checkUndo();
+  },
+
+  // 刚删了一条训练（从记录页删的）→ 在底部挂一条可撤销的横条
+  //   撤销是"手滑"的补救，所以只认最近一分钟的、并且只摆十几秒
+  checkUndo() {
+    const u = store.peekUndo();
+    if (!u || !u.rec) return;
+    const r = u.rec;
+    const t = TYPES[r.type] || {};
+    const text = (r.date || '') + ' · ' + (t.name || '') + ' · ' + (Number(r.duration) || 0) + ' 分钟';
+    this.setData({ undo: { text: text, id: r.id } });
+    if (this._undoTimer) clearTimeout(this._undoTimer);
+    this._undoTimer = setTimeout(() => this.setData({ undo: null }), 12000);
+  },
+
+  undoDelete() {
+    const okDone = store.undoDelete();
+    if (this._undoTimer) clearTimeout(this._undoTimer);
+    this.setData({ undo: null });
+    if (!okDone) { wx.showToast({ title: '这条已经恢复了', icon: 'none' }); return; }
+    wx.showToast({ title: '已恢复', icon: 'none' });
+    this.refreshDay();
+    this.refreshMonth();
+    this.refreshDayMarks();
+    this.refreshEntries();
   },
 
   // 新用户教育：**等他们真的记了一条训练之后**，才用一句话讲清"数据存在哪、怎么才不丢"。

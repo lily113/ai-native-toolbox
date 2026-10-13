@@ -660,6 +660,35 @@ function iceCatStats(recs) {
   };
 }
 
+// ---------- 删除后的"撤销" ----------
+// 删一条训练是不可逆的（云端历史是整个快照，粒度太粗），所以删完留一份在内存里：
+// 记录页删 → 首页落地时显示一条「已删除 · 撤销」的横条。
+//   只放在内存（不落盘）：撤销是"刚刚手滑"的补救，不是长期回收站。
+let _undo = null;
+const UNDO_TTL = 60000;          // 一分钟内有效（比横条显示的 12 秒宽一点，够用户切页面）
+function setUndo(payload) {
+  _undo = Object.assign({ at: Date.now() }, payload || {});
+}
+// 取出（不消费）：首页 onShow 拿来看要不要显示横条
+function peekUndo() {
+  if (!_undo) return null;
+  if (Date.now() - _undo.at > UNDO_TTL) { _undo = null; return null; }
+  return _undo;
+}
+function clearUndo() { _undo = null; }
+// 把删掉的那条放回去（按原来的位置插回去，顺序不乱）
+function undoDelete() {
+  const u = peekUndo();
+  if (!u || !u.rec || !u.rec.id) { _undo = null; return false; }
+  const all = loadRecords();
+  if (all.some(r => r.id === u.rec.id)) { _undo = null; return false; }   // 已经在了，别插重
+  const at = Math.max(0, Math.min(Number(u.index) || 0, all.length));
+  all.splice(at, 0, u.rec);
+  saveRecords(all);
+  _undo = null;
+  return true;
+}
+
 // ---------- 搜历史记录 ----------
 // 关键词命中：动作名 / 组合名 / 考级级别 / 陆地内容 / 教练 / 笔记正文
 // 记录多了以后（用户 500+ 条）光靠翻日历找不到"上次练这个是什么时候"。
@@ -1264,7 +1293,7 @@ module.exports = {
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS, LAND_CATS, landCats, saveLandCats, landCatName, landCatsGone, rememberLandCatGone, forgetLandCatsGone, landCatUsage, landStats, iceCatStats,
-  searchRecords,
+  searchRecords, setUndo, peekUndo, clearUndo, undoDelete,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus, setMoveStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey

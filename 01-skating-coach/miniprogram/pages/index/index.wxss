@@ -160,3 +160,10 @@
 .rec-land { display: inline-block; margin-top: 5px; font-size: 11.5px; font-weight: 600;
   color: #6d28d9; background: #f6f2ff; border: 1px solid #e7dcff; border-radius: 6px;
   padding: 1px 8px; line-height: 1.6; letter-spacing: .2px; }
+
+/* 删除后的撤销横条：贴在「＋ 添加训练」上面，不挡按钮 */
+.undo-bar { position: fixed; left: 24rpx; right: 24rpx; bottom: calc(160rpx + env(safe-area-inset-bottom));
+  z-index: 30; display: flex; align-items: center; gap: 16rpx; padding: 20rpx 24rpx;
+  background: #1e293b; color: #f8fafc; border-radius: 14rpx; box-shadow: 0 6rpx 20rpx rgba(15,23,42,.28); }
+.undo-t { flex: 1; min-width: 0; font-size: 24rpx; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.undo-do { flex: none; font-size: 26rpx; font-weight: 700; color: #7dd3fc; padding: 4rpx 8rpx; }
