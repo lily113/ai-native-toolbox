@@ -706,7 +706,8 @@ Page({
       this.refreshLandCats(src.landCats || []);
       this.initMoves(src);
       this.initExams(src);
-      if (this.data.mode === 'lesson') this.syncLessonDuration();
+      // 只有冰课才用节数反推时长；陆地课用记录里存的时长
+      if (this.data.mode === 'lesson' && this.data.type === 'ice') this.syncLessonDuration();
       setTimeout(() => this.syncContent(), 30);     // 等初始化回调完成后再生成笔记条目
       wx.showToast({ title: '已复制上次训练' });
     });
@@ -777,8 +778,10 @@ Page({
     this.syncTime('units');
   },
   // 上课：时长 = 节数 × 30 分钟
+  // 「节数 × 30 分钟」只适用于冰课：陆地/舞蹈课是团课，直接按时长记
   syncLessonDuration() {
     if (this.data.mode !== 'lesson') return;
+    if (this.data.type !== 'ice') return;      // 陆地 / 康复上课：时长自己选
     const u = Number(this.data.units) || 1;
     this.setData({ duration: String(u * 30) });
   },
@@ -896,13 +899,15 @@ Page({
   save() {
     const { id, date, type, mode, duration, content, coach, units, lessonForm, timeStart, timeEnd } = this.data;
     if (!date) { wx.showToast({ title: '请选择日期', icon: 'none' }); return; }
+    const isIceLesson = (mode === 'lesson' && type === 'ice');
     const rec = {
       id: id || store.uid(),
       date, type, mode,
       duration: Number(duration) || 0,
       time: (timeStart && timeEnd) ? (timeStart + '-' + timeEnd) : (timeStart || ''),
-      units: mode === 'lesson' ? (Number(units) || 2) : 1,
-      lessonForm: mode === 'lesson' ? (lessonForm || 'one') : '',
+      // 节数 / 上课形式是冰课体系的东西：陆地（舞蹈）课不写这两项，避免脏字段
+      units: isIceLesson ? (Number(units) || 1) : 0,
+      lessonForm: isIceLesson ? (lessonForm || 'one') : '',
       coach: mode === 'lesson' ? String(coach || '').trim() : '',
       // 陆地/舞蹈内容只在陆地（和康复）记录上存；冰上记录留空数组
       landCats: (type === 'land' || type === 'rehab') ? (this.data.landCats || []).slice() : [],

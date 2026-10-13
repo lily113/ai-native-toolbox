@@ -82,20 +82,27 @@ Page({
     const all = store.loadRecords();
     const recs = all.filter(r => { const d = store.keyToDate(r.date); return d.getFullYear() === y && d.getMonth() === m; });
 
-    let minutes = 0, ice = 0, land = 0, rehab = 0, lesson = 0, selfC = 0, monthUnits = 0;
+    // 冰课体系：上冰次数 / 上冰课次数 / 节数 / 上课形式 / 周均上冰
+    // 陆地体系：陆地次数 / 时长 / 练了什么（内容分布见「训练结构」）
+    // 两者只在「总时长」这一层相加，而且要在界面上拆开写清楚
+    let minutes = 0, iceMin = 0, landMin = 0;
+    let ice = 0, land = 0, rehab = 0, lesson = 0, selfC = 0, landSelf = 0, monthUnits = 0;
     const formCount = {};
     recs.forEach(r => {
-      minutes += Number(r.duration) || 0;
-      if (r.type === 'ice') ice++; else if (r.type === 'land') land++; else rehab++;
+      const dur = Number(r.duration) || 0;
+      minutes += dur;
+      if (r.type === 'ice') { ice++; iceMin += dur; }
+      else if (r.type === 'land') { land++; landMin += dur; }
+      else { rehab++; landMin += dur; }          // 康复算在陆地这一侧（它也是冰面外的事）
       if (r.mode === 'lesson' && r.type === 'ice') {
         lesson++; monthUnits += Number(r.units) || 1;
         if (r.lessonForm && LESSON_FORMS[r.lessonForm]) formCount[r.lessonForm] = (formCount[r.lessonForm] || 0) + 1;
       }
-      else if (r.mode === 'self') selfC++;
+      else if (r.mode === 'self') { if (r.type === 'ice') selfC++; else landSelf++; }
     });
 
     const goal = (store.load(store.KEYS.meta) || {}).weeklyIceGoal || 0;
-    const weeklyAvg = Math.round(minutes / 4.33);
+    const weeklyAvg = Math.round(iceMin / 4.33);   // 「周均上冰」只算上冰，不含陆地
     const goalPct = goal ? Math.min(100, Math.round(weeklyAvg / goal * 100)) : 0;
 
     // 累计上冰/上课 = 截至“当前年月”的次数 + 基线（补偿早期未录的）
@@ -147,6 +154,10 @@ Page({
         label: y + ' 年 ' + (m + 1) + ' 月',
         count: recs.length,
         minutesText: fmtMin(minutes),
+        // 总时长是"一共花了多少时间"，但必须拆开：上冰是主课，陆地是辅助
+        minutesSub: '上冰 ' + fmtMin(iceMin) + ' · 陆地 ' + fmtMin(landMin),
+        iceMinText: fmtMin(iceMin),
+        landMinText: fmtMin(landMin),
         // 字号档位：两张卡的数字都按长度取档，避免"3"很大、"4 小时"很小
         minutesCls: numCls(fmtMin(minutes)),
         countCls: numCls(String(recs.length)),
@@ -158,6 +169,8 @@ Page({
         monthUnits: monthUnits,
         formText: Object.keys(LESSON_FORMS).filter(k => formCount[k]).map(k => LESSON_FORMS[k].name + ' ' + formCount[k]).join(' · '),
         selfC: selfC,
+        landSelf: landSelf,
+        landMin: landMin,
         goal: goal,
         weeklyAvg: weeklyAvg,
         goalPct: goalPct,

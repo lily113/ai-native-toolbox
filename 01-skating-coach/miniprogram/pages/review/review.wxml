@@ -12,6 +12,11 @@
       <view class="rv-card big"><view class="rv-num {{stats.countCls}}">{{stats.count}}</view><view class="rv-lb">训练次数</view></view>
       <view class="rv-card big"><view class="rv-num {{stats.minutesCls}}">{{stats.minutesText}}</view><view class="rv-lb">总时长</view></view>
     </view>
+    <view class="rv-card split">
+      <view class="sp-row"><text class="sp-k">⛸️ 上冰</text><text class="sp-v">{{stats.iceMinText}}</text></view>
+      <view class="sp-row"><text class="sp-k">🏋️ 陆地 / 舞蹈</text><text class="sp-v">{{stats.landMinText}}</text></view>
+      <view class="sp-note">上冰是主课（看上面的周目标）；陆地是辅助，只在这张表里对账。</view>
+    </view>
 
     <view class="rv-card">
       <view class="rv-lb">近 12 个月训练次数（月度最高 {{stats.trendMax}} 次）</view>
@@ -72,8 +77,9 @@
       <view class="rv-lb">上课 / 自己训练</view>
       <view class="rv-row">
         <view class="rv-item"><view class="rv-val">📖 {{stats.lesson}}</view><view class="rv-lb">上冰课（{{stats.monthUnits}} 节）</view></view>
-        <view class="rv-item"><view class="rv-val">🤸 {{stats.selfC}}</view><view class="rv-lb">自己</view></view>
+        <view class="rv-item"><view class="rv-val">🤸 {{stats.selfC}}</view><view class="rv-lb">上冰自己练</view></view>
       </view>
+      <view class="rv-sub">这一栏只算上冰。陆地/舞蹈上课 或 自己练共 {{stats.land + stats.rehab}} 次（{{stats.landMinText}}），不按节算。</view>
       <view class="rv-sub" wx:if="{{stats.formText}}">上课形式：{{stats.formText}}</view>
     </view>
 

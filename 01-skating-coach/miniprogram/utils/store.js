@@ -40,17 +40,19 @@ function normalizeRecord(r) {
   // 陆地也支持自己练习：保留记录里的方式，缺失时默认「自己训练」
   const mode = MODES[r.mode] ? r.mode : 'self';
   const date = r.date || todayKey();
-  // 节数：上课时一节算几节（2021-07-16 起通常每次 2 节）
+  // 节数只属于冰课体系：1 节 = 30 分钟、2021-07-16 起通常每次 2 节。
+  // 陆地 / 舞蹈课是团课，按时长记，不按节算 —— 统一归 0，别留一个会被误读的数字。
   let units = Number(r.units);
-  if (!units || units < 0) units = (mode === 'lesson' && date >= '2021-07-16') ? 2 : 1;
+  if (type === 'land' || type === 'rehab') units = 0;
+  else if (!units || units < 0) units = (mode === 'lesson' && date >= '2021-07-16') ? 2 : 1;
   return {
     id: r.id || uid(),
     date: date,
     type: type,
     mode: mode,
     units: units,
-    // 上课形式：one / two / multi；旧记录未标注就是空串（不擅自假设）
-    lessonForm: (mode === 'lesson' && typeof r.lessonForm === 'string' && r.lessonForm) ? r.lessonForm : '',
+    // 上课形式只属于冰课：one / two / multi；陆地/康复是团课，一律空串
+    lessonForm: (mode === 'lesson' && type === 'ice' && typeof r.lessonForm === 'string' && r.lessonForm) ? r.lessonForm : '',
     time: r.time || '',
     duration: Number(r.duration) || 0,
     content: r.content || '',

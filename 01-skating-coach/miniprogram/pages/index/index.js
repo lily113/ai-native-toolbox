@@ -120,15 +120,16 @@ Page({
       const meta = store.load(store.KEYS.meta) || {};
       const goal = Number(meta.weeklyIceGoal) || 0;
 
-      let monthN = 0, monthMin = 0, weekMin = 0, iceN = 0, lessonN = 0;
+      // 首页统计只算上冰：陆地是冰面的辅助，不进这些数字（陆地去「回顾」里看）
+      let monthN = 0, monthMin = 0, weekMin = 0, lessonN = 0;
       recs.forEach(r => {
+        if (r.type !== 'ice') return;
         const d = r.date || '';
         const dur = Number(r.duration) || 0;
         if (d.slice(0, 7) === ym) {
           monthN++;
           monthMin += dur;
-          if (r.type === 'ice') iceN++;
-          if (r.mode === 'lesson') lessonN++;
+          if (r.mode === 'lesson') lessonN++;      // 「冰课」= 上冰的记录里属于上课的那些
         }
         if (d >= mondayKey && d <= day) weekMin += dur;
       });
@@ -140,7 +141,7 @@ Page({
         const e0 = new Date(s0.getFullYear(), s0.getMonth(), s0.getDate() + 6);
         const sk = store.dateKey(s0), ek = store.dateKey(e0);
         let mins = 0;
-        recs.forEach(r => { const d = r.date || ''; if (d >= sk && d <= ek) mins += Number(r.duration) || 0; });
+        recs.forEach(r => { const d = r.date || ''; if (r.type === 'ice' && d >= sk && d <= ek) mins += Number(r.duration) || 0; });
         weeks.push(mins);
       }
       const avg4 = Math.round(weeks.reduce((a, b) => a + b, 0) / 4);
@@ -172,7 +173,7 @@ Page({
 
       this.setData({
         ov: {
-          monthN: monthN, monthMin: monthMin, iceN: iceN, lessonN: lessonN,
+          monthN: monthN, monthMin: monthMin, lessonN: lessonN,
           weekMin: weekMin, goal: goal, weekPct: weekPct, avg4: avg4, streak: streak,
           staleN: staleN, staleName: staleName
         }
@@ -303,7 +304,7 @@ Page({
       if (tb >= 0) return 1;
       return 0;
     });
-    let mins = 0, lesson = 0;
+    let mins = 0, lesson = 0, iceN = 0;      // 只统计上冰（陆地记录照常列出来，但不进这三个数）
     const today = this.data.today;
     // 考级 id -> 标签
     const examLabel = {}, examById = {};
@@ -312,8 +313,11 @@ Page({
       examById[ex.id] = ex;
     });
     const dayStats = recs.map(r => {
-      mins += Number(r.duration) || 0;
-      if (r.mode === 'lesson') lesson++;
+      if (r.type === 'ice') {
+        iceN++;
+        mins += Number(r.duration) || 0;
+        if (r.mode === 'lesson') lesson++;
+      }
       const status = store.statusOf(r);
       let statusText = '已安排';
       if (status === 'done') statusText = '已完成';
@@ -358,9 +362,11 @@ Page({
         typeEmoji: TYPES[r.type] ? TYPES[r.type].emoji : '',
         typeClass: 'band-' + (TYPES[r.type] ? r.type : 'other'),
         modeName: MODES[r.mode] ? MODES[r.mode].name : '',
-        unitsText: (r.mode === 'lesson' && (Number(r.units) || 1) > 1) ? (' · ' + (Number(r.units) || 1) + ' 节') : '',
+        // 节数是冰课体系的东西：陆地/舞蹈课是团课，按时长记，不显示「N 节」
+        unitsText: (r.type === 'ice' && r.mode === 'lesson' && (Number(r.units) || 1) > 1) ? (' · ' + (Number(r.units) || 1) + ' 节') : '',
         timeText: r.time ? String(r.time).replace('-', '–') : '',
-        formText: (r.mode === 'lesson' && r.lessonForm && LESSON_FORMS[r.lessonForm]) ? (' · ' + LESSON_FORMS[r.lessonForm].name) : '',
+        // 上课形式（一对一/二/多）同样只属于冰课
+        formText: (r.type === 'ice' && r.mode === 'lesson' && r.lessonForm && LESSON_FORMS[r.lessonForm]) ? (' · ' + LESSON_FORMS[r.lessonForm].name) : '',
         // 陆地/舞蹈内容：挂在类型行后面小字显示
         landText: (Array.isArray(r.landCats) && r.landCats.length)
           ? r.landCats.map(id => store.landCatName(id) || id).join('、') : '',
@@ -374,7 +380,7 @@ Page({
     const map = this.data.cardOpen || {};
     const kept = {};
     Object.keys(map).forEach(k => { if (ids[k]) kept[k] = map[k]; });
-    this.setData({ dayStats: dayStats, dayMinutes: mins, dayLesson: lesson, cardOpen: kept });
+    this.setData({ dayStats: dayStats, dayIce: iceN, dayMinutes: mins, dayLesson: lesson, cardOpen: kept });
   },
 
   goAdd() {
