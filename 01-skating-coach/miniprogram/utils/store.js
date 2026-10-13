@@ -54,7 +54,7 @@ function normalizeRecord(r) {
     time: r.time || '',
     duration: Number(r.duration) || 0,
     content: r.content || '',
-    // 陆地/舞蹈训练的内容分类（多选，存 id）：芭蕾基训/古典舞基训/身韵/剧目/软开/技巧…
+    // 陆地/舞蹈训练的内容（单选，存 id 数组；用数组是为了兼容早期多选版本存下的记录）
     // ⚠️ 和 coach 一样，白名单式的 normalizeRecord 必须显式列出，否则读一次就没了
     landCats: Array.isArray(r.landCats) ? r.landCats.slice() : [],
     // 上课教练（可选）：换教练、多人轮课时有用。⚠️ 这里必须显式列出来，
@@ -601,7 +601,9 @@ function landCatUsage(id) {
   return loadRecords().filter(r => (r.type === 'land' || r.type === 'rehab')
     && Array.isArray(r.landCats) && r.landCats.indexOf(id) > -1).length;
 }
-// 陆地内容按"包含该类的记录数"统计（一条记录可能算多类，所以各项相加会大于总次数）
+// 陆地内容按"包含该类的记录数"统计
+// 现在界面上是单选，所以各项相加 = 标过内容的记录数；
+// 但仍然兼容老的多选记录（那种记录会算进多项，相加就可能大于总数）
 function landStats(recs) {
   const out = {};
   landCats().forEach(c => { out[c.id] = { id: c.id, name: c.name, n: 0, gone: false }; });
@@ -625,7 +627,7 @@ function landStats(recs) {
       .sort((a, b) => (a.gone === b.gone) ? (b.n - a.n) : (a.gone ? 1 : -1))
   };
 }
-// 冰上：按"这次勾的动作所属分类"统计包含次数
+// 冰上：按"这次勾的动作所属分类"统计包含次数（这里是真的会重叠：一次上冰可能练好几个板块）
 function iceCatStats(recs) {
   const catOf = {};
   ensureMoves().forEach(m => { catOf[m.id] = validCat(m.category); });

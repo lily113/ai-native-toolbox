@@ -112,8 +112,9 @@ Page({
     // 累计节数：基线（那时 1 节=1 次）+ 各次课的节数
     const allUnits = lessonRecs.reduce((n, r) => n + (Number(r.units) || 1), 0) + lessonBase;
 
-    // 训练结构（按次数）：冰上按"这次勾的动作所属分类"、陆地按"这条记录勾的内容"
-    // 一条记录可能同时算多类（冰上一次练好几个动作、陆地一次练软开+力量），所以各项相加会大于总次数
+    // 训练结构（按次数）：冰上按"这次勾的动作所属分类"、陆地按"这条记录选的内容"
+    // 冰上一次可能练好几个板块，所以冰上那几项相加会大于上冰次数；
+    // 陆地是单选，各项相加不会超过总次数
     const landS = store.landStats(recs);
     const iceS = store.iceCatStats(recs);
     const pctOf = (n, t) => (t ? Math.round(n / t * 100) : 0);

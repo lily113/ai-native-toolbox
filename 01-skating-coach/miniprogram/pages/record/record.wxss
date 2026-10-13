@@ -108,7 +108,7 @@
   border: 1px solid #a7f3d0; color: #047857; font-size: 12px; font-weight: 600; }
 .share-row { padding-bottom: 0; }
 
-/* 陆地/舞蹈：训练内容多选 */
+/* 陆地/舞蹈：训练内容（单选，再点一次取消） */
 .lc-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
 .lc-chip { font-size: 13px; color: #475569; background: #f4f8fb; border: 1px solid var(--border);
   border-radius: 999px; padding: 7px 13px; line-height: 1.2; }

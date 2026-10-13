@@ -54,9 +54,9 @@
         </view>
       </block>
 
-      <view class="st-note">一次训练可能同时算多类（比如上冰练了两个板块、陆地同时练软开和力量），所以各项相加会大于总次数。</view>
+      <view class="st-note" wx:if="{{stats.structure.iceRows.length}}">一次上冰可能练到多个分类（比如既练跳跃又练旋转），所以上冰那几项相加会大于上冰次数。</view>
       <view class="st-note" wx:if="{{stats.structure.iceNoMove}}">有 {{stats.structure.iceNoMove}} 次上冰没勾动作，没算进上面的分类。</view>
-      <view class="st-note" wx:if="{{stats.structure.landUncat}}">有 {{stats.structure.landUncat}} 次陆地没选内容，没算进去。</view>
+      <view class="st-note" wx:if="{{stats.structure.landUncat}}">陆地共 {{stats.structure.landTotal}} 次，其中 {{stats.structure.landUncat}} 次没选内容，没算进去。</view>
     </view>
 
     <view class="rv-card">

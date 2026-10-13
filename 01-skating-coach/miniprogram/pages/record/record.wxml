@@ -15,7 +15,7 @@
     </view>
 
     <view class="field" wx:if="{{type === 'land' || type === 'rehab'}}">
-      <view class="field-label">今天练了什么（可多选）<text class="edit-link" bindtap="goLandCats">✎ 编辑内容</text></view>
+      <view class="field-label">今天练了什么<text class="edit-link" bindtap="goLandCats">✎ 编辑内容</text></view>
       <view class="lc-wrap" wx:if="{{landCatList.length}}">
         <view class="lc-chip {{item.checked ? 'on' : ''}} {{item.gone ? 'gone' : ''}}" wx:for="{{landCatList}}" wx:key="id"
               bindtap="toggleLandCat" data-id="{{item.id}}">{{item.name}}</view>
