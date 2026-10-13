@@ -56,7 +56,7 @@
 
     <!-- 教练：只要上课就能填（冰课、陆地/舞蹈课都要 —— 陆地老师也是老师） -->
     <view class="field" wx:if="{{mode === 'lesson'}}">
-      <view class="field-label">教练 / 老师（可选）</view>
+      <view class="field-label">{{type === 'ice' ? '教练' : '老师'}}（可选）</view>
       <input class="input coach-input" value="{{coach}}" bindinput="onCoach"
              placeholder="跟谁上的课，例如：张教练" maxlength="20" />
     </view>

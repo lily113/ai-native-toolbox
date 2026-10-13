@@ -8,6 +8,7 @@
     "pages/move/move",
     "pages/cats/cats",
     "pages/landcats/landcats",
+    "pages/search/search",
     "pages/milestone/milestone",
     "pages/review/review",
     "pages/settings/settings"

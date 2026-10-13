@@ -101,6 +101,19 @@ Page({
       else if (r.mode === 'self') { if (r.type === 'ice') selfC++; else landSelf++; }
     });
 
+    // 教练 / 老师（本月）：跟谁上了几次课。
+    // 只统计"上课"且填了名字的；冰课陆地一起列，都填了才拆开显示
+    const coachMap = {};
+    recs.forEach(r => {
+      if (r.mode !== 'lesson') return;
+      const name = String(r.coach || '').trim();
+      if (!name) return;
+      const o = coachMap[name] || (coachMap[name] = { name: name, n: 0, ice: 0, land: 0 });
+      o.n++;
+      if (r.type === 'ice') o.ice++; else o.land++;
+    });
+    const coaches = Object.keys(coachMap).map(k => coachMap[k]).sort((a, b) => (b.n - a.n) || a.name.localeCompare(b.name));
+
     const goal = (store.load(store.KEYS.meta) || {}).weeklyIceGoal || 0;
     const weeklyAvg = Math.round(iceMin / 4.33);   // 「周均上冰」只算上冰，不含陆地
     const goalPct = goal ? Math.min(100, Math.round(weeklyAvg / goal * 100)) : 0;
@@ -173,6 +186,7 @@ Page({
         monthUnits: monthUnits,
         formText: Object.keys(LESSON_FORMS).filter(k => formCount[k]).map(k => LESSON_FORMS[k].name + ' ' + formCount[k]).join(' · '),
         selfC: selfC,
+        coaches: coaches,
         landSelf: landSelf,
         landMin: landMin,
         goal: goal,

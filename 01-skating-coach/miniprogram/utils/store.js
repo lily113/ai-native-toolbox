@@ -660,6 +660,61 @@ function iceCatStats(recs) {
   };
 }
 
+// ---------- 搜历史记录 ----------
+// 关键词命中：动作名 / 组合名 / 考级级别 / 陆地内容 / 教练 / 笔记正文
+// 记录多了以后（用户 500+ 条）光靠翻日历找不到"上次练这个是什么时候"。
+function searchExcerpt(body, q) {
+  const low = String(body).toLowerCase();
+  const i = low.indexOf(q);
+  if (i < 0) return '';
+  const from = Math.max(0, i - 12), to = Math.min(body.length, i + q.length + 18);
+  return (from > 0 ? '…' : '') + body.slice(from, to).replace(/\n+/g, ' ') + (to < body.length ? '…' : '');
+}
+function searchRecords(kw, recs) {
+  const q = String(kw == null ? '' : kw).trim().toLowerCase();
+  if (!q) return [];
+  const list = Array.isArray(recs) ? recs : loadRecords();
+  const examLabel = {};
+  ensureExams().forEach(e => {
+    if (e && e.id) examLabel[e.id] = ((EXAM_KINDS[e.kind] || {}).name || '') + ' · ' + e.level;
+  });
+  const out = [];
+  list.forEach(r => {
+    const hits = [];
+    (r.moves || []).forEach(id => {
+      const m = moveById(id);
+      if (m && String(m.name).toLowerCase().indexOf(q) > -1) hits.push(m.name);
+    });
+    (r.drills || []).forEach(id => {
+      const f = drillById(id);
+      if (!f) return;
+      const nm = (f.move ? f.move.name + ' · ' : '') + f.drill.name;
+      if (nm.toLowerCase().indexOf(q) > -1) hits.push(nm);
+    });
+    (r.examPicks || []).forEach(id => {
+      const lab = examLabel[id];
+      if (lab && lab.toLowerCase().indexOf(q) > -1) hits.push(lab);
+    });
+    (r.landCats || []).forEach(id => {
+      const n = landCatName(id);
+      if (n && n.toLowerCase().indexOf(q) > -1) hits.push(n);
+    });
+    const coach = String(r.coach || '').trim();
+    if (coach && coach.toLowerCase().indexOf(q) > -1) hits.push('教练：' + coach);
+    const body = String(r.content || '');
+    if (body.toLowerCase().indexOf(q) > -1) hits.push(searchExcerpt(body, q));
+    const uniq = [];
+    hits.forEach(h => { if (uniq.indexOf(h) < 0) uniq.push(h); });
+    if (uniq.length) {
+      out.push({
+        id: r.id, date: r.date, type: r.type, mode: r.mode,
+        duration: Number(r.duration) || 0, hits: uniq
+      });
+    }
+  });
+  return out.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+}
+
 // ---------- 动作练习统计 ----------
 // 从训练记录里算：每个动作练过几次、最近一次是哪天、哪个组合最近练过。
 // 数据本来就有（记录里存着 moves / drills 的 id），以前只在记录页内部用过一次，
@@ -1209,6 +1264,7 @@ module.exports = {
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS, LAND_CATS, landCats, saveLandCats, landCatName, landCatsGone, rememberLandCatGone, forgetLandCatsGone, landCatUsage, landStats, iceCatStats,
+  searchRecords,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus, setMoveStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey

@@ -130,7 +130,7 @@ Page({
       date: rec ? rec.date : (q.date || store.todayKey()),
       type: rec ? rec.type : 'ice',
       mode: rec ? rec.mode : 'self',
-      duration: String(rec ? rec.duration : 90),
+      duration: String(rec ? rec.duration : (Number((store.load(store.KEYS.meta) || {}).lastDurIce) || 90)),
       timeStart: (rec && rec.time ? String(rec.time).split('-')[0] : '') || '',
       timeEnd: (rec && rec.time ? String(rec.time).split('-')[1] : '') || '',
       startIdx: timeToSlots((rec && rec.time ? String(rec.time).split('-')[0] : '') || ''),
@@ -146,7 +146,7 @@ Page({
       coach: rec ? (rec.coach || '') : '',
       // 单选：老记录里如果存过多项，只取第一项（不打开这条记录就不会被动过）
       landCats: rec && Array.isArray(rec.landCats) ? rec.landCats.slice(0, 1) : [],
-      units: rec ? (Number(rec.units) || 2) : 2,
+      units: rec ? (Number(rec.units) || 2) : (Number((store.load(store.KEYS.meta) || {}).lastUnits) || 2),
       lessonForm: rec ? (rec.lessonForm || 'one') : ((store.load(store.KEYS.meta) || {}).lastLessonForm || 'one')
     });
     if (rec && rec.type === 'rehab') {
@@ -789,15 +789,38 @@ Page({
   setType(e) {
     const k = e.currentTarget.dataset.k;
     // 陆地/上冰都支持「自己训练 / 上课」，切换类型不再强制方式；时长档位按类型给
-    const isLand = k === 'land';
+    const isLand = (k === 'land' || k === 'rehab');
     const opts = (isLand ? this.data.durOptionsLand : this.data.durOptionsIce).slice();
-    const cur = Number(this.data.duration);
+    let cur = Number(this.data.duration);
+    // 新建记录时，切过去就用"上次这类训练的时长"（编辑老记录则保持原值不动）
+    if (!this.data.id) {
+      const meta = store.load(store.KEYS.meta) || {};
+      if (isLand) cur = Number(meta.lastDurLand) || 90;
+      else if (this.data.mode === 'self') cur = Number(meta.lastDurIce) || 90;
+    }
     if (opts.indexOf(cur) < 0) opts.push(cur);
     opts.sort((a, b) => a - b);
-    this.setData({ type: k, durOptions: opts }, () => { this.refreshLandCats(); this.syncPicks(true); });
+    this.setData({ type: k, durOptions: opts, duration: String(cur) },
+      () => { this.refreshLandCats(); this.syncPicks(true); });
   },
   setMode(e) {
-    this.setData({ mode: e.currentTarget.dataset.k }, () => this.syncPicks(true));
+    const k = e.currentTarget.dataset.k;
+    const patch = { mode: k };
+    // 新建记录：切到冰课用"上次的节数"（时长由节数算）；切回自己练用"上次的时长"
+    if (!this.data.id) {
+      const meta = store.load(store.KEYS.meta) || {};
+      const isLand = (this.data.type === 'land' || this.data.type === 'rehab');
+      if (k === 'lesson' && !isLand) {
+        patch.units = Number(meta.lastUnits) || 2;
+      } else if (k === 'self') {
+        const d = Number(isLand ? meta.lastDurLand : meta.lastDurIce) || 90;
+        const opts = (isLand ? this.data.durOptionsLand : this.data.durOptionsIce).slice();
+        if (opts.indexOf(d) < 0) opts.push(d);
+        patch.duration = String(d);
+        patch.durOptions = opts.sort((a, b) => a - b);
+      }
+    }
+    this.setData(patch, () => { this.syncPicks(true); this.syncLessonDuration(); });
     // 方式变了，时间提示要重算（自己训练会自动按时长，上课按节数校验）
     this.syncTime('mode');
   },
@@ -939,6 +962,19 @@ Page({
     this.setData({ [k]: e.detail.value });
   },
 
+  // 记住这次用的时长 / 节数：下次新建直接用（省得每次都改）
+  //   冰课记节数（时长由节数算）；陆地记时长；冰上自己练记时长
+  rememberLastPicks() {
+    try {
+      const meta = store.load(store.KEYS.meta) || {};
+      const isLand = (this.data.type === 'land' || this.data.type === 'rehab');
+      if (this.data.mode === 'lesson' && !isLand) meta.lastUnits = Number(this.data.units) || 2;
+      else if (isLand) meta.lastDurLand = Number(this.data.duration) || 90;
+      else meta.lastDurIce = Number(this.data.duration) || 90;
+      store.save(store.KEYS.meta, meta);
+    } catch (e) {}
+  },
+
   save() {
     const { id, date, type, mode, duration, content, coach, units, lessonForm, timeStart, timeEnd } = this.data;
     if (!date) { wx.showToast({ title: '请选择日期', icon: 'none' }); return; }
@@ -970,6 +1006,7 @@ Page({
     if (i > -1) records[i] = Object.assign({}, records[i], rec);
     else records.push(rec);
     store.saveRecords(records);
+    this.rememberLastPicks();
     wx.showToast({ title: '已保存' });
     setTimeout(() => wx.navigateBack(), 300);
   },

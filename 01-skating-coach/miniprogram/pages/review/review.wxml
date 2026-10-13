@@ -64,6 +64,14 @@
       <view class="st-note" wx:if="{{stats.structure.landUncat}}">陆地共 {{stats.structure.landTotal}} 次，其中 {{stats.structure.landUncat}} 次没选内容，没算进去。</view>
     </view>
 
+    <view class="rv-card" wx:if="{{stats.coaches.length}}">
+      <view class="rv-lb">教练 / 老师（本月）</view>
+      <view class="coach-row" wx:for="{{stats.coaches}}" wx:key="name">
+        <text class="coach-n">{{item.name}}</text>
+        <text class="coach-c">{{item.n}} 次<text class="coach-split" wx:if="{{item.ice && item.land}}">（冰课 {{item.ice}} · 陆地 {{item.land}}）</text></text>
+      </view>
+    </view>
+
     <view class="rv-card">
       <view class="rv-lb">类型分布</view>
       <view class="rv-row">

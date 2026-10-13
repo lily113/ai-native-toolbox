@@ -1,6 +1,7 @@
 <view class="page">
   <view class="home-head">
     <view class="brand">⛸️ 花样滑冰训练</view>
+    <view class="gear" bindtap="goSearch">🔍</view>
     <view class="gear" bindtap="goSettings">⚙️</view>
   </view>
 
@@ -22,9 +23,10 @@
         <view class="ov-num">{{ov.monthMin}}<text class="ov-unit">分</text></view><view class="ov-lb">上冰时长</view>
       </view>
       <view class="ov-item" bindtap="goReview2">
-        <view class="ov-num">{{ov.allLesson}}<text class="ov-unit">次</text></view><view class="ov-lb">累计冰课</view>
+        <view class="ov-num">{{ov.monthLesson}}<text class="ov-unit">次</text></view><view class="ov-lb">累计冰课</view>
       </view>
     </view>
+    <view class="ov-since" wx:if="{{ov.sinceIceText}}">⛸️ {{ov.sinceIceText}}</view>
     <view class="ov-exam {{ov.examCls}}" wx:if="{{ov.examCd}}" bindtap="goExams">
       <text class="ov-exam-t">🎓 {{ov.examCd}}</text>
       <text class="ov-exam-go">去看 ›</text>
@@ -53,7 +55,7 @@
     <text class="mh-btn" bindtap="switchMonth" data-dir="next">›</text>
   </view>
 
-  <view class="cal">
+  <view class="cal" bindtouchstart="onCalTouchStart" bindtouchend="onCalTouchEnd">
     <view class="cal-wd" wx:for="{{week}}" wx:key="index">{{item}}</view>
     <view class="cal-cell {{item.other ? 'other' : ''}} {{item.today ? 'today' : ''}} {{item.sel ? 'sel' : ''}} {{!item.other && item.wd >= 5 ? 'wknd' : ''}}"
           wx:for="{{cells}}" wx:key="index" bindtap="selectDay" data-key="{{item.key}}">

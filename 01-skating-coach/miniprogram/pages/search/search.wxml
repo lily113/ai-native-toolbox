@@ -1,0 +1,34 @@
+<view class="page">
+  <view class="s-bar">
+    <input class="s-input" value="{{kw}}" bindinput="onInput" focus="{{true}}"
+           confirm-type="search" placeholder="动作 / 组合 / 考级 / 内容 / 笔记 / 教练" maxlength="30" />
+    <view class="s-clear" wx:if="{{kw}}" catchtap="clear">×</view>
+  </view>
+
+  <!-- 命中动作名时先给结论：练过几次、上次什么时候 -->
+  <view class="s-sum" wx:if="{{summary}}">
+    <view class="s-sum-t">{{summary.name}}</view>
+    <view class="s-sum-s" wx:if="{{summary.multi}}">下面列的是记录，点进去能改</view>
+    <block wx:elif="{{summary.n}}">
+      <view class="s-sum-s">练过 {{summary.n}} 次<text wx:if="{{summary.last}}"> · 上次 {{summary.last}}</text></view>
+      <view class="s-sum-s dim" wx:if="{{summary.days >= 0}}">{{summary.days === 0 ? '就是今天' : ('距今 ' + summary.days + ' 天')}}</view>
+    </block>
+    <view class="s-sum-s" wx:else>还没练过这个动作</view>
+  </view>
+
+  <view class="s-count" wx:if="{{searched}}">找到 {{total}} 条记录</view>
+
+  <view class="s-list">
+    <view class="s-item" wx:for="{{results}}" wx:key="id" bindtap="open" data-id="{{item.id}}">
+      <view class="s-top">
+        <text class="s-date">{{item.date}}</text>
+        <text class="s-type">{{item.typeEmoji}} {{item.typeName}} · {{item.modeName}}</text>
+        <text class="s-dur" wx:if="{{item.duration}}">{{item.duration}} 分</text>
+      </view>
+      <view class="s-hits">{{item.hitText}}</view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{searched && !total}}">没找到。试试动作名、考级级别、笔记里的词，或者教练的名字。</view>
+  <view class="empty" wx:if="{{!searched}}">输入关键词开始搜。比如「后内结环」「步法四级」「软开」「张教练」。</view>
+</view>
