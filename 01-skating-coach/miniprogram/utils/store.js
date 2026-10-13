@@ -1,4 +1,4 @@
-const { APP_VERSION, TYPES, MODES, DEFAULT_MOVES, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES, EXAM_SECTIONS, EXAM_KINDS, SYLLABUS } = require('./const');
+const { APP_VERSION, TYPES, MODES, DEFAULT_MOVES, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES, EXAM_SECTIONS, EXAM_KINDS, SYLLABUS, LAND_CATS } = require('./const');
 
 const KEYS = {
   records: 'figure_skating_planner_records_v1',
@@ -50,6 +50,9 @@ function normalizeRecord(r) {
     time: r.time || '',
     duration: Number(r.duration) || 0,
     content: r.content || '',
+    // 陆地/舞蹈训练的内容分类（多选，存 id）：芭蕾基训/古典舞基训/身韵/剧目/软开/技巧…
+    // ⚠️ 和 coach 一样，白名单式的 normalizeRecord 必须显式列出，否则读一次就没了
+    landCats: Array.isArray(r.landCats) ? r.landCats.slice() : [],
     // 上课教练（可选）：换教练、多人轮课时有用。⚠️ 这里必须显式列出来，
     // 否则 normalizeRecord 会把没列出的字段丢掉（读一次就没了）。
     coach: typeof r.coach === 'string' ? r.coach : '',
@@ -535,6 +538,63 @@ function mergeMoveLibraries(local, incoming) {
 function dedupeMoves(moves) {
   return mergeMoveLibraries([], moves).moves;
 }
+// ---------- 陆地/舞蹈训练内容 ----------
+function landCatName(id) {
+  const c = LAND_CATS.filter(x => x.id === id)[0];
+  if (c) return c.name;
+  const custom = load(KEYS.landCats);
+  const c2 = (Array.isArray(custom) ? custom : []).filter(x => x.id === id)[0];
+  return c2 ? c2.name : '';
+}
+// 陆地内容按"包含该类的记录数"统计（一条记录可能算多类，所以各项相加会大于总次数）
+function landStats(recs) {
+  const out = {};
+  LAND_CATS.forEach(c => { out[c.id] = { id: c.id, name: c.name, n: 0 }; });
+  let uncategorized = 0, landTotal = 0;
+  (recs || []).forEach(r => {
+    if (r.type !== 'land' && r.type !== 'rehab') return;
+    landTotal++;
+    const ids = Array.isArray(r.landCats) ? r.landCats : [];
+    if (!ids.length) { uncategorized++; return; }
+    ids.forEach(id => { if (out[id]) out[id].n++; else out[id] = { id: id, name: landCatName(id) || id, n: 1 }; });
+  });
+  return {
+    total: landTotal,
+    uncategorized: uncategorized,
+    list: Object.keys(out).map(k => out[k]).filter(x => x.n > 0).sort((a, b) => b.n - a.n)
+  };
+}
+// 冰上：按"这次勾的动作所属分类"统计包含次数
+function iceCatStats(recs) {
+  const catOf = {};
+  ensureMoves().forEach(m => { catOf[m.id] = validCat(m.category); });
+  const drillMove = {};
+  const out = {};
+  let iceTotal = 0, noMove = 0;
+  (recs || []).forEach(r => {
+    if (r.type !== 'ice') return;
+    iceTotal++;
+    const ids = {};
+    (r.moves || []).forEach(id => { if (catOf[id]) ids[catOf[id]] = 1; });
+    (r.drills || []).forEach(did => {
+      const f = drillById(did);
+      if (f) ids[validCat(f.move.category)] = 1;
+    });
+    const keys = Object.keys(ids);
+    if (!keys.length) { noMove++; return; }
+    keys.forEach(k => {
+      const nm = catName(k) || '其他';
+      out[k] = out[k] || { id: k, name: nm, n: 0 };
+      out[k].n++;
+    });
+  });
+  return {
+    total: iceTotal,
+    noMove: noMove,
+    list: Object.keys(out).map(k => out[k]).sort((a, b) => b.n - a.n)
+  };
+}
+
 // ---------- 动作练习统计 ----------
 // 从训练记录里算：每个动作练过几次、最近一次是哪天、哪个组合最近练过。
 // 数据本来就有（记录里存着 moves / drills 的 id），以前只在记录页内部用过一次，
@@ -1083,7 +1143,7 @@ module.exports = {
   normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes, migrateLessonForm, recordLines,
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
-  CAT_FALLBACK, DEFAULT_CATS,
+  CAT_FALLBACK, DEFAULT_CATS, LAND_CATS, landCatName, landStats, iceCatStats,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus, setMoveStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey

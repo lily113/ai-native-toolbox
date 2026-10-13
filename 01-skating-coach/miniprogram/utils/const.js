@@ -1,6 +1,6 @@
 // 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
-const APP_VERSION = '2026.10.08.38';
+const APP_VERSION = '2026.10.08.39';
 
 // ---------- 对外发布的功能开关 ----------
 // 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
@@ -27,6 +27,20 @@ const DEFAULT_CATS = [
   { id: 'topic', name: '专题练习' },
   { id: 'other', name: '其他' }
 ];
+// 陆地/舞蹈训练的内容分类（挂在**记录**上，不进动作库——按用户口径：
+// 陆地训练用不上动作库，但想知道"这个月舞蹈练了几次、力量练了几次"）。
+// 清单按用户给的：芭蕾基训 / 古典舞基训 / 身韵 / 剧目 / 软开 / 技巧 + 陆地模拟 / 健身房力量
+const LAND_CATS = [
+  { id: 'ballet', name: '芭蕾基训' },
+  { id: 'classical', name: '古典舞基训' },
+  { id: 'shenyun', name: '身韵' },
+  { id: 'repertoire', name: '剧目' },
+  { id: 'flex', name: '软开' },
+  { id: 'skills', name: '技巧' },
+  { id: 'sim', name: '陆地模拟' },
+  { id: 'gym', name: '健身房力量' }
+];
+
 const CAT_FALLBACK = 'other';   // 兜底分类：固定存在且排在最后，不可删除
 // 首次升级到「可编辑分类」时自动补进动作库的预置动作
 //   专题练习 = 串 / 组 / 综合类，命名统一带 串 / 练习 / 组合 后缀，与其他板块区分
@@ -462,5 +476,5 @@ const SYLLABUS = [
 module.exports = {
   APP_VERSION, POSE_ENABLED, TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
   DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
-  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS, SUBSCRIBE_TMPL
+  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS, SUBSCRIBE_TMPL, LAND_CATS
 };

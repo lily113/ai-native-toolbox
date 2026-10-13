@@ -83,6 +83,7 @@
     <view class="rec-card {{item.typeClass}}" wx:for="{{dayStats}}" wx:key="id" bindtap="editRecord" data-id="{{item.id}}">
       <view class="rec-top">
         <view class="rec-type">{{item.typeEmoji}} {{item.typeName}}<text class="rec-mode"> · {{item.modeName}}{{item.unitsText}}{{item.formText}}</text></view>
+        <view class="rec-land" wx:if="{{item.landText}}">🩰 {{item.landText}}</view>
         <view class="rec-status {{item.done ? 'ok' : 'not'}}">{{item.statusText}}</view>
       </view>
       <view class="rec-lines" wx:if="{{item.contentLines.length}}">
