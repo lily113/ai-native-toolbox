@@ -1,6 +1,6 @@
 // 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
-const APP_VERSION = '2026.10.08.41';
+const APP_VERSION = '2026.10.08.42';
 
 // ---------- 对外发布的功能开关 ----------
 // 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
@@ -30,11 +30,21 @@ const DEFAULT_CATS = [
 // 陆地/舞蹈训练的内容分类（挂在**记录**上，不进动作库——按用户口径：
 // 陆地训练用不上动作库，但想知道"这个月舞蹈练了几次、力量练了几次"）。
 // 清单按用户给的：芭蕾基训 / 古典舞基训 / 身韵 / 剧目 / 软开 / 技巧 + 陆地模拟 / 健身房力量
-// 陆地 / 舞蹈「今天练了什么」的预置内容（10 项）。
-// 用户一旦在「内容管理」里改过，就以他本机那份为准（见 store.landCats()）；
-// 这里的 id 是稳定键，改 name 不会影响历史记录。
-// 跳转翻 / 毯功 是两个独立项；力量 / 运动康复 也是两个独立项（曾经各并成一项过）。
+// 陆地 / 舞蹈「今天练了什么」的预置内容（只放最常用的 4 项）。
+// 其他内容（基训 / 身韵 / 剧目 / 跳转翻 / 毯功 / 运动康复 …）由用户自己在
+// 「陆地 / 舞蹈内容」页里加——不同舞种要练的东西差太多，预置列长了反而碍事。
+// 用户改过之后以他本机那份为准（见 store.landCats()）；id 是稳定键，改 name 不影响历史记录。
 const LAND_CATS = [
+  { id: 'flex', name: '软开' },
+  { id: 'ballet', name: '芭蕾' },
+  { id: 'sim', name: '陆地模拟' },
+  { id: 'gym', name: '力量' }
+];
+
+// 已知名字表：只用来把历史记录里的 id 翻回中文，不再出现在可选列表里。
+// 这些 id 曾经是预置、或者用户可能已经用过——记录里出现了就得能显示名字，
+// 不能因为"预置里删掉了"就让老记录显示成 skills / tumbling 这种英文 id。
+const LAND_CAT_KNOWN = [
   { id: 'ballet', name: '芭蕾' },
   { id: 'classical', name: '基训' },
   { id: 'shenyun', name: '身韵' },
@@ -46,7 +56,6 @@ const LAND_CATS = [
   { id: 'gym', name: '力量' },
   { id: 'rehab', name: '运动康复' }
 ];
-
 const CAT_FALLBACK = 'other';   // 兜底分类：固定存在且排在最后，不可删除
 // 首次升级到「可编辑分类」时自动补进动作库的预置动作
 //   专题练习 = 串 / 组 / 综合类，命名统一带 串 / 练习 / 组合 后缀，与其他板块区分
@@ -482,5 +491,5 @@ const SYLLABUS = [
 module.exports = {
   APP_VERSION, POSE_ENABLED, TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
   DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
-  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS, SUBSCRIBE_TMPL, LAND_CATS
+  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS, SUBSCRIBE_TMPL, LAND_CATS, LAND_CAT_KNOWN
 };
