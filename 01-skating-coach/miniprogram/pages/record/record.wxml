@@ -54,7 +54,14 @@
       <view class="time-hint" wx:if="{{timeHint}}">{{timeHint}}</view>
     </view>
 
-    <block wx:if="{{mode === 'lesson'}}">
+    <!-- 教练：只要是上课就填（冰课、陆地/舞蹈课都要） -->
+    <view class="field" wx:if="{{mode === 'lesson'}}">
+      <view class="field-label">教练（可选）</view>
+      <input class="input" value="{{coach}}" bindinput="onCoach" placeholder="跟谁上的课，例如：张教练" maxlength="20" />
+    </view>
+
+    <!-- 冰课专属：节数（1 节 = 30 分钟）+ 上课形式。陆地/舞蹈课是团课，没有这两样 -->
+    <block wx:if="{{mode === 'lesson' && type === 'ice'}}">
       <view class="field">
         <view class="field-label">节数（1 节 = 30 分钟，时长自动算）</view>
         <view class="seg">
@@ -63,9 +70,7 @@
         </view>
       </view>
       <view class="field">
-        <view class="field-label">教练（可选）</view>
-      <input class="input" value="{{coach}}" bindinput="onCoach" placeholder="跟谁上的课，例如：张教练" maxlength="20" />
-      <view class="field-label">上课形式</view>
+        <view class="field-label">上课形式</view>
         <view class="seg">
           <view class="seg-btn {{lessonForm == item.k ? 'active' : ''}}" wx:for="{{formOptions}}" wx:key="k"
                 bindtap="setLessonForm" data-k="{{item.k}}">{{item.n}}</view>
@@ -77,6 +82,7 @@
       </view>
     </block>
 
+    <!-- 时长：冰课由节数自动算（上面那块）；自己训练 / 陆地舞蹈课都直接选 -->
     <view class="field" wx:else>
       <view class="field-label">时长（分钟）</view>
       <view class="seg">

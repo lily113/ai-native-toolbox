@@ -16,13 +16,13 @@
   <view class="ov card" wx:if="{{ov && !firstRun}}">
     <view class="ov-row">
       <view class="ov-item" bindtap="goReview2">
-        <view class="ov-num">{{ov.monthN}}</view><view class="ov-lb">本月训练</view>
+        <view class="ov-num">{{ov.monthN}}</view><view class="ov-lb">本月上冰</view>
       </view>
       <view class="ov-item" bindtap="goReview2">
-        <view class="ov-num">{{ov.monthMin}}<text class="ov-unit">分</text></view><view class="ov-lb">本月时长</view>
+        <view class="ov-num">{{ov.monthMin}}<text class="ov-unit">分</text></view><view class="ov-lb">上冰时长</view>
       </view>
       <view class="ov-item" bindtap="goReview2">
-        <view class="ov-num">{{ov.iceN}}<text class="ov-unit">/{{ov.lessonN}}</text></view><view class="ov-lb">上冰 / 上课</view>
+        <view class="ov-num">{{ov.lessonN}}</view><view class="ov-lb">其中冰课</view>
       </view>
     </view>
     <view class="ov-goal" wx:if="{{ov.goal}}">
@@ -74,9 +74,9 @@
   </view>
 
   <view class="stats">
-    <view class="stat"><view class="stat-num">{{dayStats.length}}</view><view class="stat-label">当日记录</view></view>
-    <view class="stat"><view class="stat-num">{{dayMinutes}}</view><view class="stat-label">分钟</view></view>
-    <view class="stat"><view class="stat-num">{{dayLesson}}</view><view class="stat-label">上课</view></view>
+    <view class="stat"><view class="stat-num">{{dayIce}}</view><view class="stat-label">今日上冰</view></view>
+    <view class="stat"><view class="stat-num">{{dayMinutes}}</view><view class="stat-label">上冰分钟</view></view>
+    <view class="stat"><view class="stat-num">{{dayLesson}}</view><view class="stat-label">冰课</view></view>
   </view>
 
   <view class="recs">
