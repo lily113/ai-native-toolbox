@@ -146,4 +146,7 @@
   color: #b45309; font-size: 24rpx; }
 
 /* 陆地/舞蹈训练内容（记录卡第二行） */
-.rec-land { font-size: 12px; color: #7c3aed; margin-top: 3px; line-height: 1.4; }
+/* 陆地 / 舞蹈练了什么：淡紫小标签，挂在类型行下面自己一行 */
+.rec-land { display: inline-block; margin-top: 5px; font-size: 11.5px; font-weight: 600;
+  color: #6d28d9; background: #f6f2ff; border: 1px solid #e7dcff; border-radius: 6px;
+  padding: 1px 8px; line-height: 1.6; letter-spacing: .2px; }
