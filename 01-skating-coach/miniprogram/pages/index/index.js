@@ -124,7 +124,7 @@ Page({
       // 首页统计只算上冰：陆地是冰面的辅助，不进这些数字（陆地去「回顾」里看）
       //   本月上冰用「天数」而不是「次数」—— 同一天可能先自己练一会儿、再上一节冰课，
       //   按次数会把一天算成两次，看不出"这个月到底上了几次冰"。
-      let monthDays = 0, monthMin = 0, weekMin = 0;
+      let monthDays = 0, monthMin = 0, weekMin = 0, monthLesson = 0;
       const monthDaySet = {};
       recs.forEach(r => {
         if (r.type !== 'ice') return;
@@ -133,13 +133,23 @@ Page({
         if (d.slice(0, 7) === ym) {
           monthDaySet[d] = 1;
           monthMin += dur;
+          if (r.mode === 'lesson') monthLesson++;   // 当月累计冰课（界面上的「累计冰课」就是这个）
         }
         if (d >= mondayKey && d <= day) weekMin += dur;
       });
       monthDays = Object.keys(monthDaySet).length;
-      // 累计冰课：所有上冰课次数 + 基线（和「回顾」里的累计上课同一套算法，两处数字必须对得上）
-      const lessonBase = Number((store.load(store.KEYS.meta) || {}).lessonBase) || 0;
-      const allLesson = recs.filter(r => r.type === 'ice' && r.mode === 'lesson').length + lessonBase;
+
+      // 距上次上冰多少天：连着练陆地的时候提醒一下"好久没上冰了"
+      // （只看已经发生的：日期 <= 今天的最近一条上冰记录）
+      const todayK = store.todayKey();
+      const iceDates = recs.filter(r => r.type === 'ice' && r.date && r.date <= todayK).map(r => r.date).sort();
+      let sinceIce = -1;
+      if (iceDates.length) {
+        const last = iceDates[iceDates.length - 1];
+        const d1 = store.keyToDate(last), d0 = store.keyToDate(todayK);
+        sinceIce = Math.round((d0 - d1) / 86400000);
+      }
+      const sinceIceText = sinceIce < 0 ? '' : (sinceIce === 0 ? '今天上冰了' : ('距上次上冰 ' + sinceIce + ' 天'));
 
       // 周均（近 4 周）与"连续达标周"：以每周总时长 >= 目标 算达标
       const weeks = [];
@@ -199,7 +209,8 @@ Page({
 
       this.setData({
         ov: {
-          monthDays: monthDays, monthMin: monthMin, allLesson: allLesson,
+          monthDays: monthDays, monthMin: monthMin, monthLesson: monthLesson,
+          sinceIceText: sinceIceText, sinceIce: sinceIce,
           weekMin: weekMin, goal: goal, weekPct: weekPct, avg4: avg4, streak: streak,
           examCd: examCd, examCls: examCls, examLabel: examLabel,
           staleN: staleN, staleName: staleName
@@ -229,9 +240,31 @@ Page({
   },
 
   switchMonth(e) {
-    const dir = e.currentTarget.dataset.dir;
-    const d = new Date(this.data.year, this.data.month + (dir === 'prev' ? -1 : 1), 1);
+    this.moveMonth(e.currentTarget.dataset.dir === 'prev' ? -1 : 1);
+  },
+
+  moveMonth(step) {
+    const d = new Date(this.data.year, this.data.month + step, 1);
     this.buildMonth(d.getFullYear(), d.getMonth());
+  },
+
+  // 日历左右滑动切月（手机上比点 ‹ › 顺手多了）
+  //   竖向滑动 / 轻微抖动都不算 —— 免得滚页面时月份乱跳
+  onCalTouchStart(e) {
+    const t = e.touches && e.touches[0];
+    if (!t) { this._calTouch = null; return; }
+    this._calTouch = { x: t.clientX, y: t.clientY };
+  },
+  onCalTouchEnd(e) {
+    const s0 = this._calTouch;
+    this._calTouch = null;
+    if (!s0) return;
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    if (!t) return;
+    const dx = t.clientX - s0.x, dy = t.clientY - s0.y;
+    if (Math.abs(dx) < 60) return;                       // 划得太短，多半是误触
+    if (Math.abs(dx) < Math.abs(dy) * 1.5) return;       // 主要在竖向滚页面
+    this.moveMonth(dx < 0 ? 1 : -1);                     // 往左划 = 看下个月
   },
 
   buildMonth(y, m) {
@@ -446,6 +479,9 @@ Page({
   },
   goReview() {
     wx.navigateTo({ url: '/pages/review/review' });
+  },
+  goSearch() {
+    wx.navigateTo({ url: '/pages/search/search' });
   },
   goSettings() {
     wx.navigateTo({ url: '/pages/settings/settings' });

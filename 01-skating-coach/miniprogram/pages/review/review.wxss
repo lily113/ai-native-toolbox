@@ -62,3 +62,9 @@
 .sp-k { font-size: 13px; color: #334155; }
 .sp-v { font-size: 13.5px; font-weight: 700; color: #075985; }
 .sp-note { font-size: 11.5px; color: #94a3b8; margin-top: 6px; line-height: 1.5; }
+
+/* 教练 / 老师（本月） */
+.coach-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.coach-n { font-size: 13.5px; color: #0c4a6e; font-weight: 600; }
+.coach-c { font-size: 12.5px; color: #64748B; }
+.coach-split { color: #94a3b8; }

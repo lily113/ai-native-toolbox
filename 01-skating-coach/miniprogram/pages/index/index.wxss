@@ -136,6 +136,9 @@
 .ov-num { font-size: 40rpx; font-weight: 700; color: #0369a1; }
 .ov-unit { font-size: 22rpx; font-weight: 400; color: #64748b; margin-left: 2rpx; }
 .ov-lb { margin-top: 4rpx; font-size: 22rpx; color: #64748b; }
+/* 距上次上冰：连着练陆地时的一句提醒 */
+.ov-since { margin-top: 12rpx; font-size: 22rpx; color: #64748b; }
+
 /* 考级倒计时：只在设了日期、且还没考的时候出现 */
 .ov-exam { display: flex; align-items: center; justify-content: space-between; gap: 12rpx;
   margin-top: 16rpx; padding: 12rpx 16rpx; border-radius: 12rpx;
