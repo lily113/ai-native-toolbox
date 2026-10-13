@@ -1,4 +1,4 @@
-const { APP_VERSION, TYPES, MODES, DEFAULT_MOVES, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES, EXAM_SECTIONS, EXAM_KINDS, SYLLABUS, LAND_CATS } = require('./const');
+const { APP_VERSION, TYPES, MODES, DEFAULT_MOVES, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES, EXAM_SECTIONS, EXAM_KINDS, SYLLABUS, LAND_CATS, LAND_CAT_KNOWN } = require('./const');
 
 const KEYS = {
   records: 'figure_skating_planner_records_v1',
@@ -586,14 +586,15 @@ function rememberLandCatGone(cat) {
   g.push({ id: cat.id, name: cat.name });
   save(KEYS.landCatsGone, g);
 }
-// 找名字：当前列表 → 删掉的名字 → 预置（预置 id 永远能查回中文）
+// 找名字：当前列表 → 删掉的名字 → 已知名字表
+// （已知名字表让"老记录里出现过、但已经不在预置里"的 id 也能显示中文，不会露出 skills / tumbling）
 function landCatName(id) {
   const cur = landCats().filter(x => x.id === id)[0];
   if (cur) return cur.name;
   const gone = landCatsGone().filter(x => x.id === id)[0];
   if (gone) return gone.name;
-  const preset = LAND_CATS.filter(x => x.id === id)[0];
-  return preset ? preset.name : '';
+  const known = LAND_CAT_KNOWN.filter(x => x.id === id)[0];
+  return known ? known.name : '';
 }
 // 有没有记录在用这个分类（删除前提示用）
 function landCatUsage(id) {

@@ -61,7 +61,7 @@ Page({
     wx.showModal({
       title: '新增内容',
       editable: true,
-      placeholderText: '如：现代舞 / 体能 / 冰上形体',
+      placeholderText: '如：基训 / 身韵 / 剧目 / 毯功',
       success: r => {
         if (!r.confirm) return;
         const name = String(r.content || '').trim();
