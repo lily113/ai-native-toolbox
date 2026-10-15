@@ -170,6 +170,10 @@ Page({
     wx.setClipboardData({ data: m.text || '' });
   },
 
+  goPlan() {
+    wx.navigateTo({ url: '/pages/aiplan/aiplan' });
+  },
+
   send() {
     const q = (this.data.input || '').trim();
     if (!q || this.data.sending) return;

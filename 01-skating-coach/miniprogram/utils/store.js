@@ -968,6 +968,36 @@ function moveUsage() {
   return out;
 }
 // 给动作列表/详情用的一行摘要
+// 荒了的练习：练过、但超过 N 天没碰（或加了超过 N 天从没练过）。已掌握的不再提醒。
+//   —— 这条规则原先只写在首页里；AI 周计划也要用，所以收到这儿，避免两处各写一份。
+function staleMoves(days) {
+  const limit = Number(days) > 0 ? Number(days) : 30;
+  const usage = moveUsage();
+  const out = [];
+  ensureMoves().forEach(m => {
+    const u = usage[m.id];
+    if (!u || !u.last) return;                       // 整个动作从没练过：不算荒
+    if (!u.byDrill) {
+      if (!u.moveMastered && Number(u.days) > limit) {
+        out.push({ moveId: m.id, drillId: '', label: m.name + '（整个动作）', name: m.name, drill: '', days: Number(u.days), never: false });
+      }
+      return;
+    }
+    Object.keys(u.drills || {}).forEach(did => {
+      const d = u.drills[did];
+      if (d.mastered) return;
+      const stale = (d.last && Number(d.days) > limit) || (!d.last && Number(d.addedDays) > limit);
+      if (!stale) return;
+      out.push({
+        moveId: m.id, drillId: did,
+        label: m.name + ' · ' + d.name, name: m.name, drill: d.name,
+        days: d.last ? Number(d.days) : Number(d.addedDays), never: !d.last
+      });
+    });
+  });
+  return out.sort((a, b) => b.days - a.days);
+}
+
 function moveUsageText(u) {
   if (!u || !u.n) return '还没练过';
   const d = Number(u.days);
@@ -1423,7 +1453,7 @@ module.exports = {
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS, LAND_CATS, landCats, saveLandCats, landCatName, landCatsGone, rememberLandCatGone, forgetLandCatsGone, landCatUsage, landStats, iceCatStats,
   searchRecords, setUndo, peekUndo, clearUndo, undoDelete,
-  ensureSkates, saveSkates, skateOf, activeSkate, skateUsage, skateStats, feelStats,
+  ensureSkates, saveSkates, skateOf, activeSkate, skateUsage, skateStats, feelStats, staleMoves,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus, setMoveStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey

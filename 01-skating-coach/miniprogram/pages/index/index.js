@@ -212,27 +212,10 @@ Page({
         examCls = (d <= 7) ? 'soon' : '';      // 一周之内用更醒目的颜色
       })();
 
-      // 久未练习：动作库里有、但超过 30 天没碰过的
-      // 组合级：数一数"荒了的练习组合"（练过且超 30 天，或加了超 30 天没练过）
-      let staleN = 0, staleName = '';
-      const usage = store.moveUsage();
-      store.ensureMoves().forEach(m => {
-        const u = usage[m.id];
-        if (!u || !u.last) return;                       // 整个动作从没练过：不算荒
-        if (!u.byDrill) {
-          // 没细分练习组合的动作：按动作本身算（已掌握的跳过）
-          if (!u.moveMastered && Number(u.days) > 30) { staleN++; if (!staleName) staleName = m.name + '（整个动作）'; }
-          return;
-        }
-        Object.keys(u.drills || {}).forEach(did => {
-          const d = u.drills[did];
-          if (d.mastered) return;                        // 已掌握的组合不再提醒
-          const stale = (d.last && Number(d.days) > 30) || (!d.last && Number(d.addedDays) > 30);
-          if (!stale) return;
-          staleN++;
-          if (!staleName) staleName = m.name + ' · ' + d.name;
-        });
-      });
+      // 久未练习：规则收在 store.staleMoves()（AI 周计划页也要用同一份判断）
+      const staleList = store.staleMoves(30);
+      const staleN = staleList.length;
+      const staleName = staleList.length ? staleList[0].label : '';
 
       this.setData({
         ov: {
