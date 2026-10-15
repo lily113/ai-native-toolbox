@@ -17,7 +17,7 @@
   <button class="btn" bindtap="add">＋ 添加纪念日</button>
 
   <!-- 添加/编辑弹层 -->
-  <view class="mask {{editOn ? 'show' : ''}}" bindtap="closeEdit">
+  <view class="mask show" wx:if="{{editOn}}" bindtap="closeEdit">
     <view class="sheet" catchtap="noop">
       <view class="sh-title">{{editId ? '编辑纪念日' : '添加纪念日'}}</view>
       <view class="field">

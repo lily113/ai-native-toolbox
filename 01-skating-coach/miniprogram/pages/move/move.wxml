@@ -71,7 +71,7 @@
   </view>
 
   <!-- 移到哪个动作 弹层 -->
-  <view class="mask {{pickOn ? 'show' : ''}}" bindtap="closePick">
+  <view class="mask show" wx:if="{{pickOn}}" bindtap="closePick">
     <view class="sheet" catchtap="noop">
       <view class="sh-title">移到哪个动作下面</view>
       <view class="muted">已选 {{drillPickN}} 个组合</view>

@@ -60,8 +60,17 @@ page {
   border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 12px; font-size: 15px; background: var(--card); color: var(--text);
 }
-/* 底部弹层里左右各留 16px（=32rpx）：内容宽 = 750 - 64 = 686rpx */
-.sheet .input, .sheet .ta { width: 686rpx; }
+/* 底部弹层里的输入框：除了宽度，再加一条"跟 width 完全无关"的路 ——
+   绝对定位 + left/right: 0 由偏移量决定宽度（绝对定位元素的宽度不由 width 属性决定，
+   也不受"是 inline 还是 block"影响），这样就绕开了微信 input 对宽度的各种怪癖。
+   实测：卡片里的输入框已经好了，弹层里的仍然窄，所以两条路都留着。 */
+.sheet .input-wrap { position: relative; min-height: 52px; }
+/* 只针对"包在 input-wrap 里"的（弹层里也有不包的，比如周目标那个 flex 行，不能受影响） */
+.sheet .input-wrap > .input,
+.sheet .input-wrap > .ta {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  width: auto; flex: none;
+}
 /* 单行输入/日期：加高，方便点按与编辑 */
 .input, .picker { padding: 14px 12px; font-size: 16px; line-height: 1.4; }
 .textarea { min-height: 90px; }
