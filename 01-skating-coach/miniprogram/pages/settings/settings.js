@@ -12,6 +12,8 @@ function loadMetaShare() {
 
 Page({
   data: {
+    goal: 0,
+    goalPresets: [180, 270, 360, 450, 540],
     iceBase: 0,
     lessonBase: 0,
     openid: '',
@@ -40,6 +42,8 @@ Page({
     this.refreshAiStatus();
     this.refreshDataWhere();
     this.setData({
+      // 打开时必须把已有目标读回来：不然输入框显示 0，用户一按「保存目标」就把目标清成 0 了
+      goal: Number(meta.weeklyIceGoal) || 0,
       iceBase: Number(meta.iceBase) || 0,
       lessonBase: Number(meta.lessonBase) || 0,
       openid: app.globalData.openid,
@@ -364,6 +368,25 @@ Page({
       .catch(() => this.setData({ syncStatus: '云端暂无数据（点「上传到云」完成首次）' }));
   },
 
+  // 目标：可选。不设就是 0，首页那条进度不会出现
+  setGoal(e) { this.setData({ goal: e.detail.value }); },
+  quickGoal(e) { this.setData({ goal: Number(e.currentTarget.dataset.v) || 0 }); },
+  saveGoal() {
+    const meta = store.load(store.KEYS.meta) || {};
+    meta.weeklyIceGoal = Number(this.data.goal) || 0;
+    store.save(store.KEYS.meta, meta);
+    wx.showToast({ title: meta.weeklyIceGoal ? '已保存目标' : '已取消目标' });
+  },
+  clearGoal() {
+    const meta = store.load(store.KEYS.meta) || {};
+    meta.weeklyIceGoal = 0;
+    store.save(store.KEYS.meta, meta);
+    this.setData({ goal: 0 });
+    wx.showToast({ title: '已取消目标', icon: 'none' });
+  },
+  goGear() {
+    wx.navigateTo({ url: '/pages/gear/gear' });
+  },
   setIceBase(e) { this.setData({ iceBase: e.detail.value }); },
   setLessonBase(e) { this.setData({ lessonBase: e.detail.value }); },
   saveBase() {

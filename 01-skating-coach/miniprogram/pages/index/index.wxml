@@ -35,19 +35,15 @@
       <text class="ov-exam-t">🎓 {{ov.examCd}}</text>
       <text class="ov-exam-go">去看 ›</text>
     </view>
-    <!-- 目标行整行可点：就地改目标（原来要先跳到「设置」，看进度和改目标分在两个地方） -->
-    <view class="ov-goal">
+    <!-- 目标：没设就整块不出现（不是每个人都需要目标，不该催人设）。
+         设了则整行可点就地改；要新建目标去「设置 → 每周上冰目标（可选）」 -->
+    <view class="ov-goal" wx:if="{{ov.goal}}">
       <view class="ov-goal-top" bindtap="editGoal">
-        <block wx:if="{{ov.goal}}">
-          <text>本周 {{ov.weekMin}} 分钟 · 目标 {{ov.goal}} 分钟<text class="ov-edit">✎</text></text>
-          <text class="ov-pct">{{ov.weekPct}}%</text>
-        </block>
-        <block wx:else>
-          <text>🎯 设一个每周上冰目标 ›</text>
-        </block>
+        <text>本周 {{ov.weekMin}} 分钟 · 目标 {{ov.goal}} 分钟<text class="ov-edit">✎</text></text>
+        <text class="ov-pct">{{ov.weekPct}}%</text>
       </view>
-      <view class="ov-bar" wx:if="{{ov.goal}}"><view class="ov-bar-in" style="width:{{ov.weekPct}}%"></view></view>
-      <view class="ov-goal-sub" wx:if="{{ov.goal}}">近 4 周平均 {{ov.avg4}} 分钟<text wx:if="{{ov.streak}}"> · 已连续 {{ov.streak}} 周达标 🔥</text><text wx:if="{{ov.sinceIceText}}"> · {{ov.sinceIceText}}</text></view>
+      <view class="ov-bar"><view class="ov-bar-in" style="width:{{ov.weekPct}}%"></view></view>
+      <view class="ov-goal-sub">近 4 周平均 {{ov.avg4}} 分钟<text wx:if="{{ov.streak}}"> · 已连续 {{ov.streak}} 周达标 🔥</text><text wx:if="{{ov.sinceIceText}}"> · {{ov.sinceIceText}}</text></view>
     </view>
     <view class="ov-stale" wx:if="{{ov.staleN}}" bindtap="goStaleMoves">
       ⏱ 有 {{ov.staleN}} 项超过 30 天没练（比如「{{ov.staleName}}」）→

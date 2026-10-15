@@ -43,3 +43,16 @@
   background: #dc2626; color: #fff; font-size: 12px; font-weight: 600; }
 .share-block { margin: 10px 0 4px; padding: 12px 4px 4px; border-top: 1px dashed #e2e8f0; }
 .share-block .auto-t { font-size: 14px; color: #0f172a; }
+
+/* 目标是可选项：文案说清"不设也行"，并给一条"去掉"的出路 */
+.goal-unit { flex: none; font-size: 12.5px; color: #64748B; }
+.goal-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.goal-chips .chip { font-size: 13px; color: #075985; background: #e0f2fe; border-radius: 999px; padding: 8px 16px; }
+.goal-chips .chip.on { background: #0284c7; color: #fff; font-weight: 700; }
+.goal-clear { margin-top: 10px; text-align: center; font-size: 12.5px; color: #b91c1c; }
+/* 跳转型的设置项：整行可点 */
+.nav-row { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding: 12px 14px;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+.nav-t { font-size: 14px; font-weight: 600; color: #0284c7; }
+.nav-go { font-size: 18px; color: #94a3b8; }
+.b { font-weight: 700; color: #0369a1; }

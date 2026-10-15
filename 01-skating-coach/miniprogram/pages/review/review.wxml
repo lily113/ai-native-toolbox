@@ -7,6 +7,18 @@
     <text class="rv-btn" bindtap="next">›</text>
   </view>
 
+    <!-- 冰鞋：数字在这儿，管理在下一页 -->
+    <view class="rv-card skate-row" bindtap="goGear">
+      <block wx:if="{{stats.skate}}">
+        <text class="sk-name">🥾 {{stats.skate.name}}</text>
+        <text class="sk-v">{{stats.skate.text}} ›</text>
+      </block>
+      <block wx:else>
+        <text class="sk-name">🥾 冰鞋 / 装备</text>
+        <text class="sk-v">记一双鞋，自动算滑了多少小时 ›</text>
+      </block>
+    </view>
+
   <block wx:if="{{stats.count}}">
     <view class="rv-grid">
       <view class="rv-card big"><view class="rv-num {{stats.countCls}}">{{stats.count}}</view><view class="rv-lb">训练次数</view></view>
@@ -62,18 +74,6 @@
       <view class="st-note" wx:if="{{stats.structure.iceRows.length}}">一次上冰可能练到多个分类（比如既练跳跃又练旋转），所以上冰那几项相加会大于上冰次数。</view>
       <view class="st-note" wx:if="{{stats.structure.iceNoMove}}">有 {{stats.structure.iceNoMove}} 次上冰没勾动作，没算进上面的分类。</view>
       <view class="st-note" wx:if="{{stats.structure.landUncat}}">陆地共 {{stats.structure.landTotal}} 次，其中 {{stats.structure.landUncat}} 次没选内容，没算进去。</view>
-    </view>
-
-    <!-- 冰鞋：数字在这儿，管理在下一页 -->
-    <view class="rv-card skate-row" bindtap="goGear">
-      <block wx:if="{{stats.skate}}">
-        <text class="sk-name">🥾 {{stats.skate.name}}</text>
-        <text class="sk-v">{{stats.skate.text}} ›</text>
-      </block>
-      <block wx:else>
-        <text class="sk-name">🥾 冰鞋 / 装备</text>
-        <text class="sk-v">记一双鞋，自动算滑了多少小时 ›</text>
-      </block>
     </view>
 
     <view class="rv-card" wx:if="{{stats.feel.has}}">
