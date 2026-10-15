@@ -53,9 +53,15 @@ page {
 .input-wrap { display: flex; align-items: center; }
 .input {
   flex: 1; min-width: 0; box-sizing: border-box;
+  /* 兜底宽度：flex 万一在某些机型上对 <input> 不生效，这条也能让它撑开。
+     微信对 <input> 不支持百分比宽度，但 rpx 是"真实数值"，它认。
+     750rpx = 整屏宽；页面左右各 12px 内边距 + 卡片左右各 12px → 内容 = 750 - 96 = 654rpx */
+  width: 654rpx;
   border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 12px; font-size: 15px; background: var(--card); color: var(--text);
 }
+/* 底部弹层里左右各留 16px（=32rpx）：内容宽 = 750 - 64 = 686rpx */
+.sheet .input, .sheet .ta { width: 686rpx; }
 /* 单行输入/日期：加高，方便点按与编辑 */
 .input, .picker { padding: 14px 12px; font-size: 16px; line-height: 1.4; }
 .textarea { min-height: 90px; }
