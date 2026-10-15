@@ -118,8 +118,7 @@
 
 /* 教练 / 老师输入框：名字要看得清 —— 显式给满宽和大字号，
    不靠通用 .input（那个被两处规则覆盖过，宽度容易出意外） */
-.coach-input { min-width: 100%; box-sizing: border-box; min-height: 52px; font-size: 17px;
-  letter-spacing: .3px; }   /* 同上：input 不能用百分比 width */
+.coach-input { min-height: 52px; font-size: 17px; letter-spacing: .3px; }   /* 宽度由 .input-wrap 的 flex 撑 */
 
 /* 冰感 1-5：点一下就完，不占地方 */
 .feel-row { display: flex; gap: 8px; }

@@ -75,7 +75,7 @@
     <view class="sheet" catchtap="noop">
       <view class="sh-title">移到哪个动作下面</view>
       <view class="muted">已选 {{drillPickN}} 个组合</view>
-      <input class="ta pick-q" value="{{pickQuery}}" bindinput="onPickQuery" placeholder="搜索动作名（或组合名）…" confirm-type="search" />
+      <view class="input-wrap"><input class="ta pick-q" value="{{pickQuery}}" bindinput="onPickQuery" placeholder="搜索动作名（或组合名）…" confirm-type="search" /></view>
       <scroll-view scroll-y class="pick-list">
         <view class="pick-row" wx:for="{{pickList}}" wx:for-item="p" wx:key="id" bindtap="doMoveDrill" data-id="{{p.id}}">
           <view class="pick-row-name">{{p.name}}</view>
