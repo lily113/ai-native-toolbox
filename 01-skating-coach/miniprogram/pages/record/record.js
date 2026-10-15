@@ -93,6 +93,11 @@ Page({
     landCats: [],          // 陆地/舞蹈训练内容（单选；仍然用数组存，兼容老记录）
     landCatList: [],       // 供模板渲染（带 checked）
     hidePicks: false,      // 陆地/康复（不分上课/自己练）：不显示动作库和考级，只写笔记
+    // 冰感 1-5（0 = 没记）。只对上冰记录有意义 —— 回答"冰感好的日子距上次上冰几天"
+    feel: 0,
+    feelOptions: [
+      { v: 1, t: '很差' }, { v: 2, t: '差' }, { v: 3, t: '一般' }, { v: 4, t: '好' }, { v: 5, t: '很好' }
+    ],
 
     orphanLines: [], orphanCount: 0,
     units: 2,
@@ -146,6 +151,7 @@ Page({
       coach: rec ? (rec.coach || '') : '',
       // 单选：老记录里如果存过多项，只取第一项（不打开这条记录就不会被动过）
       landCats: rec && Array.isArray(rec.landCats) ? rec.landCats.slice(0, 1) : [],
+      feel: rec ? (Number(rec.feel) || 0) : 0,
       units: rec ? (Number(rec.units) || 2) : (Number((store.load(store.KEYS.meta) || {}).lastUnits) || 2),
       lessonForm: rec ? (rec.lessonForm || 'one') : ((store.load(store.KEYS.meta) || {}).lastLessonForm || 'one')
     });
@@ -658,6 +664,10 @@ Page({
       } else {
         lines.push('时长：' + (this.data.duration || 0) + ' 分钟');
       }
+      if (this.data.type === 'ice' && Number(this.data.feel) > 0) {
+        const fo = (this.data.feelOptions || []).filter(x => x.v === Number(this.data.feel))[0];
+        lines.push('冰感：' + this.data.feel + '/5' + (fo ? '（' + fo.t + '）' : ''));
+      }
       const lc = (this.data.landCats || []).map(id => store.landCatName(id) || id).filter(Boolean);
       if (lc.length) lines.push('内容：' + lc.join('、'));
       const body = String(this.data.content || '').trim();
@@ -704,6 +714,7 @@ Page({
       mode: MODES[src.mode] ? src.mode : 'self',
       coach: String(src.coach || ''),
       landCats: (src.landCats || []).slice(),
+      feel: 0,                                   // 冰感不跟着复制：那是"那天的感受" 
       units: Number(src.units) || 2,
       lessonForm: src.lessonForm || 'one',
       duration: String(dur),
@@ -751,6 +762,12 @@ Page({
       patch.orderRows = [];
     }
     this.setData(patch, () => { if (hidden && clearWhenHidden && had) this.syncContent(); });
+  },
+
+  // 冰感：点一下记下，再点同一个就取消（允许不记）
+  setFeel(e) {
+    const v = Number(e.currentTarget.dataset.v) || 0;
+    this.setData({ feel: (this.data.feel === v) ? 0 : v });
   },
 
   // 陆地训练内容：取用户可编辑的那份列表（store.landCats()），按当前已选打勾。
@@ -992,6 +1009,7 @@ Page({
       coach: mode === 'lesson' ? String(coach || '').trim() : '',
       // 陆地/舞蹈内容只在陆地（和康复）记录上存；冰上记录留空数组
       landCats: (type === 'land' || type === 'rehab') ? (this.data.landCats || []).slice() : [],
+      feel: (type === 'ice') ? (Number(this.data.feel) || 0) : 0,
       content,
       notes: '',
       lessonSummary: '',

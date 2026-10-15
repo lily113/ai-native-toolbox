@@ -92,6 +92,17 @@
       </view>
     </view>
 
+    <!-- 冰感：只对上冰记录问（陆地问"冰感"没意义），一行点一下就完，允许不记 -->
+    <view class="field" wx:if="{{type === 'ice'}}">
+      <view class="field-label">今天的冰感（可选）</view>
+      <view class="feel-row">
+        <view class="feel-btn {{feel == item.v ? 'on' : ''}}" wx:for="{{feelOptions}}" wx:key="v"
+              bindtap="setFeel" data-v="{{item.v}}">
+          <text class="feel-v">{{item.v}}</text><text class="feel-t">{{item.t}}</text>
+        </view>
+      </view>
+    </view>
+
     <view class="field">
       <view class="field-label">训练笔记{{hidePicks ? '（这次练了什么）' : '（可选）'}}<text class="edit-link" bindtap="copyRecordText">📋 复制这次训练</text></view>
       <textarea class="textarea note" value="{{content}}" data-k="content" bindinput="input" auto-height placeholder="{{hidePicks ? '记一下今天练了什么、感觉怎么样、下次要注意的…' : '勾选动作/考级会自动写入条目；这里可补充要点、教练的话、身体状态、下次目标…'}}" maxlength="-1"></textarea>

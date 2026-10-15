@@ -120,3 +120,13 @@
    不靠通用 .input（那个被两处规则覆盖过，宽度容易出意外） */
 .coach-input { width: 100%; box-sizing: border-box; min-height: 52px; font-size: 17px;
   letter-spacing: .3px; }
+
+/* 冰感 1-5：点一下就完，不占地方 */
+.feel-row { display: flex; gap: 8px; }
+.feel-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  padding: 6px 0; border-radius: 12px; background: #f4f8fb; border: 1px solid var(--border); }
+.feel-v { font-size: 17px; font-weight: 700; color: #475569; line-height: 1.2; }
+.feel-t { font-size: 10px; color: #94a3b8; }
+.feel-btn.on { background: #0284c7; border-color: #0284c7; }
+.feel-btn.on .feel-v { color: #fff; }
+.feel-btn.on .feel-t { color: #e0f2fe; }
