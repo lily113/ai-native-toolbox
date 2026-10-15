@@ -11,11 +11,12 @@
 
 .mask { position: fixed; inset: 0; background: rgba(12,74,110,.4); display: flex; align-items: flex-end; opacity: 0; visibility: hidden; transition: opacity .18s; z-index: 30; }
 .mask.show { opacity: 1; visibility: visible; }
-.sheet { width: 100%; background: #f0f9ff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 78vh; overflow: auto; }
+.sheet { box-sizing: border-box; width: 100%; background: #f0f9ff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 78vh; overflow: auto; }
 .sh-title { font-size: 16px; font-weight: 800; color: #0c4a6e; margin-bottom: 12px; }
 .field { margin-bottom: 12px; }
 .field-label { font-size: 12px; font-weight: 600; color: #64748B; margin-bottom: 6px; }
-.input, .picker { width: 100%; box-sizing: border-box; border: 1px solid #cfe8f7; border-radius: 10px; padding: 9px 11px; font-size: 15px; background: #fff; color: #0f172a; }
+/* 只给 picker 设宽度：<input> 在 app.wxss 里已经用 min-width 撑满（百分比 width 对它无效） */
+.picker { width: 100%; box-sizing: border-box; border: 1px solid #cfe8f7; border-radius: 10px; padding: 9px 11px; font-size: 15px; background: #fff; color: #0f172a; }
 .types { display: flex; flex-wrap: wrap; gap: 8px; }
 .type-chip { padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid #cfe8f7; color: #075985; font-size: 13px; }
 .type-chip.active { background: linear-gradient(135deg, #0284c7, #0369a1); color: #fff; border-color: transparent; }

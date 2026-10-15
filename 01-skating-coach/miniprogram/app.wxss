@@ -38,8 +38,18 @@ page {
 .ghost-btn::after { border: none; }
 .field { margin-bottom: 12px; }
 .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
-.input, .textarea, .picker {
+.textarea, .picker {
   width: 100%; box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; font-size: 15px; background: var(--card); color: var(--text);
+}
+/* ⚠️ 微信的 <input> 不吃百分比 width：
+   写了 width: 100% 也只会撑到"文字的宽度"，后面的区域点不着也看不见
+   （用户先后报过两次"框太窄"：上课教练框、冰鞋名字框）。
+   必须用 min-width 撑满，而且**不能同时写 width**。
+   参考：https://cloud.tencent.com.cn/developer/article/1991631 */
+.input {
+  min-width: 100%; box-sizing: border-box;
   border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 12px; font-size: 15px; background: var(--card); color: var(--text);
 }
