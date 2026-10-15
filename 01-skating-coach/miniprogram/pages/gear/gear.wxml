@@ -1,0 +1,66 @@
+<view class="page">
+  <view class="tip-card">
+    <view class="tip-t">🥾 冰鞋 / 装备</view>
+    <view class="tip-l">· 只填「启用到退役」的日期，<text class="b">时长自动算</text> —— 从你这段时间已上冰的记录里累加</view>
+    <view class="tip-l">· 只统计<text class="b">上冰</text>记录（陆地训练不磨冰鞋）</view>
+    <view class="tip-l">· 换鞋会把上一双记到当天退役，不会重复算</view>
+  </view>
+
+  <view class="list" wx:if="{{list.length}}">
+    <view class="row" wx:for="{{list}}" wx:key="id" bindtap="edit" data-id="{{item.id}}">
+      <view class="row-top">
+        <view class="row-name">{{item.name}}</view>
+        <view class="tag" wx:if="{{item.active}}">当前</view>
+        <view class="tag old" wx:else>已退役</view>
+      </view>
+      <view class="row-big">{{item.hoursText}}</view>
+      <view class="row-sub">{{item.sessions}} 次上冰 · 用了 {{item.useText}}<text wx:if="{{item.perWeekText}}"> · 平均每周 {{item.perWeekText}}</text></view>
+      <view class="row-sub dim" wx:if="{{item.startDate}}">{{item.startDate}}<text wx:if="{{item.endDate}}"> → {{item.endDate}}</text><text wx:else> 起</text></view>
+      <view class="row-foot" wx:if="{{item.active}}">
+        <text class="sharp" wx:if="{{item.sharpenText}}">最近磨刀：{{item.sharpenText}}</text>
+        <text class="sharp none" wx:else>还没记过磨刀</text>
+        <text class="do" catchtap="sharpenToday" data-id="{{item.id}}">今天磨了刀</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:else>还没有记录冰鞋。点下面「＋ 添加冰鞋」，填个启用日期（比如买鞋那天）就行。</view>
+
+  <button class="btn" bindtap="add">＋ 添加冰鞋</button>
+  <button class="ghost-btn" wx:if="{{list.length}}" bindtap="changeSkates">🔁 换新鞋</button>
+  <view class="tip">点某一双可以改名字 / 日期 / 磨刀日期；删除只是不统计了，训练记录不受影响。</view>
+
+  <!-- 编辑弹层 -->
+  <view class="mask {{editOn ? 'show' : ''}}" bindtap="closeEdit">
+    <view class="sheet" catchtap="noop">
+      <view class="sh-title">{{editId ? '编辑冰鞋' : '添加冰鞋'}}</view>
+      <view class="field">
+        <view class="field-label">名字（可选）</view>
+        <input class="input" value="{{name}}" bindinput="input" placeholder="如：Risport · 第一双" maxlength="20" />
+      </view>
+      <view class="field">
+        <view class="field-label">启用日期 *</view>
+        <picker mode="date" value="{{startDate}}" bindchange="setStart">
+          <view class="picker">{{startDate || '选日期'}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="field-label">退役日期<text class="sh-clear" wx:if="{{canClearEnd}}" catchtap="clearEnd">清除</text></view>
+        <picker mode="date" value="{{endDate || today}}" bindchange="setEnd">
+          <view class="picker {{endDate ? '' : 'ph'}}">{{endDate || '还在用（不填就是当前这双）'}}</view>
+        </picker>
+      </view>
+      <view class="field">
+        <view class="field-label">上次磨刀（可选）<text class="sh-clear" wx:if="{{sharpenDate}}" catchtap="clearSharpen">清除</text></view>
+        <picker mode="date" value="{{sharpenDate || today}}" bindchange="setSharpen">
+          <view class="picker {{sharpenDate ? '' : 'ph'}}">{{sharpenDate || '没记过'}}</view>
+        </picker>
+      </view>
+      <view class="sh-actions">
+        <button class="ghost-btn" bindtap="closeEdit">取消</button>
+        <button class="btn" bindtap="save">保存</button>
+      </view>
+      <view class="sheet-del" wx:if="{{editId}}" bindtap="del">删除这双</view>
+    </view>
+  </view>
+</view>

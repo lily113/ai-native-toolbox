@@ -35,6 +35,10 @@ Page({
     snapText: ''
   },
 
+  goGear() {
+    wx.navigateTo({ url: '/pages/gear/gear' });
+  },
+
   onShow() {
     const meta = store.load(store.KEYS.meta) || {};
     this.setData(this.guardInfo());
