@@ -2,6 +2,48 @@
 
 > 只记"改变了什么能力"和"踩过什么坑"，不记琐碎改动。
 
+## 2026-10-08 · 弹层里的输入框：换成"跟 width 无关"的撑宽方式
+
+用户在 .68 上帮我把范围缩到了最小：**卡片里的教练框好了，弹层里的冰鞋名字框还是窄的**
+（同一套 `.input-wrap` + `.input`，换个容器就失效）。这是这个 bug 的第三次修正，这次做了两件
+**都不依赖 `width` 属性**的事：
+
+**① 弹层改成 `wx:if`，不再用 `visibility/opacity` 藏**
+
+```xml
+<!-- 原来：<view class="mask {{editOn ? 'show' : ''}}"> -->
+<view class="mask show" wx:if="{{editOn}}">
+```
+
+`<input>` 是组件，怀疑它在"隐藏状态"下就被创建、把宽度算死了（普通 `view` 的 picker 不受影响，
+所以同一个弹层里 picker 一直是好的）。改成打开时才创建，就没有"初始化时机"这回事了。
+（代价：少了 0.18s 的淡入动画，可接受。）
+
+**② 弹层里的输入框改用「绝对定位 + left/right 偏移」决定宽度**
+
+```css
+.sheet .input-wrap { position: relative; min-height: 52px; }
+.sheet .input-wrap > .input,
+.sheet .input-wrap > .ta {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  width: auto; flex: none;
+}
+```
+
+绝对定位元素的宽度由 `left`+`right` 算出来，**跟 `width` 属性、跟"是 inline 还是 block"都没关系** ——
+正好绕开微信 `<input>` 这一路的所有怪癖。
+
+**顺带修正我上一版的疏漏**：`.card` 的内边距**每个页面不一样**（记录页是 `14px`，我按全局 `12px`
+算的 rpx，所以那条兜底在记录页会宽出 4px）。rpx 只能当"差不多"的兜底，**真正解决问题的是
+不依赖 width 的那两条**。
+
+**测试**：`smoke` 增加 3 条盯这次的写法（弹层必须 `wx:if`、包裹层必须 `position: relative`、
+输入框必须 `left/right: 0`）。**15 个套件 1065 项断言**。
+
+---
+
+> 只记"改变了什么能力"和"踩过什么坑"，不记琐碎改动。
+
 ## 2026-10-08 · 输入框宽度再加一层 rpx 兜底
 
 上一版按社区答案（[wxopen.club 同主题](https://wxopen.club/topic/5e3d303c3b620ac19a799361)："不可以，给他的父级加上 flex"）

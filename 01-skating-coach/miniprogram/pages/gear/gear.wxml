@@ -31,7 +31,8 @@
   <view class="tip">点某一双可以改名字 / 日期 / 磨刀日期；删除只是不统计了，训练记录不受影响。</view>
 
   <!-- 编辑弹层 -->
-  <view class="mask {{editOn ? 'show' : ''}}" bindtap="closeEdit">
+  <!-- wx:if（不是 visibility/opacity 藏）：<input> 在隐藏状态下初始化会把宽度定死 -->
+  <view class="mask show" wx:if="{{editOn}}" bindtap="closeEdit">
     <view class="sheet" catchtap="noop">
       <view class="sh-title">{{editId ? '编辑冰鞋' : '添加冰鞋'}}</view>
       <view class="field">

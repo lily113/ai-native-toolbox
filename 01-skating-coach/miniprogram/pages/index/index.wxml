@@ -136,7 +136,7 @@
   <view class="fab-bar"><button class="btn fab" bindtap="goAdd">＋ 添加训练</button></view>
 
   <!-- 目标编辑弹层 -->
-  <view class="mask {{goalOn ? 'show' : ''}}" bindtap="closeGoal">
+  <view class="mask show" wx:if="{{goalOn}}" bindtap="closeGoal">
     <view class="sheet" catchtap="noop">
       <view class="sh-title">🎯 每周上冰目标</view>
       <view class="sh-muted">只统计<text class="b">上冰</text>时长 —— 陆地是冰面的辅助，不计入达标。</view>
