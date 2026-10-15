@@ -64,6 +64,31 @@
       <view class="st-note" wx:if="{{stats.structure.landUncat}}">陆地共 {{stats.structure.landTotal}} 次，其中 {{stats.structure.landUncat}} 次没选内容，没算进去。</view>
     </view>
 
+    <view class="rv-card" wx:if="{{stats.feel.has}}">
+      <view class="rv-lb">冰感（本月）</view>
+      <view class="feel-top">
+        <text class="feel-avg">{{stats.feel.avg}}</text>
+        <text class="feel-unit">/ 5 · 记了 {{stats.feel.n}} 次</text>
+      </view>
+      <view class="feel-dist">{{stats.feel.distText}}</view>
+      <block wx:if="{{stats.feel.goodN && stats.feel.lowN}}">
+        <view class="feel-cmp">
+          <view class="fc-row">
+            <text class="fc-k">冰感 4-5 分（{{stats.feel.goodN}} 次）</text>
+            <text class="fc-v">平均距上次上冰 {{stats.feel.goodGap}} 天</text>
+          </view>
+          <view class="fc-row">
+            <text class="fc-k">冰感 1-2 分（{{stats.feel.lowN}} 次）</text>
+            <text class="fc-v">平均距上次上冰 {{stats.feel.lowGap}} 天</text>
+          </view>
+        </view>
+        <view class="feel-note" wx:if="{{stats.feel.goodGap < stats.feel.lowGap}}">看起来上冰间隔越短，冰感越好 —— 值得留意。</view>
+        <view class="feel-note" wx:else>这个月的间隔和冰感还没看出明显关系。</view>
+      </block>
+      <view class="feel-note" wx:elif="{{!stats.feel.enough}}">再记几次（至少 6 次）就能看出「间隔多久冰感会变差」。</view>
+      <view class="feel-note" wx:else>这个月只记到了一边的分数（都是好的或都是差的），暂时比不出来。</view>
+    </view>
+
     <view class="rv-card" wx:if="{{stats.coaches.length}}">
       <view class="rv-lb">教练 / 老师（本月）</view>
       <view class="coach-row" wx:for="{{stats.coaches}}" wx:key="name">

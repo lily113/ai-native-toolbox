@@ -68,3 +68,14 @@
 .coach-n { font-size: 13.5px; color: #0c4a6e; font-weight: 600; }
 .coach-c { font-size: 12.5px; color: #64748B; }
 .coach-split { color: #94a3b8; }
+
+/* 冰感（本月） */
+.feel-top { display: flex; align-items: baseline; gap: 6px; margin-top: 6px; }
+.feel-avg { font-size: 30px; font-weight: 800; color: #0284c7; line-height: 1; }
+.feel-unit { font-size: 12.5px; color: #64748B; }
+.feel-dist { margin-top: 8px; font-size: 12.5px; color: #334155; line-height: 1.6; }
+.feel-cmp { margin-top: 10px; padding-top: 10px; border-top: 1px solid #eef4f8; }
+.fc-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 3px 0; }
+.fc-k { font-size: 12.5px; color: #475569; }
+.fc-v { font-size: 12.5px; font-weight: 700; color: #075985; }
+.feel-note { margin-top: 8px; font-size: 11.5px; color: #94a3b8; line-height: 1.55; }

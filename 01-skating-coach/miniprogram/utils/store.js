@@ -61,6 +61,8 @@ function normalizeRecord(r) {
     // 陆地/舞蹈训练的内容（单选，存 id 数组；用数组是为了兼容早期多选版本存下的记录）
     // ⚠️ 和 coach 一样，白名单式的 normalizeRecord 必须显式列出，否则读一次就没了
     landCats: Array.isArray(r.landCats) ? r.landCats.slice() : [],
+    // 冰感 1-5（0 = 没记）。只对上冰记录有意义，别的类型一律归 0
+    feel: (type === 'ice') ? (Math.min(5, Math.max(0, Math.round(Number(r.feel) || 0)))) : 0,
     // 上课教练（可选）：换教练、多人轮课时有用。⚠️ 这里必须显式列出来，
     // 否则 normalizeRecord 会把没列出的字段丢掉（读一次就没了）。
     coach: typeof r.coach === 'string' ? r.coach : '',
@@ -659,6 +661,52 @@ function iceCatStats(recs) {
     total: iceTotal,
     noMove: noMove,
     list: Object.keys(out).map(k => out[k]).sort((a, b) => b.n - a.n)
+  };
+}
+
+// ---------- 冰感分析 ----------
+// 回答一个问题：**冰感好的日子，距上次上冰几天？**
+// 每条有冰感的记录，去对上"它之前最近的一次上冰"（不含自己当天），算出间隔天数。
+function feelStats(recs) {
+  const list = Array.isArray(recs) ? recs : loadRecords();
+  const ice = list.filter(r => r && r.type === 'ice' && r.date)
+    .map(r => ({ date: String(r.date), feel: Math.round(Number(r.feel) || 0) }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  // 去重后的"上冰日"列表，用来找上一次
+  const days = [];
+  ice.forEach(r => { if (days.indexOf(r.date) < 0) days.push(r.date); });
+
+  const gapOf = date => {
+    const i = days.indexOf(date);
+    if (i <= 0) return null;                       // 第一次上冰，没有"上一次"
+    const prev = days[i - 1];
+    return Math.max(0, daysBetween(prev, date));
+  };
+
+  const dist = {};
+  let n = 0, sum = 0, goodN = 0, goodSum = 0, lowN = 0, lowSum = 0;
+  const rows = [];
+  ice.forEach(r => {
+    if (!r.feel) return;
+    n++; sum += r.feel;
+    dist[r.feel] = (dist[r.feel] || 0) + 1;
+    const gap = gapOf(r.date);
+    rows.push({ date: r.date, feel: r.feel, gap: gap });
+    if (gap === null) return;
+    if (r.feel >= 4) { goodN++; goodSum += gap; }
+    else if (r.feel <= 2) { lowN++; lowSum += gap; }
+  });
+  const avg = n ? (Math.round(sum / n * 10) / 10) : 0;
+  return {
+    n: n,
+    avg: avg,
+    dist: [5, 4, 3, 2, 1].filter(v => dist[v]).map(v => ({ v: v, n: dist[v] })),
+    goodN: goodN,
+    goodGap: goodN ? (Math.round(goodSum / goodN * 10) / 10) : -1,
+    lowN: lowN,
+    lowGap: lowN ? (Math.round(lowSum / lowN * 10) / 10) : -1,
+    enough: n >= 6,                                 // 太少就别急着下结论
+    rows: rows
   };
 }
 
@@ -1375,7 +1423,7 @@ module.exports = {
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS, LAND_CATS, landCats, saveLandCats, landCatName, landCatsGone, rememberLandCatGone, forgetLandCatsGone, landCatUsage, landStats, iceCatStats,
   searchRecords, setUndo, peekUndo, clearUndo, undoDelete,
-  ensureSkates, saveSkates, skateOf, activeSkate, skateUsage, skateStats,
+  ensureSkates, saveSkates, skateOf, activeSkate, skateUsage, skateStats, feelStats,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus, setMoveStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey

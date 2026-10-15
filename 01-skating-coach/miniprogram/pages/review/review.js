@@ -101,6 +101,18 @@ Page({
       else if (r.mode === 'self') { if (r.type === 'ice') selfC++; else landSelf++; }
     });
 
+    // 冰感（本月）：平均分 + 分布 + 「冰感好的日子距上次上冰几天」的关联
+    const fs0 = store.feelStats(recs);
+    const feel = {
+      n: fs0.n,
+      avg: fs0.avg,
+      distText: fs0.dist.map(d => d.v + ' 分 ' + d.n + ' 次').join(' · '),
+      goodN: fs0.goodN, goodGap: fs0.goodGap,
+      lowN: fs0.lowN, lowGap: fs0.lowGap,
+      enough: fs0.enough,
+      has: fs0.n > 0
+    };
+
     // 教练 / 老师（本月）：跟谁上了几次课。
     // 只统计"上课"且填了名字的；冰课陆地一起列，都填了才拆开显示
     const coachMap = {};
@@ -187,6 +199,7 @@ Page({
         formText: Object.keys(LESSON_FORMS).filter(k => formCount[k]).map(k => LESSON_FORMS[k].name + ' ' + formCount[k]).join(' · '),
         selfC: selfC,
         coaches: coaches,
+        feel: feel,
         landSelf: landSelf,
         landMin: landMin,
         goal: goal,
