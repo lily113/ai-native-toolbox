@@ -36,7 +36,7 @@
       <view class="sh-title">{{editId ? '编辑冰鞋' : '添加冰鞋'}}</view>
       <view class="field">
         <view class="field-label">名字（可选）</view>
-        <input class="input" value="{{name}}" bindinput="input" placeholder="如：Risport · 第一双" maxlength="20" />
+        <view class="input-wrap"><input class="input" value="{{name}}" bindinput="input" placeholder="如：Risport · 第一双" maxlength="20" /></view>
       </view>
       <view class="field">
         <view class="field-label">启用日期 *</view>

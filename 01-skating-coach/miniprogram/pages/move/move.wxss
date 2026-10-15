@@ -19,7 +19,7 @@
 .sheet { box-sizing: border-box; width: 100%; background: #f0f9ff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 78vh; overflow: auto; }
 .sh-title { font-size: 16px; font-weight: 800; color: #0c4a6e; margin-bottom: 12px; }
 .pt { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px; }
-.ta { min-width: 100%; box-sizing: border-box; min-height: 44px; border: 1px solid #cfe8f7; border-radius: 10px; padding: 10px 12px; font-size: 15px; background: #fff; color: #0f172a; }
+.ta { flex: 1; min-width: 0; box-sizing: border-box; min-height: 44px; border: 1px solid #cfe8f7; border-radius: 10px; padding: 10px 12px; font-size: 15px; background: #fff; color: #0f172a; }
 .pt-inp { flex: 1; }
 .pt-x { width: 30px; height: 30px; border-radius: 8px; background: #fde8e8; color: #b91c1c; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 4px; }
 .add-pt { font-size: 13px; color: #0284c7; padding: 4px 2px; }

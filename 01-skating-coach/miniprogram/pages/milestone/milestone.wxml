@@ -34,11 +34,11 @@
       </view>
       <view class="field">
         <view class="field-label">标题（可选）</view>
-        <input class="input" value="{{title}}" data-k="title" bindinput="input" placeholder="如：三级考级通过" maxlength="-1" />
+        <view class="input-wrap"><input class="input" value="{{title}}" data-k="title" bindinput="input" placeholder="如：三级考级通过" maxlength="-1" /></view>
       </view>
       <view class="field">
         <view class="field-label">备注（可选）</view>
-        <input class="input" value="{{note}}" data-k="note" bindinput="input" placeholder="当时的心情、细节…" maxlength="-1" />
+        <view class="input-wrap"><input class="input" value="{{note}}" data-k="note" bindinput="input" placeholder="当时的心情、细节…" maxlength="-1" /></view>
       </view>
       <view class="sh-actions">
         <button class="ghost-btn" bindtap="closeEdit">取消</button>
