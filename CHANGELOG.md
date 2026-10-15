@@ -2,6 +2,43 @@
 
 > 只记"改变了什么能力"和"踩过什么坑"，不记琐碎改动。
 
+## 2026-10-08 · 找到「输入框太窄」的**真正根因**（微信 input 不吃百分比 width）
+
+用户报了两次（先是**上课教练框**，这次是**添加冰鞋的名字框**），前一次我按"布局挤了"去改，
+没找到根因。这次查到了：
+
+> 微信小程序的 `<input>` 组件**不支持百分比 `width`**。写了 `width: 100%` 也只会撑到
+> "文字的宽度"，**后面的区域点不着也看不见**；要用百分比就得改成 `min-width`/`max-width`，
+> 而且**不能同时写 `width`**。
+> —— [腾讯云开发者社区](https://cloud.tencent.com.cn/developer/article/1991631?from=15425&policyId=undefined&traceId=&frompage=seopage)
+
+**所以是我全项目的写法错了**：`app.wxss` 里 `.input { width: 100% }` 对 `<input>` 一直无效。
+这也解释了为什么两边看起来"框只有两个字那么宽"。
+
+**修法**：
+
+- `app.wxss` 拆成两条：`.textarea/.picker` 继续用 `width: 100%`；
+  **`.input` 改成 `min-width: 100%`**（不再写 `width`）
+- 新加的 `.coach-input`（教练框）、`pages/move` 的 `.ta` 同样改成 `min-width`
+- **`flex` 行里的输入框反过来**：`.goal-input` 本来就是 `flex:1 + min-width:0`，
+  不然全局的 `min-width:100%` 会把旁边的「保存」按钮挤出去
+- 顺手：三个弹层 `.sheet` 补上 `box-sizing: border-box`（content-box + `width:100%` + padding
+  会横向溢出，一直靠 flex-shrink 兜着，太脆）
+
+**顺手加了一条审计规则（⑥.6）**：扫出"被 `<input>` 用到的 class 却设了百分比 width"，
+按"同页面配对"比对（app.wxss 跟所有页面比）。**规则一上线就抓出另外两处同样的坑**：
+
+- `pages/milestone/milestone.wxss` 的 `.input { width: 100% }` —— 当年为了"救"宽度加的，
+  其实正是那个坑本身
+- `pages/move/move.wxss` 的 `.ta`（移动作弹层的搜索框）
+
+**教训**：同一个现象被报两次，说明第一次是在治症状。以后遇到"明明设了宽度却没生效"，
+先怀疑平台组件的怪癖，而不是自己再去调布局。
+
+---
+
+> 只记"改变了什么能力"和"踩过什么坑"，不记琐碎改动。
+
 ## 2026-10-08 · AI「下周练什么」（按我的真实数据排）
 
 入口在 **AI 教练页顶部**（AI 的功能收在一个目的地里，**首页没有再占一行** —— 用户刚提过

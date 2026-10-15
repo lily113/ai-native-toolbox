@@ -20,7 +20,7 @@
 
 .mask { position: fixed; inset: 0; background: rgba(12,74,110,.4); display: flex; align-items: flex-end; opacity: 0; visibility: hidden; transition: opacity .18s; z-index: 30; }
 .mask.show { opacity: 1; visibility: visible; }
-.sheet { width: 100%; background: #f0f9ff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 82vh; overflow: auto; }
+.sheet { box-sizing: border-box; width: 100%; background: #f0f9ff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 82vh; overflow: auto; }
 .sh-title { font-size: 15px; font-weight: 800; color: var(--ice-800); margin-bottom: 12px; }
 .field { margin-bottom: 12px; }
 .field-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
