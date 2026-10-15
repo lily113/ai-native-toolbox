@@ -30,6 +30,14 @@
   </view>
 
   <view class="card">
+    <view class="title">🥾 冰鞋 / 装备</view>
+    <view class="muted">填一双鞋的启用到退役日期，自动从已上冰的记录里算出「滑了多少小时」、平均每周多少、距上次磨刀多少天。</view>
+    <view class="btn-row">
+      <button class="ghost-btn" bindtap="goGear">打开装备页</button>
+    </view>
+  </view>
+
+  <view class="card">
     <view class="title">☁️ 云同步</view>
     <view class="kv">
       <text class="kv-label">当前身份</text>

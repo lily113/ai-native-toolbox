@@ -1,0 +1,32 @@
+.tip-card { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 12px; margin-bottom: 12px; }
+.tip-t { font-size: 14px; font-weight: 800; color: var(--ice-800); margin-bottom: 6px; }
+.tip-l { font-size: 12.5px; color: #475569; line-height: 1.6; }
+.tip-l .b { font-weight: 700; color: #0369a1; }
+
+.list { margin-bottom: 4px; }
+.row { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+.row-top { display: flex; align-items: center; gap: 8px; }
+.row-name { font-size: 15px; font-weight: 700; color: #0c4a6e; }
+.tag { font-size: 10px; font-weight: 700; color: #0369a1; background: #e0f2fe; border-radius: 999px; padding: 1px 8px; }
+.tag.old { color: #64748b; background: #f1f5f9; }
+.row-big { margin-top: 6px; font-size: 26px; font-weight: 800; color: #0284c7; letter-spacing: .5px; }
+.row-sub { margin-top: 2px; font-size: 12.5px; color: #475569; }
+.row-sub.dim { color: #94a3b8; }
+.row-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid #eef4f8; }
+.sharp { font-size: 12px; color: #64748b; }
+.sharp.none { color: #cbd5e1; }
+.do { font-size: 12px; font-weight: 600; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 4px 12px; }
+
+.mask { position: fixed; inset: 0; background: rgba(12,74,110,.4); display: flex; align-items: flex-end; opacity: 0; visibility: hidden; transition: opacity .18s; z-index: 30; }
+.mask.show { opacity: 1; visibility: visible; }
+.sheet { width: 100%; background: #f0f9ff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 82vh; overflow: auto; }
+.sh-title { font-size: 15px; font-weight: 800; color: var(--ice-800); margin-bottom: 12px; }
+.field { margin-bottom: 12px; }
+.field-label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.sh-clear { float: right; color: #0284c7; font-weight: 600; }
+.picker.ph { color: #94a3b8; font-size: 14px; }
+.sh-actions { display: flex; gap: 10px; margin-top: 14px; }
+.sh-actions .btn, .sh-actions .ghost-btn { flex: 1; margin: 0; }
+.sheet-del { margin-top: 16px; text-align: center; font-size: 13px; color: #b91c1c; padding: 6px 0; }
+.tip { font-size: 12px; color: #94a3b8; margin-top: 10px; line-height: 1.6; }

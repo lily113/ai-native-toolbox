@@ -13,6 +13,8 @@ const KEYS = {
   landCats: 'figure_skating_planner_land_cats_v1',
   // 被删掉的分类只留名字，历史记录里那一项还能显示成中文
   landCatsGone: 'figure_skating_planner_land_cats_gone_v1',
+  // 冰鞋 / 装备：一双鞋 + 启用日期 → 自动从冰上记录里累加"滑了多少小时"
+  skates: 'figure_skating_planner_skates_v1',
     poseMap: 'figure_skating_planner_pose_map_v1',  // 姿态自查：关键点索引映射（校准后保存）
   upgradeSnap: 'figure_skating_planner_upgrade_snapshot_v1',   // 升级前的本地快照（可一键恢复）
   upgradeGuard: 'figure_skating_planner_upgrade_guard_v1'      // 升级自检结果（少没少东西）
@@ -660,6 +662,85 @@ function iceCatStats(recs) {
   };
 }
 
+// ---------- 冰鞋 / 装备 ----------
+// 一双鞋 = 一个日期区间。时长不单独记，直接从"上冰记录"里按区间累加 ——
+// 用户已经在记训练时长了，不该再让他为装备重复记一遍。
+function normalizeSkate(x) {
+  const r = x || {};
+  const d = v => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '');
+  return {
+    id: r.id || uid(),
+    name: String(r.name == null ? '' : r.name).trim() || '冰鞋',
+    startDate: d(r.startDate),
+    endDate: d(r.endDate),                 // 空 = 当前在用的这双
+    sharpenDate: d(r.sharpenDate),         // 上次磨刀（可选）
+    note: String(r.note == null ? '' : r.note).trim()
+  };
+}
+function ensureSkates() {
+  const raw = load(KEYS.skates);
+  const list = (Array.isArray(raw) ? raw : []).map(normalizeSkate);
+  // 只补默认值、不在读取时写盘（避免"白写一次"被同步层当成改动）
+  return list;
+}
+function saveSkates(list) {
+  const out = (Array.isArray(list) ? list : []).map(normalizeSkate);
+  save(KEYS.skates, out);
+  return out;
+}
+function skateOf(id) {
+  return ensureSkates().filter(x => x.id === id)[0] || null;
+}
+// 当前在用的那双：没有 endDate 的；若有多双就取起用最晚的
+function activeSkate() {
+  const open = ensureSkates().filter(x => !x.endDate).sort((a, b) => String(b.startDate).localeCompare(String(a.startDate)));
+  return open[0] || null;
+}
+function daysBetween(a, b) {
+  const d1 = keyToDate(a), d2 = keyToDate(b);
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 0;
+  return Math.round((d2 - d1) / 86400000);
+}
+// 一双鞋的用量：只算冰上记录（陆地训练不磨冰鞋），落在 [startDate, endDate||今天] 区间内
+function skateUsage(skate, recs) {
+  const sk = normalizeSkate(skate);
+  const list = Array.isArray(recs) ? recs : loadRecords();
+  const today = todayKey();
+  const from = sk.startDate || '0000-00-00';
+  const to = sk.endDate || today;
+  let minutes = 0, sessions = 0;
+  const days = {};
+  list.forEach(r => {
+    if (!r || r.type !== 'ice') return;
+    const d = String(r.date || '');
+    if (!d || d < from || d > to) return;
+    minutes += Number(r.duration) || 0;
+    days[d] = 1;
+    sessions++;
+  });
+  const useDays = Math.max(0, daysBetween(sk.startDate || today, to));
+  const weeks = useDays / 7;
+  return {
+    id: sk.id,
+    hours: Math.round(minutes / 60 * 10) / 10,        // 一位小数
+    minutes: minutes,
+    sessions: sessions,
+    dayCount: Object.keys(days).length,
+    useDays: useDays,
+    perWeek: weeks > 0.5 ? (Math.round(minutes / 60 / weeks * 10) / 10) : 0,
+    sharpenDays: sk.sharpenDate ? Math.max(0, daysBetween(sk.sharpenDate, today)) : -1,
+    active: !sk.endDate
+  };
+}
+// 全部装备 + 用量：当前在用的排最前，其余按起用日期倒序
+function skateStats(recs) {
+  const list = ensureSkates().slice().sort((a, b) => {
+    if (!a.endDate !== !b.endDate) return a.endDate ? 1 : -1;
+    return String(b.startDate).localeCompare(String(a.startDate));
+  });
+  return list.map(sk => Object.assign({}, sk, skateUsage(sk, recs)));
+}
+
 // ---------- 删除后的"撤销" ----------
 // 删一条训练是不可逆的（云端历史是整个快照，粒度太粗），所以删完留一份在内存里：
 // 记录页删 → 首页落地时显示一条「已删除 · 撤销」的横条。
@@ -1294,6 +1375,7 @@ module.exports = {
   cats, saveCats, catName, catMap, catsUntouched, normalizeCats, validCat,
   CAT_FALLBACK, DEFAULT_CATS, LAND_CATS, landCats, saveLandCats, landCatName, landCatsGone, rememberLandCatGone, forgetLandCatsGone, landCatUsage, landStats, iceCatStats,
   searchRecords, setUndo, peekUndo, clearUndo, undoDelete,
+  ensureSkates, saveSkates, skateOf, activeSkate, skateUsage, skateStats,
   ensureMoves, saveMoves, moveById, drillById, dedupeMoves, mergeMoveLibraries, remapMoveRefs, renameMove, moveDrillsTo, moveUsage, moveUsageText, examMoveLinks, examLinkedMoveIds, examLinkedCount, setDrillStatus, setDrillsStatus, setMoveStatus,
   ensureMilestones, saveMilestones,
   ensureExams, saveExams, newExam, syllabusByKey
