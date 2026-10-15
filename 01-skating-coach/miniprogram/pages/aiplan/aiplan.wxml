@@ -1,0 +1,35 @@
+<view class="page">
+  <view class="tip-card">
+    <view class="tip-t">📅 下周练什么</view>
+    <view class="tip-l">把<text class="b">你自己的真实数据</text>（超过 30 天没练的动作、考级倒计时、最近的上冰频率、冰感）发给 AI，让它排一份下周重点。</view>
+    <view class="tip-l dim">数据只发这些汇总事实，<text class="b">不发你的笔记原文</text>；结果只存在你本机。</view>
+  </view>
+
+  <block wx:if="{{plan}}">
+    <view class="plan-card">
+      <view class="plan-head">
+        <text class="plan-wk">本周的计划</text>
+        <text class="plan-at" wx:if="{{at}}">{{at}} 生成</text>
+      </view>
+      <text class="plan-text">{{plan}}</text>
+    </view>
+    <view class="btn-row">
+      <button class="ghost-btn half" bindtap="copy">📋 复制</button>
+      <button class="ghost-btn half" bindtap="generate">🔄 重新生成</button>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="empty-box">
+      <view class="eb-t">还没排过</view>
+      <view class="eb-s">点下面的按钮生成一份。大概 10 秒。</view>
+      <view class="eb-s dim" wx:if="{{stale}}">（上周那份已经过期了，这周还没排）</view>
+    </view>
+    <button class="btn" bindtap="generate" disabled="{{loading}}">{{loading ? '⏳ 正在排…' : '🤖 生成下周计划'}}</button>
+  </block>
+
+  <view class="err" wx:if="{{err}}">{{err}}</view>
+
+  <view class="prompt-toggle" bindtap="togglePrompt">{{showPrompt ? '▾' : '▸'}} 看看发给 AI 的原始数据</view>
+  <view class="prompt-box" wx:if="{{showPrompt}}">{{prompt || '（还没生成过，生成时才会组装）'}}</view>
+</view>

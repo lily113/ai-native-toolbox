@@ -10,6 +10,7 @@
     "pages/landcats/landcats",
     "pages/search/search",
     "pages/gear/gear",
+    "pages/aiplan/aiplan",
     "pages/milestone/milestone",
     "pages/review/review",
     "pages/settings/settings"

@@ -4,6 +4,15 @@
     <text class="top-clear" bindtap="clear">清空</text>
   </view>
 
+  <!-- 按我的真实数据排下周重点（AI 的功能都收在这个目的地里，首页不再加行） -->
+  <view class="plan-entry" bindtap="goPlan">
+    <view class="pe-l">
+      <view class="pe-t">📅 下周练什么</view>
+      <view class="pe-s">按久未练习的动作 + 考级倒计时 + 最近频率排一份</view>
+    </view>
+    <text class="pe-go">›</text>
+  </view>
+
   <scroll-view scroll-y class="chat" scroll-into-view="{{scrollId}}" scroll-with-animation>
     <view class="msg-row {{item.role}}" id="m{{index}}" wx:for="{{msgs}}" wx:key="index">
       <!-- 我的提问：纯文本 -->
