@@ -60,6 +60,10 @@ Page({
   },
 
 
+  goGear() {
+    wx.navigateTo({ url: '/pages/gear/gear' });
+  },
+
   prev() {
     const d = new Date(this.data.year, this.data.month - 1, 1);
     this.setData({ year: d.getFullYear(), month: d.getMonth() });
@@ -100,6 +104,18 @@ Page({
       }
       else if (r.mode === 'self') { if (r.type === 'ice') selfC++; else landSelf++; }
     });
+
+    // 冰鞋：累计数字放这儿（回顾才是"看数字"的地方），点进去才是管理页
+    const skates = store.skateStats();
+    const cur = skates.filter(k => k.active)[0] || skates[0] || null;
+    const skHours = k => {
+      const m = Number(k.minutes) || 0;
+      if (m <= 0) return '还没记到上冰';
+      if (m < 60) return '已滑 ' + m + ' 分钟';
+      const h = Math.round(m / 60 * 10) / 10;
+      return '已滑 ' + (h % 1 === 0 ? String(Math.round(h)) : h.toFixed(1)) + ' 小时';
+    };
+    const skate = cur ? { name: cur.name, text: skHours(cur), active: !!cur.active } : null;
 
     // 冰感（本月）：平均分 + 分布 + 「冰感好的日子距上次上冰几天」的关联
     const fs0 = store.feelStats(recs);
@@ -200,6 +216,7 @@ Page({
         selfC: selfC,
         coaches: coaches,
         feel: feel,
+        skate: skate,
         landSelf: landSelf,
         landMin: landMin,
         goal: goal,

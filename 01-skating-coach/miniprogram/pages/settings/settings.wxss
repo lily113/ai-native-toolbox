@@ -1,10 +1,6 @@
 .goal-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
 .goal-input { flex: 1; min-width: 0; height: 46px; font-size: 17px; font-weight: 600; }
-.goal-btn { flex: none; width: 96px; height: 46px; margin: 0; }
 .goal-btn-full { margin: 2px 0 10px; height: 46px; }
-.goal-chips { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.goal-chips .chip { padding: 6px 12px; border-radius: 999px; background: #fff; border: 1px solid #cfe8f7; color: #075985; font-size: 13px; }
-.goal-hint { margin-bottom: 4px; line-height: 1.6; }
 .base-lb { width: 72px; flex: none; font-size: 14px; color: #0f172a; }
 
 .kv { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; }

@@ -12,7 +12,6 @@ function loadMetaShare() {
 
 Page({
   data: {
-    goal: 0,
     iceBase: 0,
     lessonBase: 0,
     openid: '',
@@ -35,17 +34,12 @@ Page({
     snapText: ''
   },
 
-  goGear() {
-    wx.navigateTo({ url: '/pages/gear/gear' });
-  },
-
   onShow() {
     const meta = store.load(store.KEYS.meta) || {};
     this.setData(this.guardInfo());
     this.refreshAiStatus();
     this.refreshDataWhere();
     this.setData({
-      goal: meta.weeklyIceGoal || 0,
       iceBase: Number(meta.iceBase) || 0,
       lessonBase: Number(meta.lessonBase) || 0,
       openid: app.globalData.openid,
@@ -370,7 +364,6 @@ Page({
       .catch(() => this.setData({ syncStatus: '云端暂无数据（点「上传到云」完成首次）' }));
   },
 
-  setGoal(e) { this.setData({ goal: e.detail.value }); },
   setIceBase(e) { this.setData({ iceBase: e.detail.value }); },
   setLessonBase(e) { this.setData({ lessonBase: e.detail.value }); },
   saveBase() {
@@ -379,16 +372,6 @@ Page({
     meta.lessonBase = Number(this.data.lessonBase) || 0;
     store.save(store.KEYS.meta, meta);
     wx.showToast({ title: '已保存基线' });
-  },
-  quickGoal(e) {
-    const v = Number(e.currentTarget.dataset.v) || 0;
-    this.setData({ goal: v });
-  },
-  saveGoal() {
-    const meta = store.load(store.KEYS.meta) || {};
-    meta.weeklyIceGoal = Number(this.data.goal) || 0;
-    store.save(store.KEYS.meta, meta);
-    wx.showToast({ title: '已保存' });
   },
 
   // 导出为文件（全过程都有可见反馈）

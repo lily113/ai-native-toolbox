@@ -168,3 +168,22 @@
   background: #1e293b; color: #f8fafc; border-radius: 14rpx; box-shadow: 0 6rpx 20rpx rgba(15,23,42,.28); }
 .undo-t { flex: 1; min-width: 0; font-size: 24rpx; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .undo-do { flex: none; font-size: 26rpx; font-weight: 700; color: #7dd3fc; padding: 4rpx 8rpx; }
+
+/* 目标行可点的提示 + 目标编辑弹层 */
+.ov-edit { font-size: 11px; color: #94a3b8; margin-left: 4px; }
+.ov-goal-top { padding: 2px 0; }
+.mask { position: fixed; inset: 0; background: rgba(12,74,110,.4); display: flex; align-items: flex-end; opacity: 0; visibility: hidden; transition: opacity .18s; z-index: 30; }
+.mask.show { opacity: 1; visibility: visible; }
+.sheet { box-sizing: border-box; width: 100%; background: #f0f9ff; border-radius: 18px 18px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); max-height: 82vh; overflow: auto; }
+.sh-title { font-size: 15px; font-weight: 800; color: var(--ice-800); margin-bottom: 6px; }
+.sh-muted { font-size: 12.5px; color: #64748B; line-height: 1.6; margin-bottom: 12px; }
+.sh-muted .b { font-weight: 700; color: #0369a1; }
+.goal-row { display: flex; align-items: center; gap: 10px; }
+.goal-input { flex: 1; min-width: 0; height: 46px; font-size: 17px; font-weight: 600; }
+.goal-unit { flex: none; font-size: 12.5px; color: #64748B; }
+.goal-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip { font-size: 13px; color: #075985; background: #e0f2fe; border-radius: 999px; padding: 8px 16px; }
+.chip.on { background: #0284c7; color: #fff; font-weight: 700; }
+.sh-actions { display: flex; gap: 10px; margin-top: 16px; }
+.sh-actions .btn, .sh-actions .ghost-btn { flex: 1; margin: 0; }
+.sheet-del { margin-top: 14px; text-align: center; font-size: 13px; color: #b91c1c; padding: 6px 0; }
