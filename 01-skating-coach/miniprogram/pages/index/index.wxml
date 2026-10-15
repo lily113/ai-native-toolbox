@@ -35,13 +35,19 @@
       <text class="ov-exam-t">🎓 {{ov.examCd}}</text>
       <text class="ov-exam-go">去看 ›</text>
     </view>
-    <view class="ov-goal" wx:if="{{ov.goal}}">
-      <view class="ov-goal-top">
-        <text>本周 {{ov.weekMin}} 分钟 · 目标 {{ov.goal}} 分钟</text>
-        <text class="ov-pct">{{ov.weekPct}}%</text>
+    <!-- 目标行整行可点：就地改目标（原来要先跳到「设置」，看进度和改目标分在两个地方） -->
+    <view class="ov-goal">
+      <view class="ov-goal-top" bindtap="editGoal">
+        <block wx:if="{{ov.goal}}">
+          <text>本周 {{ov.weekMin}} 分钟 · 目标 {{ov.goal}} 分钟<text class="ov-edit">✎</text></text>
+          <text class="ov-pct">{{ov.weekPct}}%</text>
+        </block>
+        <block wx:else>
+          <text>🎯 设一个每周上冰目标 ›</text>
+        </block>
       </view>
-      <view class="ov-bar"><view class="ov-bar-in" style="width:{{ov.weekPct}}%"></view></view>
-      <view class="ov-goal-sub">近 4 周平均 {{ov.avg4}} 分钟<text wx:if="{{ov.streak}}"> · 已连续 {{ov.streak}} 周达标 🔥</text><text wx:if="{{ov.sinceIceText}}"> · {{ov.sinceIceText}}</text></view>
+      <view class="ov-bar" wx:if="{{ov.goal}}"><view class="ov-bar-in" style="width:{{ov.weekPct}}%"></view></view>
+      <view class="ov-goal-sub" wx:if="{{ov.goal}}">近 4 周平均 {{ov.avg4}} 分钟<text wx:if="{{ov.streak}}"> · 已连续 {{ov.streak}} 周达标 🔥</text><text wx:if="{{ov.sinceIceText}}"> · {{ov.sinceIceText}}</text></view>
     </view>
     <view class="ov-stale" wx:if="{{ov.staleN}}" bindtap="goStaleMoves">
       ⏱ 有 {{ov.staleN}} 项超过 30 天没练（比如「{{ov.staleName}}」）→
@@ -132,6 +138,27 @@
   </view>
 
   <view class="fab-bar"><button class="btn fab" bindtap="goAdd">＋ 添加训练</button></view>
+
+  <!-- 目标编辑弹层 -->
+  <view class="mask {{goalOn ? 'show' : ''}}" bindtap="closeGoal">
+    <view class="sheet" catchtap="noop">
+      <view class="sh-title">🎯 每周上冰目标</view>
+      <view class="sh-muted">只统计<text class="b">上冰</text>时长 —— 陆地是冰面的辅助，不计入达标。</view>
+      <view class="goal-row">
+        <input class="input goal-input" type="number" value="{{goalDraft}}" bindinput="setGoalDraft" placeholder="例如 360" />
+        <text class="goal-unit">分钟 / 周</text>
+      </view>
+      <view class="goal-chips">
+        <view class="chip {{goalDraft == item ? 'on' : ''}}" wx:for="{{goalPresets}}" wx:key="*this"
+              bindtap="pickGoal" data-v="{{item}}">{{item}}</view>
+      </view>
+      <view class="sh-actions">
+        <button class="ghost-btn" bindtap="closeGoal">取消</button>
+        <button class="btn" bindtap="saveGoal">保存</button>
+      </view>
+      <view class="sheet-del" wx:if="{{ov.goal}}" bindtap="clearGoal">不设目标</view>
+    </view>
+  </view>
 
   <view class="quick">
     <view class="quick-item" bindtap="goReview"><view class="quick-icon">📊</view><view class="quick-label">回顾</view></view>

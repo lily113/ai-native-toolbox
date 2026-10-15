@@ -17,6 +17,10 @@ Page({
     monthCount: 0,
     monthMin: 0,
     undo: null,          // 「已删除 · 撤销」横条
+    // 每周上冰目标：直接在首页那行点着改
+    goalOn: false,
+    goalDraft: '',
+    goalPresets: [180, 270, 360, 450, 540],
     monthLesson: 0,
     ymValue: '',
     aiOn: false,          // AI 教练入口：仅开发者本人可见（由 login 云函数确认）
@@ -132,6 +136,32 @@ Page({
     }
     try { this.setData({ firstRun: store.loadRecords().length === 0 }); } catch (e) {}
     this.buildOverview();
+  },
+
+  // ---------- 每周上冰目标：就地改 ----------
+  editGoal() {
+    const goal = Number(((store.load(store.KEYS.meta) || {}).weeklyIceGoal) || 0);
+    this.setData({ goalOn: true, goalDraft: goal ? String(goal) : '' });
+  },
+  closeGoal() { this.setData({ goalOn: false }); },
+  noop() {},
+  setGoalDraft(e) { this.setData({ goalDraft: e.detail.value }); },
+  pickGoal(e) { this.setData({ goalDraft: String(Number(e.currentTarget.dataset.v) || 0) }); },
+  saveGoal() {
+    const meta = store.load(store.KEYS.meta) || {};
+    meta.weeklyIceGoal = Number(this.data.goalDraft) || 0;
+    store.save(store.KEYS.meta, meta);
+    this.setData({ goalOn: false });
+    this.buildOverview();
+    wx.showToast({ title: meta.weeklyIceGoal ? '已保存目标' : '已取消目标' });
+  },
+  clearGoal() {
+    const meta = store.load(store.KEYS.meta) || {};
+    meta.weeklyIceGoal = 0;
+    store.save(store.KEYS.meta, meta);
+    this.setData({ goalOn: false, goalDraft: '' });
+    this.buildOverview();
+    wx.showToast({ title: '已取消目标', icon: 'none' });
   },
 
   // ---------- 首页概览：本月练了多少、离周目标还差多少、哪个动作荒了 ----------

@@ -1,21 +1,5 @@
 <view class="page">
   <view class="card">
-    <view class="title">🎯 每周上冰目标（分钟）</view>
-      <view class="goal-row">
-        <input class="input goal-input" type="number" value="{{goal}}" bindinput="setGoal" placeholder="例如 360" />
-        <button class="btn goal-btn" bindtap="saveGoal">保存</button>
-      </view>
-      <view class="goal-chips">
-        <view class="chip" data-v="180" bindtap="quickGoal">180</view>
-        <view class="chip" data-v="270" bindtap="quickGoal">270</view>
-        <view class="chip" data-v="360" bindtap="quickGoal">360</view>
-        <view class="chip" data-v="450" bindtap="quickGoal">450</view>
-        <view class="chip" data-v="540" bindtap="quickGoal">540</view>
-      </view>
-      <view class="muted goal-hint">点上方数字可快速选；只统计上冰时长 —— 陆地是冰面的辅助，不计入达标</view>
-  </view>
-
-  <view class="card">
     <view class="title">📈 次数基线（开始记录前已录的次数）</view>
     <view class="muted">早期记录不全时，填上这个基线，让「回顾」里的累计「上冰/上课」次数更准确。</view>
     <view class="goal-row">
@@ -27,14 +11,6 @@
       <input class="input goal-input" type="number" value="{{lessonBase}}" bindinput="setLessonBase" placeholder="0" />
     </view>
     <button class="btn goal-btn-full" bindtap="saveBase">保存基线</button>
-  </view>
-
-  <view class="card">
-    <view class="title">🥾 冰鞋 / 装备</view>
-    <view class="muted">填一双鞋的启用到退役日期，自动从已上冰的记录里算出「滑了多少小时」、平均每周多少、距上次磨刀多少天。</view>
-    <view class="btn-row">
-      <button class="ghost-btn" bindtap="goGear">打开装备页</button>
-    </view>
   </view>
 
   <view class="card">

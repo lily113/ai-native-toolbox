@@ -64,6 +64,18 @@
       <view class="st-note" wx:if="{{stats.structure.landUncat}}">陆地共 {{stats.structure.landTotal}} 次，其中 {{stats.structure.landUncat}} 次没选内容，没算进去。</view>
     </view>
 
+    <!-- 冰鞋：数字在这儿，管理在下一页 -->
+    <view class="rv-card skate-row" bindtap="goGear">
+      <block wx:if="{{stats.skate}}">
+        <text class="sk-name">🥾 {{stats.skate.name}}</text>
+        <text class="sk-v">{{stats.skate.text}} ›</text>
+      </block>
+      <block wx:else>
+        <text class="sk-name">🥾 冰鞋 / 装备</text>
+        <text class="sk-v">记一双鞋，自动算滑了多少小时 ›</text>
+      </block>
+    </view>
+
     <view class="rv-card" wx:if="{{stats.feel.has}}">
       <view class="rv-lb">冰感（本月）</view>
       <view class="feel-top">

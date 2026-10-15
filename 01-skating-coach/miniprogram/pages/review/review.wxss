@@ -79,3 +79,8 @@
 .fc-k { font-size: 12.5px; color: #475569; }
 .fc-v { font-size: 12.5px; font-weight: 700; color: #075985; }
 .feel-note { margin-top: 8px; font-size: 11.5px; color: #94a3b8; line-height: 1.55; }
+
+/* 冰鞋一行 */
+.skate-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.sk-name { font-size: 13.5px; font-weight: 700; color: #0c4a6e; }
+.sk-v { font-size: 12.5px; color: #0284c7; }
