@@ -105,7 +105,7 @@
   <view class="card">
     <view class="title">📝 把旧笔记搬进来</view>
     <view class="muted">微信收藏 / 备忘录里攒了几年的训练笔记，按日期搬进来。可以<text class="b">复制提示词让你自己的 AI 先转格式</text>，再粘回来。</view>
-    <view class="muted">这些笔记<text class="b">不算进上冰天数 / 时长 / 周目标</text>，只在搜索和日历当天里能看到。</view>
+    <view class="muted">默认<text class="b">计入上冰天数 / 次数</text>；正文里写了「90 分钟 / 1.5 小时 / 2 节」的，会照抄成时长（没写就是 0 分钟）。也可以切成「只当笔记」。</view>
     <view class="nav-row" bindtap="goImportHist">
       <text class="nav-t">打开历史笔记导入</text>
       <text class="nav-go">›</text>
