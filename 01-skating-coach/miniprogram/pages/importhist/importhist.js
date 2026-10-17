@@ -12,7 +12,8 @@ Page({
     total: 0, pickN: 0, dupN: 0, ambiguous: 0, noDate: '',
     importing: false,
     aiBusy: false, aiMsg: '', aiSteps: '', byAi: 0,
-    promptOn: false
+    promptOn: false,
+    counted: true,          // 默认：当作真实训练记录（计入天数/时长）；关掉 = 只当笔记
   },
 
   onLoad() {
@@ -43,7 +44,9 @@ Page({
     }
     const items = pv.items.map(it => {
       const dup = pv.dup.some(d => d.date === it.date && d.text === it.text);
+      const dur0 = histnote.extractDuration(it.text);
       return {
+        durText: dur0.duration ? (dur0.units ? (dur0.units + ' 节 / ' + dur0.duration + ' 分钟') : (dur0.duration + ' 分钟')) : '',
         date: it.date,
         text: it.text,
         ambiguous: !!it.ambiguous,
@@ -128,7 +131,9 @@ Page({
       if (!date) noDateN++;
       if (date && (have[date + '|' + text] || seen[date + '|' + text])) return;   // 真重复的直接不显示
       if (date) seen[date + '|' + text] = 1;
+      const dur = histnote.extractDuration(text);
       items.push({
+        durText: dur.duration ? (dur.units ? (dur.units + ' 节 / ' + dur.duration + ' 分钟') : (dur.duration + ' 分钟')) : '',
         date: date || '（没认出日期）',
         rawDate: date,
         text: text,
@@ -170,6 +175,10 @@ Page({
 
   showPrompt() { this.setData({ promptOn: !this.data.promptOn }); },
 
+  onCounted(e) {
+    this.setData({ counted: !!e.detail.value });
+  },
+
   toggle(e) {
     const i = Number(e.currentTarget.dataset.i);
     const items = this.data.items.slice();
@@ -196,8 +205,8 @@ Page({
     recs.forEach(r => { if (r && r.id) have[r.id] = 1; });
     const add = [];
     picked.forEach(it => {
-      const rec = histnote.toRecord({ date: it.rawDate || it.date, text: it.text });
-      if (it.kind === 'land') rec.type = 'land';       // AI 认出是陆地训练
+      const rec = histnote.toRecord({ date: it.rawDate || it.date, text: it.text, kind: it.kind },
+        { counted: this.data.counted });
 
       if (have[rec.id]) return;      // 幂等：同日期 + 同文字不会重复进来
       have[rec.id] = 1;
@@ -210,7 +219,10 @@ Page({
     this.setData({ importing: false, raw: '', parsed: false, items: [], total: 0, pickN: 0 });
     wx.showModal({
       title: '导入完成',
-      content: '新增了 ' + n + ' 条历史笔记。\n\n它们不计入上冰天数/时长/周目标，只会在搜索和日历当天里出现。',
+      content: '新增了 ' + n + ' 条' + (this.data.counted ? '训练记录' : '历史笔记') + '。\n\n'
+        + (this.data.counted
+          ? '已计入上冰天数/次数；正文里写了时长的也算进了时长（没写的按 0 分钟）。\n想撤掉可以说「恢复导入前」。'
+          : '它们不计入上冰天数/时长/周目标，只会在搜索和日历当天里出现。'),
       showCancel: false,
       confirmText: '好'
     });

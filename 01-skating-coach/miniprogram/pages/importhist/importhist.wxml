@@ -2,10 +2,22 @@
   <view class="tip-card">
     <view class="tip-t">📥 把旧笔记搬进来</view>
     <view class="tip-l">从微信收藏 / 备忘录里整段复制过来就行。这里只做一件事：<text class="b">按日期切开</text>，一条日期变一条记录。</view>
-    <view class="tip-l dim">不会去猜时长和动作（猜错比不猜更糟），所以这些笔记<text class="b">不算进上冰天数 / 时长 / 周目标</text>，只在搜索和日历当天里能看到。</view>
+    <view class="tip-l dim">不会去猜动作；时长只从正文里<text class="b">照抄</text>（写了「90 分钟 / 1.5 小时 / 2 节」就抽出来，没写就是 0）。</view>
   </view>
 
   <!-- 路径 A：用自己的 AI 转格式（推荐，最稳也最省钱） -->
+  <!-- 这一条比"只当笔记"重要：历史记录的价值首先在天数和时长 -->
+  <view class="card mode-card">
+    <view class="mode-row">
+      <view class="mode-l">
+        <view class="mode-t">{{counted ? '计入上冰统计' : '只当笔记（不算统计）'}}</view>
+        <view class="mode-s" wx:if="{{counted}}">天数和次数会算进去；正文里有「90 分钟 / 1.5 小时 / 2 节」会自动抽成时长，没写就是 0 分钟。</view>
+        <view class="mode-s" wx:else>不算天数 / 时长 / 周目标，只在搜索和日历当天里出现。</view>
+      </view>
+      <switch checked="{{counted}}" bindchange="onCounted" color="#0284c7" />
+    </view>
+  </view>
+
   <view class="card">
     <view class="sub-t">① 用自己的 AI 转格式（推荐）</view>
     <view class="steps">
@@ -55,6 +67,7 @@
             <text class="tag land" wx:if="{{item.kind === 'land'}}">陆地</text>
             <text class="tag dim" wx:if="{{item.kind === 'other'}}">其他</text>
             <text class="tag" wx:if="{{item.dup}}">已存在</text>
+            <text class="tag dur" wx:if="{{item.durText}}">{{item.durText}}</text>
           </view>
           <view class="row-text">{{item.preview}}</view>
         </view>
