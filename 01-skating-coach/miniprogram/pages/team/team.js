@@ -2,6 +2,19 @@
 const team = require('../../utils/team');
 const store = require('../../utils/store');
 
+// 这一行是"多久以前更新的" —— 能一眼看出榜上的数字是不是刚推上去的
+// （同一个微信号在模拟器和手机上 openid 是一样的，所以两端会互相覆盖，看时间能判断）
+function agoText(ts) {
+  const t = Number(ts) || 0;
+  if (!t) return '还没更新';
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 1) return '刚刚更新';
+  if (min < 60) return min + ' 分钟前';
+  const h = Math.floor(min / 60);
+  if (h < 24) return h + ' 小时前';
+  return Math.floor(h / 24) + ' 天前';
+}
+
 function fmtMin(m) {
   const n = Number(m) || 0;
   if (n <= 0) return '0 分钟';
@@ -57,7 +70,7 @@ Page({
         days: x.days,
         minutesText: fmtMin(x.minutes),
         lessons: x.lessons,
-        fresh: !!x.updatedAt
+        timeText: agoText(x.updatedAt)
       }));
       this.setData({
         loading: false, joined: true, code: r.code || '',
