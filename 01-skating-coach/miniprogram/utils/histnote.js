@@ -132,4 +132,68 @@ function preview(raw, records, opts) {
   };
 }
 
-module.exports = { splitByDate, toRecord, preview, todayKey };
+// ============================================================
+// 「让用户自己的 AI 转格式」用的提示词
+// 思路：把"各种写法"这件麻烦事交给用户手里任意一个 AI，我们只认一种固定格式。
+// 比走我们自己的云函数更好：不花我们的钱、不依赖某个平台、用户能自己追问和纠错。
+// 输出格式跟云函数那条分支完全一致，所以清洗规则也是一套。
+// ============================================================
+var AI_PROMPT = [
+  '你是数据整理助手。下面是我自己的训练笔记（写法不统一、可能有错别字和口语）。',
+  '请按日期切成一条一条，只输出 JSON，不要解释、不要代码块。',
+  '',
+  '输出格式：',
+  '{"entries":[{"date":"YYYY-MM-DD","kind":"ice","text":"这一条的原文"}],"rest":"无法归入任何日期的内容"}',
+  '',
+  '规则：',
+  '1. date 必须是原文里能看到的日期（如 2024-03-15 / 2024.3.15 / 3月15日 / 3/15）。',
+  '   没写年份但有上下文就补上；推不出来就留空字符串。绝对不许编日期（这条最重要）。',
+  '2. kind 只能是 ice（冰上、上冰、冰场课）、land（陆地、体能、软开、舞蹈）、',
+  '   other（考级要点、心情、与训练无关）。拿不准就写 other。',
+  '3. text 必须原文照抄（可以去掉开头的日期本身），不许改写、总结、润色、补充。',
+  '4. 不要输出时长、节数、动作编号、评分。原文里本来写了「90 分钟」就留在 text 里，',
+  '   但不要另设字段。',
+  '5. 一条日期一段；同一天的多段内容合并成一条，用换行分隔。',
+  '6. 空行、分割线、==== 之类不属于内容。',
+  '7. 如果整段没有日期、也不是按日期组织的，entries 用空数组，原文放进 rest。'
+].join('\n');
+
+// 解析 AI 给的 JSON（容错：去掉代码块、截取第一个 { ... }、字段白名单、日期校验）
+// 跟云函数里的 _parseEntries 是同一套规则 —— 测试里会拿同一份样例比对两边输出，防止跑偏。
+function parseAiJson(raw) {
+  var s = String(raw == null ? '' : raw).trim();
+  s = s.replace(/^```(?:json|JSON)?/, '').replace(/```$/, '').trim();
+  var a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  var obj;
+  try { obj = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  var KINDS = { ice: 1, land: 1, other: 1 };
+  var list = Object.prototype.toString.call(obj.entries) === '[object Array]' ? obj.entries : [];
+  var entries = [];
+  list.slice(0, 300).forEach(function (x) {
+    if (!x || typeof x !== 'object') return;
+    var text = String(x.text == null ? '' : x.text).slice(0, 2000).trim();
+    if (!text) return;
+    var d = String(x.date == null ? '' : x.date).trim().slice(0, 10);
+    var date = /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '';
+    if (date) {
+      var p2 = date.split('-').map(Number);
+      var dt = new Date(p2[0], p2[1] - 1, p2[2]);
+      if (!(dt.getFullYear() === p2[0] && dt.getMonth() === p2[1] - 1 && dt.getDate() === p2[2])) date = '';
+    }
+    var kind = KINDS[String(x.kind || '').toLowerCase()] ? String(x.kind).toLowerCase() : 'other';
+    entries.push({ date: date, kind: kind, text: text });
+  });
+  return { entries: entries, rest: String(obj.rest == null ? '' : obj.rest).slice(0, 2000) };
+}
+
+// 粘进来的东西是"AI 给的 JSON"还是"原始笔记"？—— 自动判断，用户不用选
+function looksLikeAiJson(raw) {
+  var s = String(raw == null ? '' : raw).trim();
+  if (!s) return false;
+  s = s.replace(/^```(?:json|JSON)?/, '').trim();   // AI 常把 JSON 包在代码块里
+  if (!/[{[]/.test(s.slice(0, 4))) return false;
+  return /"entries"|\bentries\s*:/.test(s) || /["']date["']\s*:/.test(s);
+}
+
+module.exports = { splitByDate, toRecord, preview, todayKey, AI_PROMPT, parseAiJson, looksLikeAiJson };

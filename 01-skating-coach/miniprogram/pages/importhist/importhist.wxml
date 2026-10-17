@@ -5,7 +5,23 @@
     <view class="tip-l dim">不会去猜时长和动作（猜错比不猜更糟），所以这些笔记<text class="b">不算进上冰天数 / 时长 / 周目标</text>，只在搜索和日历当天里能看到。</view>
   </view>
 
+  <!-- 路径 A：用自己的 AI 转格式（推荐，最稳也最省钱） -->
   <view class="card">
+    <view class="sub-t">① 用自己的 AI 转格式（推荐）</view>
+    <view class="steps">
+      <view class="step">在豆包 / ChatGPT / DeepSeek 里粘下面这段提示词，<text class="b">下面接上你的笔记</text>，发送</view>
+      <view class="step">它会给一段 JSON —— 整段复制回来，粘到下面的框里，点「识别」</view>
+    </view>
+    <view class="btn-row2">
+      <button class="ghost-btn" bindtap="copyPrompt">📋 复制提示词</button>
+      <button class="ghost-btn" bindtap="showPrompt">{{promptOn ? '收起' : '看看写了什么'}}</button>
+    </view>
+    <view class="prompt" wx:if="{{promptOn}}" selectable="{{true}}">{{promptText}}</view>
+    <view class="ai-tip">用你自己的 AI：不花这个 app 的钱，笔记也不会发给我们的服务。</view>
+  </view>
+
+  <view class="card">
+    <view class="sub-t">② 或者直接粘原始笔记（按日期切分）</view>
     <textarea class="textarea paste" value="{{raw}}" bindinput="onInput" maxlength="-1"
       placeholder="例：&#10;2024-03-15&#10;今天练压步，老师说下沉一点&#10;&#10;2024.3.18&#10;旋转能转三圈了&#10;&#10;3月22日 陆地：压腿、核心"
       auto-height="{{false}}" />

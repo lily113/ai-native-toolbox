@@ -11,12 +11,13 @@ Page({
     items: [],         // [{date, text, ambiguous, pick, preview}]
     total: 0, pickN: 0, dupN: 0, ambiguous: 0, noDate: '',
     importing: false,
-    aiBusy: false, aiMsg: '', aiSteps: '', byAi: 0
+    aiBusy: false, aiMsg: '', aiSteps: '', byAi: 0,
+    promptOn: false
   },
 
   onLoad() {
     // 记录一下"现有多少条"，导入后好算新增了几条
-    this.setData({ beforeN: (store.loadRecords() || []).length });
+    this.setData({ beforeN: (store.loadRecords() || []).length, promptText: histnote.AI_PROMPT });
   },
 
   onInput(e) {
@@ -27,6 +28,13 @@ Page({
   parse() {
     const raw = String(this.data.raw || '');
     if (!raw.trim()) { wx.showToast({ title: '先粘贴点内容', icon: 'none' }); return; }
+    // 粘进来的是"AI 按我们的格式给的 JSON"？那就走 JSON 解析（自动判断，用户不用选）
+    if (histnote.looksLikeAiJson(raw)) {
+      const r = histnote.parseAiJson(raw);
+      if (!r) { wx.showToast({ title: '这段像 AI 的 JSON，但解析不出来。让它重新按格式输出一次', icon: 'none', duration: 3000 }); return; }
+      this.applyAiEntries(r.entries, r.rest, 'AI 格式');
+      return;
+    }
     const recs = store.loadRecords() || [];
     const pv = histnote.preview(raw, recs);
     if (!pv.items.length) {
@@ -100,6 +108,12 @@ Page({
   },
 
   finishAi(entries, rests, nChunks) {
+    this.applyAiEntries(entries, rests.join('\n'), 'AI 识别', nChunks);
+  },
+
+  // 把 [{date, kind, text}] 变成可预览的行。
+  // 云函数的结果、以及用户自己拿 AI 转出来的 JSON，都走这里 —— 同一套规则，不各写一份。
+  applyAiEntries(entries, restText, fromLabel, nChunks) {
     const recs = store.loadRecords() || [];
     const have = {};
     recs.forEach(r => { if (r && r.date) have[r.date + '|' + String(r.content || '').trim()] = 1; });
@@ -128,15 +142,33 @@ Page({
       });
     });
     items.sort((a, b) => String(b.rawDate).localeCompare(String(a.rawDate)));
+    const extra = nChunks ? ('，共 ' + nChunks + ' 批') : '';
     this.setData({
       aiBusy: false, parsed: true, items: items, byAi: items.length,
       total: items.length, pickN: items.filter(x => x.pick).length,
       dupN: 0, ambiguous: 0,
-      noDate: rests.join('\n').trim(),
-      aiMsg: 'AI 识别出 ' + items.length + ' 条' + (noDateN ? '（其中 ' + noDateN + ' 条没认出日期，已默认不勾）' : '')
-        + '，共 ' + nChunks + ' 批。请核对后再导入。'
+      noDate: String(restText || '').trim(),
+      aiMsg: fromLabel + ' ' + items.length + ' 条' + (noDateN ? '（其中 ' + noDateN + ' 条没认出日期，已默认不勾）' : '')
+        + extra + '。请核对后再导入。'
     });
   },
+
+  // ---------- 复制提示词：让用户拿自己的 AI（豆包/ChatGPT/DeepSeek 都行）转格式 ----------
+  copyPrompt() {
+    wx.setClipboardData({
+      data: histnote.AI_PROMPT,
+      success: () => {
+        wx.showModal({
+          title: '提示词已复制',
+          content: '① 打开任意 AI（豆包 / ChatGPT / DeepSeek 都行）\n② 粘贴这段提示词，下面接上你的笔记，发送\n③ 把它给的 JSON 整段复制回来，粘到上面那个框，点「识别」\n\n（用你自己的 AI：不花这个 app 的钱，也不会把笔记发给我们的服务）',
+          showCancel: false,
+          confirmText: '好'
+        });
+      }
+    });
+  },
+
+  showPrompt() { this.setData({ promptOn: !this.data.promptOn }); },
 
   toggle(e) {
     const i = Number(e.currentTarget.dataset.i);

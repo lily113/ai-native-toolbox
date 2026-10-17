@@ -40,3 +40,14 @@
 .tag.ai { color: #7c3aed; background: #f3e8ff; }
 .tag.land { color: #0f766e; background: #ccfbf1; }
 .tag.dim { color: #94a3b8; }
+
+/* 路径 A：提示词 */
+.btn-row2 { display: flex; gap: 10px; margin-top: 10px; }
+.btn-row2 .ghost-btn { flex: 1; margin: 0; }
+.steps { margin: 8px 0 2px; }
+.step { font-size: 12.5px; color: #475569; line-height: 1.7; padding-left: 18px; position: relative; }
+.step::before { content: '·'; position: absolute; left: 6px; color: #0284c7; font-weight: 800; }
+.step .b { color: #0369a1; font-weight: 700; }
+.prompt { margin-top: 10px; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 10px;
+  padding: 10px 12px; font-size: 11.5px; color: #475569; line-height: 1.7; white-space: pre-wrap;
+  max-height: 260px; overflow: auto; }
