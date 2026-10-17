@@ -7,22 +7,35 @@
 
   <view class="err" wx:if="{{err}}">{{err}}</view>
 
-  <!-- ========== 还没入队 ========== -->
+  <!-- ========== 还没入队：一张卡 + 两个 tab，别堆两张一模一样的卡 ========== -->
   <block wx:if="{{!loading && !joined}}">
-    <view class="card-box">
-      <view class="bx-t">加入同门的小队</view>
-      <view class="bx-s">跟同门要 6 位邀请码（或直接点他分享的卡片，会自动填好）</view>
-      <view class="input-wrap"><input class="input code-input" value="{{joinCode}}" bindinput="onCode" placeholder="6 位邀请码" maxlength="6" /></view>
-      <view class="input-wrap"><input class="input" value="{{nick}}" bindinput="onNick" placeholder="你在小队里的名字（可选）" maxlength="12" /></view>
-      <button class="btn" bindtap="join" disabled="{{busy}}">{{busy ? '处理中…' : '加入'}}</button>
-    </view>
+    <view class="auth-card">
+      <view class="seg">
+        <view class="seg-btn {{mode === 'join' ? 'active' : ''}}" bindtap="setMode" data-m="join">加入同门</view>
+        <view class="seg-btn {{mode === 'create' ? 'active' : ''}}" bindtap="setMode" data-m="create">自己建队</view>
+      </view>
 
-    <view class="card-box">
-      <view class="bx-t">或者自己建一个</view>
-      <view class="bx-s">建完会给你一个邀请码，发给同门就行</view>
-      <view class="input-wrap"><input class="input" value="{{nick}}" bindinput="onNick" placeholder="你在小队里的名字（可选）" maxlength="12" /></view>
-      <button class="ghost-btn" bindtap="create" disabled="{{busy}}">创建小队</button>
+      <block wx:if="{{mode === 'join'}}">
+        <view class="lb">邀请码</view>
+        <view class="input-wrap">
+          <input class="input code-input" value="{{joinCode}}" bindinput="onCode"
+                 placeholder="6 位码" maxlength="6" />
+        </view>
+        <view class="hint">跟同门要这个 6 位码；点他分享的卡片会自动填好。</view>
+      </block>
+      <block wx:else>
+        <view class="hint create-hint">建完会给你一个邀请码，发给同门就能进来。<text class="b">最多 15 人。</text></view>
+      </block>
+
+      <view class="lb">你在队里叫什么（可选）</view>
+      <view class="input-wrap">
+        <input class="input" value="{{nick}}" bindinput="onNick" placeholder="比如：小冰" maxlength="12" />
+      </view>
+
+      <button class="btn auth-btn" wx:if="{{mode === 'join'}}" bindtap="join" disabled="{{busy}}">{{busy ? '处理中…' : '加入小队'}}</button>
+      <button class="btn auth-btn" wx:else bindtap="create" disabled="{{busy}}">{{busy ? '处理中…' : '创建小队'}}</button>
     </view>
+    <view class="auth-foot">队伍里的人只能看到你的<text class="b">本周上冰天数 / 时长 / 冰课次数</text>。</view>
   </block>
 
   <!-- ========== 已在队里 ========== -->

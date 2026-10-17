@@ -7,12 +7,23 @@
 .err { background: #fde8e8; color: #b91c1c; border-radius: 10px; padding: 10px 12px; font-size: 12.5px;
   margin-bottom: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
 
-.card-box { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
-.bx-t { font-size: 15px; font-weight: 700; color: #0c4a6e; }
-.bx-s { font-size: 12.5px; color: #64748B; margin: 4px 0 10px; line-height: 1.6; }
-.card-box .input-wrap { margin-bottom: 10px; }
-.code-input { font-weight: 700; }   /* 别加 letter-spacing/居中：会把占位文字挤得贴边 */
-.card-box .btn, .card-box .ghost-btn { margin-top: 4px; }
+/* 入队卡：一张卡 + 两个 tab（原来两张几乎一样的卡又长又乱） */
+.auth-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 10px; }
+.auth-card .seg { margin-bottom: 14px; }
+.lb { font-size: 12px; font-weight: 600; color: #64748B; margin: 12px 2px 6px; }
+.auth-card .seg + .lb, .auth-card .seg + .hint { margin-top: 0; }
+.hint { font-size: 12px; color: #94a3b8; line-height: 1.6; margin: 6px 2px 0; }
+.hint.create-hint { margin: 2px 2px 4px; }
+.hint .b, .auth-foot .b { color: #0369a1; font-weight: 700; }
+
+/* 输入框：高度和行高显式写死 —— 微信 input 的对齐很吃这个（不然文字会被上下裁掉） */
+/* 高度 - 上下边框 = 行高，文字才能正好垂直居中（差 1~2px 就会被裁） */
+.auth-card .input { height: 50px; line-height: 48px; padding: 0 14px; }
+.auth-card .code-input { height: 58px; line-height: 54px; font-size: 24px; font-weight: 800;
+  text-align: center; letter-spacing: 3px; background: #f8fbfe; border: 1.5px dashed #bae6fd; }
+.auth-card .input-wrap { margin-bottom: 0; }
+.auth-btn { margin-top: 16px; }
+.auth-foot { font-size: 11.5px; color: #94a3b8; line-height: 1.6; text-align: center; padding: 0 8px; }
 
 /* 邀请码卡 */
 .code-card { display: flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--border);
