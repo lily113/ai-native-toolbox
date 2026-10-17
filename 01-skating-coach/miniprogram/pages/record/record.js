@@ -1025,6 +1025,11 @@ Page({
     else records.push(rec);
     store.saveRecords(records);
     this.rememberLastPicks();
+    // 顺便把本周汇总推给「同门」小队（没入队的话 pushStat 内部会直接跳过，不发请求）
+    try {
+      const team = require('../../utils/team');
+      team.pushStat().then(() => {});
+    } catch (e) {}
     wx.showToast({ title: '已保存' });
     setTimeout(() => wx.navigateBack(), 300);
   },

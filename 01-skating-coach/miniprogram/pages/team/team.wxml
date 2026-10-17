@@ -1,0 +1,66 @@
+<view class="page">
+  <view class="tip-card">
+    <view class="tip-t">👥 同门小队</view>
+    <view class="tip-l">一起练的人互相看<text class="b">本周上冰天数 / 上冰时长 / 冰课次数</text>。</view>
+    <view class="tip-l dim">只共享这三个数字 —— <text class="b">笔记、教练的话、冰感、伤病永远不会出现在这里</text>。</view>
+  </view>
+
+  <view class="err" wx:if="{{err}}">{{err}}</view>
+
+  <!-- ========== 还没入队 ========== -->
+  <block wx:if="{{!loading && !joined}}">
+    <view class="card-box">
+      <view class="bx-t">加入同门的小队</view>
+      <view class="bx-s">跟同门要 6 位邀请码（或直接点他分享的卡片，会自动填好）</view>
+      <view class="input-wrap"><input class="input code-input" value="{{joinCode}}" bindinput="onCode" placeholder="6 位邀请码" maxlength="6" /></view>
+      <view class="input-wrap"><input class="input" value="{{nick}}" bindinput="onNick" placeholder="你在小队里的名字（可选）" maxlength="12" /></view>
+      <button class="btn" bindtap="join" disabled="{{busy}}">{{busy ? '处理中…' : '加入'}}</button>
+    </view>
+
+    <view class="card-box">
+      <view class="bx-t">或者自己建一个</view>
+      <view class="bx-s">建完会给你一个邀请码，发给同门就行</view>
+      <view class="input-wrap"><input class="input" value="{{nick}}" bindinput="onNick" placeholder="你在小队里的名字（可选）" maxlength="12" /></view>
+      <button class="ghost-btn" bindtap="create" disabled="{{busy}}">创建小队</button>
+    </view>
+  </block>
+
+  <!-- ========== 已在队里 ========== -->
+  <block wx:if="{{!loading && joined}}">
+    <view class="code-card">
+      <view class="cc-l">
+        <view class="cc-t">邀请码</view>
+        <view class="cc-code">{{code}}</view>
+        <view class="cc-s">{{members}} 人在队里 · 最多 15 人</view>
+      </view>
+      <view class="cc-ops">
+        <view class="cc-btn" bindtap="copyCode">复制</view>
+        <button class="cc-share" open-type="share">邀请</button>
+      </view>
+    </view>
+
+    <view class="board">
+      <view class="bd-head">
+        <text class="bd-t">本周榜（按上冰天数）</text>
+        <text class="bd-refresh" bindtap="refreshMine">刷新我的</text>
+      </view>
+      <view class="row {{item.mine ? 'me' : ''}}" wx:for="{{rows}}" wx:key="nick">
+        <view class="r-main">
+          <view class="r-nick">{{item.nick}}<text class="r-me" wx:if="{{item.mine}}">我</text></view>
+          <view class="r-sub">
+            <text class="r-days">{{item.days}} 天</text>
+            <text class="r-dim"> · {{item.minutesText}}</text>
+            <text class="r-dim"> · 冰课 {{item.lessons}}</text>
+          </view>
+        </view>
+        <view class="r-stale" wx:if="{{!item.fresh}}">还没更新</view>
+      </view>
+      <view class="empty" wx:if="{{!rows.length}}">队里还没有人上报数据。点上面「刷新我的」先把自己的推上去。</view>
+    </view>
+
+    <view class="quit" bindtap="leave">退出小队</view>
+    <view class="foot-tip">退出后你练了多少不会丢，只是从榜上撤掉；最后一个人退出，小队会自动解散。</view>
+  </block>
+
+  <view class="loading" wx:if="{{loading}}">读取中…</view>
+</view>
