@@ -73,6 +73,10 @@
       <view class="empty" wx:if="{{!rows.length}}">队里还没有人上报数据。点上面「刷新我的」先把自己的推上去。</view>
     </view>
 
+    <!-- 本机 vs 榜上：不是同一份数的时候，一眼能看出是哪边 -->
+    <view class="mine-line">这台手机算出来：本周 <text class="b">{{mineDays}} 天</text> · {{mineMinutesText}} · 冰课 {{mineLessons}}</view>
+    <view class="mine-tip">榜上是各台设备最后一次推上来的数字。同一个微信号在电脑和手机上是同一个人，但<b>开发者工具里不自动同步记录</b>（保护你的真实数据），所以电脑端要手动点上传。</view>
+
     <view class="quit" bindtap="leave">退出小队</view>
     <view class="foot-tip">退出后你练了多少不会丢，只是从榜上撤掉；最后一个人退出，小队会自动解散。</view>
   </block>
