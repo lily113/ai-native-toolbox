@@ -10,7 +10,8 @@ Page({
     parsed: false,     // 是否已经识别过
     items: [],         // [{date, text, ambiguous, pick, preview}]
     total: 0, pickN: 0, dupN: 0, ambiguous: 0, noDate: '',
-    importing: false
+    importing: false,
+    aiBusy: false, aiMsg: '', aiSteps: '', byAi: 0
   },
 
   onLoad() {
@@ -51,6 +52,92 @@ Page({
     });
   },
 
+  // ---------- AI 识别（规则认不出来时的兜底） ----------
+  // 说明清楚三件事：会发原文给 AI、要花调用费、AI 只填日期/冰上还是陆地/原文，不填时长
+  aiParse() {
+    if (this.data.aiBusy) return;
+    const raw = String(this.data.raw || '');
+    if (raw.trim().length < 10) { wx.showToast({ title: '先粘贴点内容', icon: 'none' }); return; }
+    wx.showModal({
+      title: '让 AI 识别',
+      content: '会把这段笔记原文发给 DeepSeek 做切分（只用于这次识别，不保存到别处）。\n\nAI 只会填「日期 / 冰上还是陆地 / 原文」，不填时长、不总结、不补内容；识别结果先给你核对，不会直接写进记录。',
+      confirmText: '开始',
+      success: r => { if (r.confirm) this.doAi(raw); }
+    });
+  },
+
+  doAi(raw) {
+    const chunks = splitChunks(raw, 6000);
+    if (!chunks.length) { wx.showToast({ title: '没有内容', icon: 'none' }); return; }
+    if (chunks.length > 20) {
+      wx.showToast({ title: '太长了，请分几次粘（一次约 20 段以内）', icon: 'none', duration: 3000 });
+      return;
+    }
+    this.setData({ aiBusy: true, aiMsg: '', aiSteps: '0/' + chunks.length, parsed: false, items: [] });
+    const got = [];
+    let restAll = [];
+    const step = (i) => {
+      if (i >= chunks.length) { this.finishAi(got, restAll, chunks.length); return; }
+      this.setData({ aiSteps: i + '/' + chunks.length });
+      wx.cloud.callFunction({
+        name: 'deepseek',
+        data: { mode: 'import', text: chunks[i] }
+      }).then(res => {
+        const r = (res && res.result) || {};
+        if (r.answer) {   // 走了"非本人/未配置"的兜底分支
+          this.setData({ aiBusy: false, aiMsg: String(r.answer) });
+          return;
+        }
+        if (r.msg) { this.setData({ aiBusy: false, aiMsg: 'AI 报错：' + r.msg }); return; }
+        (r.entries || []).forEach(x => got.push(x));
+        if (r.rest) restAll.push(r.rest);
+        step(i + 1);
+      }).catch(err => {
+        this.setData({ aiBusy: false, aiMsg: '调用失败：' + friendlyCloudErr(err) });
+      });
+    };
+    step(0);
+  },
+
+  finishAi(entries, rests, nChunks) {
+    const recs = store.loadRecords() || [];
+    const have = {};
+    recs.forEach(r => { if (r && r.date) have[r.date + '|' + String(r.content || '').trim()] = 1; });
+    const seen = {};
+    let noDateN = 0;
+    const items = [];
+    entries.forEach(e => {
+      const text = String(e.text || '').trim();
+      if (!text) return;
+      const date = String(e.date || '');
+      const dup = !!(date && have[date + '|' + text]);
+      if (!date) noDateN++;
+      if (date && (have[date + '|' + text] || seen[date + '|' + text])) return;   // 真重复的直接不显示
+      if (date) seen[date + '|' + text] = 1;
+      items.push({
+        date: date || '（没认出日期）',
+        rawDate: date,
+        text: text,
+        kind: e.kind || 'other',
+        byAi: true,
+        ambiguous: false,
+        dup: dup,
+        // 没日期的、other 类的默认不勾（避免塞进一堆无意义的东西）
+        pick: !!date && e.kind !== 'other',
+        preview: text.replace(/\n+/g, ' ／ ').slice(0, 60)
+      });
+    });
+    items.sort((a, b) => String(b.rawDate).localeCompare(String(a.rawDate)));
+    this.setData({
+      aiBusy: false, parsed: true, items: items, byAi: items.length,
+      total: items.length, pickN: items.filter(x => x.pick).length,
+      dupN: 0, ambiguous: 0,
+      noDate: rests.join('\n').trim(),
+      aiMsg: 'AI 识别出 ' + items.length + ' 条' + (noDateN ? '（其中 ' + noDateN + ' 条没认出日期，已默认不勾）' : '')
+        + '，共 ' + nChunks + ' 批。请核对后再导入。'
+    });
+  },
+
   toggle(e) {
     const i = Number(e.currentTarget.dataset.i);
     const items = this.data.items.slice();
@@ -70,14 +157,16 @@ Page({
 
   confirm() {
     if (this.data.importing) return;
-    const picked = this.data.items.filter(x => x.pick);
+    const picked = this.data.items.filter(x => x.pick && (x.rawDate || /^\d{4}-\d{2}-\d{2}$/.test(x.date)));
     if (!picked.length) { wx.showToast({ title: '没有勾选任何一条', icon: 'none' }); return; }
     const recs = store.loadRecords() || [];
     const have = {};
     recs.forEach(r => { if (r && r.id) have[r.id] = 1; });
     const add = [];
     picked.forEach(it => {
-      const rec = histnote.toRecord(it);
+      const rec = histnote.toRecord({ date: it.rawDate || it.date, text: it.text });
+      if (it.kind === 'land') rec.type = 'land';       // AI 认出是陆地训练
+
       if (have[rec.id]) return;      // 幂等：同日期 + 同文字不会重复进来
       have[rec.id] = 1;
       add.push(rec);
@@ -95,3 +184,23 @@ Page({
     });
   }
 });
+
+// 按行切成 ≤limit 字的块（尽量不切在句子中间）
+function splitChunks(text, limit) {
+  const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
+  const out = [];
+  let cur = '';
+  lines.forEach(l => {
+    if (cur && (cur.length + l.length + 1) > limit) { out.push(cur); cur = ''; }
+    cur = cur ? (cur + '\n' + l) : l;
+  });
+  if (cur.trim()) out.push(cur);
+  return out;
+}
+
+function friendlyCloudErr(err) {
+  const s = String((err && (err.errMsg || err.message)) || '');
+  if (/no baseresponse|FunctionName not found|-501000/i.test(s)) return '云函数 deepseek 没部署好（右键 cloudfunctions/deepseek → 上传并部署：云端安装依赖）';
+  if (/timeout/i.test(s)) return '超时了，分小一点再试';
+  return s || '未知错误';
+}
