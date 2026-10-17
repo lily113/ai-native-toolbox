@@ -46,6 +46,22 @@ function setLocalTeam(patch) {
 }
 function setNick(nick) { return setLocalTeam({ nick: String(nick || '').slice(0, 12) }); }
 
+// 把云函数的报错翻译成"能照着做"的话。
+// 最常见的是 no baseresponse：= 云函数没部署（或部署时没装依赖，启动就崩了）。
+function friendlyErr(msg) {
+  const s = String(msg || '');
+  if (/no baseresponse|FunctionName not found|RESOURCE_NOT_FOUND|-501000|FunctionNameNotFound/i.test(s)) {
+    return '云函数 friend 还没部署好。\n'
+      + '① 开发者工具左侧 → cloudfunctions/friend\n'
+      + '② 右键 → 「上传并部署：云端安装依赖」\n'
+      + '③ 等 1~2 分钟（控制台看状态变成"已部署"）再回来试';
+  }
+  if (/timeout|超时|-504003/i.test(s)) return '云函数超时了（第一次部署后冷启动会慢），过十几秒再试一次';
+  if (/env|环境变量|invalid env/i.test(s)) return '云开发环境没初始化好：重启开发者工具，确认左上角环境选的是你的环境';
+  if (/permission|denied|权限/i.test(s)) return '云函数没有数据库权限：到云开发控制台确认 planner_team / planner_team_stat 两个集合存在';
+  return s || '调用失败';
+}
+
 function call(action, data) {
   return new Promise((resolve) => {
     if (!wx.cloud || !wx.cloud.callFunction) {
@@ -54,7 +70,10 @@ function call(action, data) {
     }
     wx.cloud.callFunction({ name: 'friend', data: Object.assign({ action: action }, data || {}) })
       .then(res => resolve((res && res.result) || { ok: false, msg: '空回复' }))
-      .catch(err => resolve({ ok: false, msg: '调用失败：' + ((err && (err.errMsg || err.message)) || '未知错误') }));
+      .catch(err => {
+        const raw = (err && (err.errMsg || err.message)) || '未知错误';
+        resolve({ ok: false, msg: friendlyErr(raw), raw: raw });
+      });
   });
 }
 
@@ -68,4 +87,4 @@ function pushStat() {
   });
 }
 
-module.exports = { weekKey, myStat, localTeam, setLocalTeam, setNick, call, pushStat };
+module.exports = { weekKey, myStat, localTeam, setLocalTeam, setNick, call, pushStat, friendlyErr };
