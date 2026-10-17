@@ -9,7 +9,12 @@
     <textarea class="textarea paste" value="{{raw}}" bindinput="onInput" maxlength="-1"
       placeholder="例：&#10;2024-03-15&#10;今天练压步，老师说下沉一点&#10;&#10;2024.3.18&#10;旋转能转三圈了&#10;&#10;3月22日 陆地：压腿、核心"
       auto-height="{{false}}" />
-    <button class="btn" bindtap="parse">识别一下</button>
+    <button class="btn" bindtap="parse">按日期识别</button>
+    <view class="ai-row">
+      <button class="ghost-btn" bindtap="aiParse" disabled="{{aiBusy}}">{{aiBusy ? 'AI 识别中 ' + aiSteps : '🤖 规则认不出来？让 AI 试'}}</button>
+    </view>
+    <view class="ai-tip">AI 只填<text class="b">日期 / 冰上还是陆地 / 原文</text>，不填时长、不总结。结果先给你核对，不会直接写进记录。</view>
+    <view class="ai-msg" wx:if="{{aiMsg}}">{{aiMsg}}</view>
   </view>
 
   <block wx:if="{{parsed}}">
@@ -17,6 +22,7 @@
       <view class="sum">
         识别到 <text class="b">{{total}}</text> 条
         <text class="warn" wx:if="{{ambiguous}}"> · {{ambiguous}} 条没写年份，已按上下文补（点开核对一下）</text>
+        <text class="dim" wx:if="{{byAi}}"> · 由 AI 识别</text>
         <text class="dim" wx:if="{{dupN}}"> · {{dupN}} 条已经有了</text>
       </view>
       <view class="ops">
@@ -27,8 +33,11 @@
         <view class="chk {{item.pick ? 'on' : ''}}" bindtap="toggle" data-i="{{index}}">{{item.pick ? '✓' : ''}}</view>
         <view class="row-main {{item.pick ? '' : 'off'}}" bindtap="toggle" data-i="{{index}}">
           <view class="row-top">
-            <text class="row-date">{{item.date}}</text>
+            <text class="row-date {{item.rawDate ? '' : 'nodate'}}">{{item.date}}</text>
             <text class="tag warn" wx:if="{{item.ambiguous}}">年份靠猜</text>
+            <text class="tag ai" wx:if="{{item.byAi}}">AI</text>
+            <text class="tag land" wx:if="{{item.kind === 'land'}}">陆地</text>
+            <text class="tag dim" wx:if="{{item.kind === 'other'}}">其他</text>
             <text class="tag" wx:if="{{item.dup}}">已存在</text>
           </view>
           <view class="row-text">{{item.preview}}</view>

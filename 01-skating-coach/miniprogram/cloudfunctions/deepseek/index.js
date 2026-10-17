@@ -294,6 +294,36 @@ const NOTE_SYSTEM = '你是花样滑冰课堂笔记整理助手。用户会给�
   '3. 拿不准的术语不要硬猜，保留原文并紧跟「（疑似听错？请确认）」。\n' +
   '4. 可直接输出笔记正文，不要寒暄、不要复述原文。';
 
+// ============================================================
+// 「历史笔记识别」：把用户各写各的自由文本，切成结构化的条目
+//
+// 这个任务跟"教练问答"完全不一样，所以单独一套提示词，而且**限制极严**：
+//   · 只许填 日期 / 冰上还是陆地 / 原文
+//   · **一律不许猜时长、不许总结、不许补内容**（猜出来的数字会污染用户的统计）
+//   · 日期必须能在原文里找到依据；找不到就 date 留空
+//   · 输出严格 JSON（客户端解析失败会退回"规则识别"的结果，不会写坏数据）
+// ============================================================
+const IMPORT_SYSTEM = [
+  '你是数据整理助手。用户会给你一段他自己写的训练笔记（写法各不相同、可能有错别字和口语）。',
+  '你的唯一任务：把它切成一条一条**按日期组织的条目**，并按下面的 JSON 输出。',
+  '',
+  '输出格式（严格，只输出 JSON，不要解释、不要 markdown 代码块）：',
+  '{"entries":[{"date":"YYYY-MM-DD","kind":"ice|land|other","text":"这一条的原文"}],"rest":"无法归入任何日期的内容"}',
+  '',
+  '规则（违反任何一条都算失败）：',
+  '1. date 必须是原文里**能看到的**日期（2024-03-15 / 2024.3.15 / 3月15日 / 3/15 等）。',
+  '   · 没写年份但有上下文（上一条同一年）就补上年份；完全推不出就 date 留空字符串。',
+  '   · **绝对不许编日期**。宁可留空。',
+  '2. kind 只能是 ice（冰上/上冰/冰场课）、land（陆地训练/体能/软开/舞蹈）、other（考级要点、心情、与训练无关）。',
+  '   拿不准就用 other，不要硬猜。',
+  '3. text 必须是**原文照抄**（可去掉行首的日期本身），**不许改写、不许总结、不许润色、不许补充**。',
+  '4. **不许输出时长、节数、动作库 id、评分**——这些字段不存在于输出格式里，也不要写进 text。',
+  '   原文里如果有"1 小时""90 分钟"，那是原文的一部分，可以留在 text 里，但不要另设字段。',
+  '5. 一条日期一段。同一天的多段内容合并成一条，用换行分隔。',
+  '6. 空行、分割线、"====" 之类不属于内容。',
+  '7. 如果整段没有日期且明显不是按日期组织的（比如一整篇文章），entries 留空数组，原文放 rest。'
+].join('\n');
+
 function callDeepSeek(messages, key) {
   const body = JSON.stringify({ model: 'deepseek-chat', messages: messages, temperature: 0.4, max_tokens: 4000 });
   return new Promise((resolve, reject) => {
@@ -334,6 +364,32 @@ exports.main = async (event) => {
     console.error('[deepseek] 鉴权异常', e && e.message);
     return { answer: 'AI 教练暂未开放（鉴权失败：' + ((e && e.message) || '未知') + '）' };
   }
+  // ---------- 分支：历史笔记识别（结构化输出，走单独的提示词） ----------
+  if ((event && event.mode) === 'import') {
+    const text = String((event && event.text) || '').trim();
+    if (!text) return { entries: [], rest: '', msg: '这段是空的' };
+    if (text.length > 8000) return { entries: [], rest: '', msg: '一次最多 8000 字，请分几次粘' };
+    const key0 = process.env.DEEPSEEK_KEY;
+    if (!key0) return { entries: [], rest: '', msg: '云函数未配置 DEEPSEEK_KEY 环境变量' };
+    try {
+      const res = await callDeepSeek([
+        { role: 'system', content: IMPORT_SYSTEM },
+        { role: 'user', content: '这是我自己的训练笔记，请按日期切分：\n\n' + text }
+      ], key0);
+      let j = {};
+      try { j = JSON.parse(res.body); } catch (e) {}
+      if (res.status < 200 || res.status >= 300) {
+        return { entries: [], rest: '', msg: 'AI 返回错误 ' + res.status + '：' + ((j.error && j.error.message) || '') };
+      }
+      const reply = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content) || '';
+      const parsed = parseEntries(reply);
+      if (!parsed) return { entries: [], rest: '', msg: 'AI 返回的不是合法 JSON，可以用「按日期识别」再试' };
+      return { entries: parsed.entries, rest: parsed.rest || '', msg: '' };
+    } catch (e) {
+      return { entries: [], rest: '', msg: '云函数异常：' + ((e && e.message) || e) };
+    }
+  }
+
   const mode = (event && event.mode) === 'note' ? 'note' : 'coach';
   const q = String((event && event.question) || '').trim();
   if (!q) return { answer: '请说点什么' };
@@ -364,6 +420,36 @@ exports.main = async (event) => {
   }
 };
 
+// 从模型回复里抠出 JSON，并按白名单清洗。
+// 关键：**date 不合法就留空**（宁可让用户自己填，也不接受编出来的日期）
+function parseEntries(reply) {
+  let s = String(reply || '').trim();
+  s = s.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  const a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a < 0 || b <= a) return null;
+  let obj;
+  try { obj = JSON.parse(s.slice(a, b + 1)); } catch (e) { return null; }
+  const KINDS = { ice: 1, land: 1, other: 1 };
+  const raw = Array.isArray(obj.entries) ? obj.entries : [];
+  const entries = [];
+  raw.slice(0, 300).forEach(x => {
+    if (!x || typeof x !== 'object') return;
+    const text = String(x.text == null ? '' : x.text).slice(0, 2000).trim();
+    if (!text) return;
+    const d = String(x.date == null ? '' : x.date).trim().slice(0, 10);
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(d) && isRealDate(d) ? d : '';
+    const kind = KINDS[String(x.kind || '').toLowerCase()] ? String(x.kind).toLowerCase() : 'other';
+    entries.push({ date: date, kind: kind, text: text });
+  });
+  return { entries: entries, rest: String(obj.rest == null ? '' : obj.rest).slice(0, 2000) };
+}
+function isRealDate(d) {
+  const p = d.split('-').map(Number);
+  const dt = new Date(p[0], p[1] - 1, p[2]);
+  return dt.getFullYear() === p[0] && dt.getMonth() === p[1] - 1 && dt.getDate() === p[2];
+}
+
 // 便于本地测试
 exports._retrieve = retrieve;
 exports._chunks = CHUNKS;
+exports._parseEntries = parseEntries;
