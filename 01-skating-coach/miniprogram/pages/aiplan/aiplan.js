@@ -37,7 +37,8 @@ Page({
     const wk = mondayKey();
     const recs = store.loadRecords();
     const meta = store.load(store.KEYS.meta) || {};
-    const ice = recs.filter(r => r.type === 'ice' && r.date);
+    // 导入的历史笔记不算"上冰次数/时长"（它们没有时长，也不是这次训练的强度）
+    const ice = recs.filter(r => r.type === 'ice' && !r.noteOnly && r.date);
     const L = [];
 
     // 频率

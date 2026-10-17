@@ -92,8 +92,10 @@
       <button class="ghost-btn half" bindtap="chooseImportFile">📂 导入文件</button>
     </view>
     <view class="btn-row">
-      <button class="ghost-btn" bindtap="toggleImport">📥 粘贴导入</button>
+      <button class="ghost-btn half" bindtap="toggleImport">📥 粘贴导入</button>
+      <button class="ghost-btn half" bindtap="goImportHist">📝 历史笔记</button>
     </view>
+    <view class="muted">「历史笔记」= 把微信收藏 / 备忘录里几年的训练笔记按日期搬进来（不算进上冰统计）。</view>
     <view wx:if="{{showImport}}">
       <view class="muted">粘贴 JSON 备份内容（会自动合并去重）：</view>
       <textarea class="textarea" value="{{importText}}" bindinput="setImportText" placeholder="粘贴 JSON 备份内容…" maxlength="-1"></textarea>

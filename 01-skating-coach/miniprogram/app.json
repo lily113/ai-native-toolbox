@@ -12,6 +12,7 @@
     "pages/gear/gear",
     "pages/aiplan/aiplan",
     "pages/team/team",
+    "pages/importhist/importhist",
     "pages/milestone/milestone",
     "pages/review/review",
     "pages/settings/settings"
