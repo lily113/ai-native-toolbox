@@ -20,6 +20,7 @@ Page({
     rows: [],
     nick: '',
     joinCode: '',
+    mode: 'join',          // join = 加入别人的队；create = 自己建一个
     err: '',
     busy: false
   },
@@ -65,6 +66,11 @@ Page({
       // 顺手把自己的汇总推上去（这样别人看到的是最新的）
       team.pushStat().then(() => {});
     });
+  },
+
+  setMode(e) {
+    const m = e.currentTarget.dataset.m === 'create' ? 'create' : 'join';
+    this.setData({ mode: m, err: '' });
   },
 
   onNick(e) { this.setData({ nick: e.detail.value }); },
