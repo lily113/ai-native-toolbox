@@ -35,7 +35,8 @@ Page({
     joinCode: '',
     mode: 'join',          // join = 加入别人的队；create = 自己建一个
     err: '',
-    busy: false
+    busy: false,
+    mineDays: 0, mineMinutesText: '0 分钟', mineLessons: 0
   },
 
   onLoad(q) {
@@ -64,6 +65,14 @@ Page({
         return;
       }
       team.setLocalTeam({ joined: true, code: r.code || '' });
+      // 本机记录算出来的数（就是"刷新我的"会推上去的那个）——
+      // 榜上是各台设备最后一次推的数字，两者不一样时，这一行能立刻看出是哪边的问题
+      const mineStat = team.myStat();
+      this.setData({
+        mineDays: mineStat.days,
+        mineMinutesText: fmtMin(mineStat.minutes),
+        mineLessons: mineStat.lessons
+      });
       const rows = (r.rows || []).map(x => ({
         nick: x.nick,
         mine: !!x.mine,
