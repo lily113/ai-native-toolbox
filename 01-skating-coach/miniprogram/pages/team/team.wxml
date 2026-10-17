@@ -40,16 +40,18 @@
 
   <!-- ========== 已在队里 ========== -->
   <block wx:if="{{!loading && joined}}">
+    <!-- 邀请码：label 和两个按钮同一行，码单独占一行 ——
+         原来左右两列时，<button> 的默认宽度把右边那列撑爆，盖住了码 -->
     <view class="code-card">
-      <view class="cc-l">
-        <view class="cc-t">邀请码</view>
-        <view class="cc-code">{{code}}</view>
-        <view class="cc-s">{{members}} 人在队里 · 最多 15 人</view>
+      <view class="cc-top">
+        <text class="cc-t">邀请码</text>
+        <view class="cc-ops">
+          <view class="cc-btn" bindtap="copyCode">复制</view>
+          <button class="cc-share" open-type="share">邀请</button>
+        </view>
       </view>
-      <view class="cc-ops">
-        <view class="cc-btn" bindtap="copyCode">复制</view>
-        <button class="cc-share" open-type="share">邀请</button>
-      </view>
+      <view class="cc-code">{{code}}</view>
+      <view class="cc-s">{{members}} 人在队里 · 最多 15 人</view>
     </view>
 
     <view class="board">
@@ -66,7 +68,7 @@
             <text class="r-dim"> · 冰课 {{item.lessons}}</text>
           </view>
         </view>
-        <view class="r-stale" wx:if="{{!item.fresh}}">还没更新</view>
+        <view class="r-stale {{item.timeText === '还没更新' ? 'off' : ''}}">{{item.timeText}}</view>
       </view>
       <view class="empty" wx:if="{{!rows.length}}">队里还没有人上报数据。点上面「刷新我的」先把自己的推上去。</view>
     </view>
