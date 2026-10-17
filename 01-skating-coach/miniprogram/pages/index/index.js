@@ -199,7 +199,7 @@ Page({
       // 距上次上冰多少天：连着练陆地的时候提醒一下"好久没上冰了"
       // （只看已经发生的：日期 <= 今天的最近一条上冰记录）
       const todayK = store.todayKey();
-      const iceDates = recs.filter(r => r.type === 'ice' && r.date && r.date <= todayK).map(r => r.date).sort();
+      const iceDates = recs.filter(r => r.type === 'ice' && !r.noteOnly && r.date && r.date <= todayK).map(r => r.date).sort();
       let sinceIce = -1;
       if (iceDates.length) {
         const last = iceDates[iceDates.length - 1];
@@ -215,7 +215,7 @@ Page({
         const e0 = new Date(s0.getFullYear(), s0.getMonth(), s0.getDate() + 6);
         const sk = store.dateKey(s0), ek = store.dateKey(e0);
         let mins = 0;
-        recs.forEach(r => { const d = r.date || ''; if (r.type === 'ice' && d >= sk && d <= ek) mins += Number(r.duration) || 0; });
+        recs.forEach(r => { const d = r.date || ''; if (r.type === 'ice' && !r.noteOnly && d >= sk && d <= ek) mins += Number(r.duration) || 0; });
         weeks.push(mins);
       }
       const avg4 = Math.round(weeks.reduce((a, b) => a + b, 0) / 4);
@@ -353,7 +353,10 @@ Page({
   refreshDayMarks() {
     const byDate = {};
     store.loadRecords().forEach(r => {
-      const d = byDate[r.date] || (byDate[r.date] = { cnt: 0, lesson: false, self: false, land: false });
+      const d = byDate[r.date] || (byDate[r.date] = { cnt: 0, lesson: false, self: false, land: false, note: false });
+      // 导入的历史笔记：只算"这天有内容"，不涂上冰/陆地的色点
+      // （否则几年的老笔记会把日历涂成"天天上冰"）
+      if (r.noteOnly) { d.note = true; return; }
       d.cnt++;
       if (r.type === 'ice') {
         if (r.mode === 'lesson') d.lesson = true; else d.self = true;
@@ -365,8 +368,9 @@ Page({
       if (c.other) return c;
       const d = byDate[c.key];
       return Object.assign({}, c, {
-        has: !!d, cnt: d ? d.cnt : 0,
-        lesson: !!(d && d.lesson), self: !!(d && d.self), land: !!(d && d.land)
+        has: !!(d && (d.cnt || d.note)), cnt: d ? d.cnt : 0,
+        lesson: !!(d && d.lesson), self: !!(d && d.self), land: !!(d && d.land),
+        noteOnlyDay: !!(d && !d.cnt && d.note)         // 只有笔记、没有真实训练的那种天
       });
     });
     this.setData({ cells });
@@ -379,9 +383,9 @@ Page({
     store.loadRecords().forEach(r => {
       const dd = store.keyToDate(r.date);
       if (dd.getFullYear() === y && dd.getMonth() === m) {
-        mc++;                                   // 全部训练（上冰 + 陆地）
+        if (!r.noteOnly) mc++;                  // 全部训练（上冰 + 陆地）；导入的笔记不算
         mm += Number(r.duration) || 0;
-        if (r.type === 'ice' && r.mode === 'lesson') ml++;   // 「课」只算冰课，陆地课不按节/课算
+        if (r.type === 'ice' && !r.noteOnly && r.mode === 'lesson') ml++;   // 「课」只算冰课，陆地课不按节/课算
       }
     });
     this.setData({ monthCount: mc, monthMin: mm, monthLesson: ml });
@@ -418,7 +422,7 @@ Page({
       examById[ex.id] = ex;
     });
     const dayStats = recs.map(r => {
-      if (r.type === 'ice') {
+      if (r.type === 'ice' && !r.noteOnly) {
         iceN++;
         mins += Number(r.duration) || 0;
         if (r.mode === 'lesson') lesson++;

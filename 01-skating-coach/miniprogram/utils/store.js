@@ -63,6 +63,10 @@ function normalizeRecord(r) {
     landCats: Array.isArray(r.landCats) ? r.landCats.slice() : [],
     // 冰感 1-5（0 = 没记）。只对上冰记录有意义，别的类型一律归 0
     feel: (type === 'ice') ? (Math.min(5, Math.max(0, Math.round(Number(r.feel) || 0)))) : 0,
+    // 从历史笔记导入的条目：只有日期 + 文字，没有时长/动作。
+    // **不计入任何上冰统计**（天数/时长/周目标/趋势/冰感都跳过它），只在搜索、日历当天列表里出现。
+    noteOnly: !!r.noteOnly,
+    src: (r.src === 'import') ? 'import' : '',
     // 上课教练（可选）：换教练、多人轮课时有用。⚠️ 这里必须显式列出来，
     // 否则 normalizeRecord 会把没列出的字段丢掉（读一次就没了）。
     coach: typeof r.coach === 'string' ? r.coach : '',
@@ -616,6 +620,7 @@ function landStats(recs) {
   let uncategorized = 0, landTotal = 0;
   (recs || []).forEach(r => {
     if (r.type !== 'land' && r.type !== 'rehab') return;
+    if (r.noteOnly) return;
     landTotal++;
     const ids = Array.isArray(r.landCats) ? r.landCats : [];
     if (!ids.length) { uncategorized++; return; }
@@ -634,6 +639,14 @@ function landStats(recs) {
   };
 }
 // 冰上：按"这次勾的动作所属分类"统计包含次数（这里是真的会重叠：一次上冰可能练好几个板块）
+// 统计口径的唯一入口：凡是算"练了多少"的地方都用它，
+// 这样"导入的历史笔记"（noteOnly）就不会混进天数/时长/趋势里。
+function countedRecords(recs) {
+  const list = Array.isArray(recs) ? recs : loadRecords();
+  return list.filter(r => r && !r.noteOnly);
+}
+function isCounted(r) { return !!r && !r.noteOnly; }
+
 function iceCatStats(recs) {
   const catOf = {};
   ensureMoves().forEach(m => { catOf[m.id] = validCat(m.category); });
@@ -641,7 +654,7 @@ function iceCatStats(recs) {
   const out = {};
   let iceTotal = 0, noMove = 0;
   (recs || []).forEach(r => {
-    if (r.type !== 'ice') return;
+    if (r.type !== 'ice' || r.noteOnly) return;
     iceTotal++;
     const ids = {};
     (r.moves || []).forEach(id => { if (catOf[id]) ids[catOf[id]] = 1; });
@@ -669,7 +682,8 @@ function iceCatStats(recs) {
 // 每条有冰感的记录，去对上"它之前最近的一次上冰"（不含自己当天），算出间隔天数。
 function feelStats(recs) {
   const list = Array.isArray(recs) ? recs : loadRecords();
-  const ice = list.filter(r => r && r.type === 'ice' && r.date)
+  // 导入的历史笔记（noteOnly）冰感永远是 0，不能被算成"冰感差"
+  const ice = list.filter(r => r && r.type === 'ice' && r.date && !r.noteOnly && Number(r.feel) > 0)
     .map(r => ({ date: String(r.date), feel: Math.round(Number(r.feel) || 0) }))
     .sort((a, b) => a.date.localeCompare(b.date));
   // 去重后的"上冰日"列表，用来找上一次
@@ -759,7 +773,7 @@ function skateUsage(skate, recs) {
   let minutes = 0, sessions = 0;
   const days = {};
   list.forEach(r => {
-    if (!r || r.type !== 'ice') return;
+    if (!r || r.type !== 'ice' || r.noteOnly) return;   // 导入的历史笔记不算"滑了多少"
     const d = String(r.date || '');
     if (!d || d < from || d > to) return;
     minutes += Number(r.duration) || 0;
@@ -1447,6 +1461,7 @@ function newExam(kind, level) {
 }
 
 module.exports = {
+  countedRecords, isCounted,
   KEYS, load, save, setAfterSave, pad, dateKey, todayKey, keyToDate, uid,
   normalizeRecord, loadRecords, saveRecords, recordsOf, statusOf, sumMinutes, migrateMergeNotes, migrateLessonForm, recordLines,
   upgradeGuard, upgradeVerify, upgradeCheck, upgradeSnapshotInfo, takeUpgradeWarning, restoreUpgradeSnapshot,

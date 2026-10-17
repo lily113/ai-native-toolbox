@@ -1,0 +1,49 @@
+<view class="page">
+  <view class="tip-card">
+    <view class="tip-t">📥 把旧笔记搬进来</view>
+    <view class="tip-l">从微信收藏 / 备忘录里整段复制过来就行。这里只做一件事：<text class="b">按日期切开</text>，一条日期变一条记录。</view>
+    <view class="tip-l dim">不会去猜时长和动作（猜错比不猜更糟），所以这些笔记<text class="b">不算进上冰天数 / 时长 / 周目标</text>，只在搜索和日历当天里能看到。</view>
+  </view>
+
+  <view class="card">
+    <textarea class="textarea paste" value="{{raw}}" bindinput="onInput" maxlength="-1"
+      placeholder="例：&#10;2024-03-15&#10;今天练压步，老师说下沉一点&#10;&#10;2024.3.18&#10;旋转能转三圈了&#10;&#10;3月22日 陆地：压腿、核心"
+      auto-height="{{false}}" />
+    <button class="btn" bindtap="parse">识别一下</button>
+  </view>
+
+  <block wx:if="{{parsed}}">
+    <view class="card" wx:if="{{total}}">
+      <view class="sum">
+        识别到 <text class="b">{{total}}</text> 条
+        <text class="warn" wx:if="{{ambiguous}}"> · {{ambiguous}} 条没写年份，已按上下文补（点开核对一下）</text>
+        <text class="dim" wx:if="{{dupN}}"> · {{dupN}} 条已经有了</text>
+      </view>
+      <view class="ops">
+        <text class="op" bindtap="allOn">全选</text>
+        <text class="op" bindtap="allOff">全不选</text>
+      </view>
+      <view class="row" wx:for="{{items}}" wx:key="date">
+        <view class="chk {{item.pick ? 'on' : ''}}" bindtap="toggle" data-i="{{index}}">{{item.pick ? '✓' : ''}}</view>
+        <view class="row-main {{item.pick ? '' : 'off'}}" bindtap="toggle" data-i="{{index}}">
+          <view class="row-top">
+            <text class="row-date">{{item.date}}</text>
+            <text class="tag warn" wx:if="{{item.ambiguous}}">年份靠猜</text>
+            <text class="tag" wx:if="{{item.dup}}">已存在</text>
+          </view>
+          <view class="row-text">{{item.preview}}</view>
+        </view>
+      </view>
+      <button class="btn" bindtap="confirm" disabled="{{!pickN || importing}}">导入 {{pickN}} 条</button>
+    </view>
+
+    <view class="card" wx:if="{{!total}}">
+      <view class="empty">没识别出任何日期。检查一下有没有 <text class="b">2024-03-15 / 2024.3.15 / 3月15日 / 3/15</text> 这样的写法。</view>
+    </view>
+
+    <view class="card" wx:if="{{noDate}}">
+      <view class="sub-t">开头这段没有日期（不会导入）</view>
+      <view class="no-date">{{noDate}}</view>
+    </view>
+  </block>
+</view>

@@ -93,6 +93,7 @@ Page({
     let ice = 0, land = 0, rehab = 0, lesson = 0, selfC = 0, landSelf = 0, monthUnits = 0;
     const formCount = {};
     recs.forEach(r => {
+      if (r.noteOnly) return;                    // 导入的历史笔记不计入任何统计（时长也不行）
       const dur = Number(r.duration) || 0;
       minutes += dur;
       if (r.type === 'ice') { ice++; iceMin += dur; }
@@ -152,10 +153,10 @@ Page({
     const iceBase = Number(meta.iceBase) || 0;
     const lessonBase = Number(meta.lessonBase) || 0;
     // 累计上冰：冰上记录（不限上课/自己），截至当前月
-    const allIce = all.filter(r => r.type === 'ice' && r.date <= endDateKey).length + iceBase;
+    const allIce = all.filter(r => r.type === 'ice' && !r.noteOnly && r.date <= endDateKey).length + iceBase;
     // 累计上课：冰上 + 陆地 的上课记录（不含康复），截至当前月
     // 只统计“上冰课”（陆地课不计入累计，避免与笔记编号错位）
-    const lessonRecs = all.filter(r => r.type === 'ice' && r.mode === 'lesson' && r.date <= endDateKey);
+    const lessonRecs = all.filter(r => r.type === 'ice' && !r.noteOnly && r.mode === 'lesson' && r.date <= endDateKey);
     const allLesson = lessonRecs.length + lessonBase;
     // 累计节数：基线（那时 1 节=1 次）+ 各次课的节数
     const allUnits = lessonRecs.reduce((n, r) => n + (Number(r.units) || 1), 0) + lessonBase;

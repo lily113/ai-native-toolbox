@@ -384,6 +384,9 @@ Page({
     this.setData({ goal: 0 });
     wx.showToast({ title: '已取消目标', icon: 'none' });
   },
+  goImportHist() {
+    wx.navigateTo({ url: '/pages/importhist/importhist' });
+  },
   goGear() {
     wx.navigateTo({ url: '/pages/gear/gear' });
   },
