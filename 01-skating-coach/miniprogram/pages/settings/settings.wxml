@@ -92,14 +92,23 @@
       <button class="ghost-btn half" bindtap="chooseImportFile">📂 导入文件</button>
     </view>
     <view class="btn-row">
-      <button class="ghost-btn half" bindtap="toggleImport">📥 粘贴导入</button>
-      <button class="ghost-btn half" bindtap="goImportHist">📝 历史笔记</button>
+      <button class="ghost-btn" bindtap="toggleImport">{{showImport ? '收起' : '📥 粘贴备份 JSON'}}</button>
     </view>
-    <view class="muted">「历史笔记」= 把微信收藏 / 备忘录里几年的训练笔记按日期搬进来（不算进上冰统计）。</view>
     <view wx:if="{{showImport}}">
       <view class="muted">粘贴 JSON 备份内容（会自动合并去重）：</view>
       <textarea class="textarea" value="{{importText}}" bindinput="setImportText" placeholder="粘贴 JSON 备份内容…" maxlength="-1"></textarea>
       <button class="btn" bindtap="doImport">导入</button>
+    </view>
+  </view>
+
+  <!-- 历史笔记是"一次性搬家"，跟日常备份不是一回事，所以单独一张卡 -->
+  <view class="card">
+    <view class="title">📝 把旧笔记搬进来</view>
+    <view class="muted">微信收藏 / 备忘录里攒了几年的训练笔记，按日期搬进来。可以<text class="b">复制提示词让你自己的 AI 先转格式</text>，再粘回来。</view>
+    <view class="muted">这些笔记<text class="b">不算进上冰天数 / 时长 / 周目标</text>，只在搜索和日历当天里能看到。</view>
+    <view class="nav-row" bindtap="goImportHist">
+      <text class="nav-t">打开历史笔记导入</text>
+      <text class="nav-go">›</text>
     </view>
   </view>
 
