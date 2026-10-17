@@ -520,6 +520,9 @@ Page({
   goReview() {
     wx.navigateTo({ url: '/pages/review/review' });
   },
+  goTeam() {
+    wx.navigateTo({ url: '/pages/team/team' });
+  },
   goSearch() {
     wx.navigateTo({ url: '/pages/search/search' });
   },
