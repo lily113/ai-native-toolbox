@@ -4,13 +4,14 @@
 .tip-l .b { font-weight: 700; color: #0369a1; }
 .tip-l.dim { color: #94a3b8; }
 
-.err { background: #fde8e8; color: #b91c1c; border-radius: 10px; padding: 10px 12px; font-size: 12.5px; margin-bottom: 12px; }
+.err { background: #fde8e8; color: #b91c1c; border-radius: 10px; padding: 10px 12px; font-size: 12.5px;
+  margin-bottom: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; }
 
 .card-box { background: #fff; border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
 .bx-t { font-size: 15px; font-weight: 700; color: #0c4a6e; }
 .bx-s { font-size: 12.5px; color: #64748B; margin: 4px 0 10px; line-height: 1.6; }
 .card-box .input-wrap { margin-bottom: 10px; }
-.code-input { letter-spacing: 4px; font-weight: 700; text-align: center; }
+.code-input { font-weight: 700; }   /* 别加 letter-spacing/居中：会把占位文字挤得贴边 */
 .card-box .btn, .card-box .ghost-btn { margin-top: 4px; }
 
 /* 邀请码卡 */
