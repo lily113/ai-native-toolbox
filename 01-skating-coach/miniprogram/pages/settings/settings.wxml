@@ -88,16 +88,16 @@
     <view class="title">💾 数据备份 / 迁移</view>
     <view class="muted">「导出」生成一份 JSON 备份或迁移到其它设备；「导入」可合并网页版 / 其它设备的备份。</view>
     <view class="btn-row">
-      <button class="ghost-btn half" bindtap="exportFile">💾 导出为文件</button>
-      <button class="ghost-btn half" bindtap="chooseImportFile">📂 导入文件</button>
-    </view>
-    <view class="btn-row">
-      <button class="ghost-btn" bindtap="toggleImport">{{showImport ? '收起' : '📥 粘贴备份 JSON'}}</button>
+      <button class="ghost-btn half" bindtap="exportFile">💾 导出备份</button>
+      <button class="ghost-btn half" bindtap="importBackup">📥 导入备份</button>
     </view>
     <view wx:if="{{showImport}}">
       <view class="muted">粘贴 JSON 备份内容（会自动合并去重）：</view>
       <textarea class="textarea" value="{{importText}}" bindinput="setImportText" placeholder="粘贴 JSON 备份内容…" maxlength="-1"></textarea>
-      <button class="btn" bindtap="doImport">导入</button>
+      <view class="btn-row">
+        <button class="ghost-btn half" bindtap="toggleImport">收起</button>
+        <button class="btn half" bindtap="doImport">导入</button>
+      </view>
     </view>
   </view>
 

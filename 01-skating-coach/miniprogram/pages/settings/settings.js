@@ -609,6 +609,18 @@ Page({
     });
   },
 
+  // 「导入备份」只有一件事，但有两种来源：文件 / 粘一段 JSON。
+  // 原来摊成两个按钮，看起来像两个功能 —— 现在一个入口，点开再选。
+  importBackup() {
+    wx.showActionSheet({
+      itemList: ['从文件选择（.json）', '粘贴 JSON 文本'],
+      success: r => {
+        if (r.tapIndex === 0) this.chooseImportFile();
+        else this.setData({ showImport: true });
+      }
+    });
+  },
+
   chooseImportFile() {
     wx.chooseMessageFile({
       count: 1,
