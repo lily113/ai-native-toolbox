@@ -93,15 +93,41 @@ function splitByDate(raw, opts) {
   return { items: items, noDate: noDate.join('\n').trim(), ambiguous: ambiguous, today: today };
 }
 
+// 从正文里抽时长：「90 分钟」/「1.5 小时」/「1 小时 30 分钟」/「2 节」
+// 抽不到就返回 0 —— **绝不猜**。一节按 30 分钟算（和 app 里 1 节 = 30 分钟的规则一致）。
+var DUR_RE = [
+  { re: /(\d+(?:\.\d+)?)\s*个?小时\s*(\d+)\s*分钟/, mins: function (m) { return Number(m[1]) * 60 + Number(m[2]); } },
+  { re: /(\d+(?:\.\d+)?)\s*个?\s*(?:小时|hour|hr|h)(?![a-z])/i, mins: function (m) { return Number(m[1]) * 60; } },
+  { re: /(\d+(?:\.\d+)?)\s*(?:分钟|min(?![a-z]))/i, mins: function (m) { return Number(m[1]); } },
+  { re: /(\d+)\s*节/, mins: function (m) { return Number(m[1]) * 30; }, units: true }
+];
+function extractDuration(text) {
+  var s = String(text || '');
+  for (var i = 0; i < DUR_RE.length; i++) {
+    var d = DUR_RE[i];
+    var m = s.match(d.re);
+    if (!m) continue;
+    var v = Math.round(d.mins(m));
+    if (!(v > 0) || v > 600) continue;         // 超过 10 小时当误认，忽略
+    return { duration: v, units: d.units ? Number(m[1]) : 0 };
+  }
+  return { duration: 0, units: 0 };
+}
+
 // 生成记录对象（交给调用方决定要不要存）
-function toRecord(item) {
+// opts.counted === true  → 当作真实训练记录（计入天数/时长统计）
+// opts.counted !== true  → 只当笔记（noteOnly，不进任何统计）
+function toRecord(item, opts) {
+  var o = opts || {};
   var text = String(item.text || '');
   var id = 'imp_' + String(item.date).replace(/-/g, '') + '_' + hash(text);
+  var dur = o.counted ? extractDuration(text) : { duration: 0, units: 0 };
   return {
-    id: id, date: item.date, type: 'ice', mode: 'self', duration: 0,
+    id: id, date: item.date, type: item.kind === 'land' ? 'land' : 'ice', mode: 'self',
+    duration: dur.duration, units: dur.units,
     moves: [], drills: [], examPicks: [], itemOrder: [], content: text, notes: [],
     landCats: [], time: '', coach: '', lessonSummary: '', status: 'done', feel: 0,
-    noteOnly: true, src: 'import'
+    noteOnly: o.counted ? false : true, src: 'import'
   };
 }
 function hash(s) {
@@ -196,4 +222,4 @@ function looksLikeAiJson(raw) {
   return /"entries"|\bentries\s*:/.test(s) || /["']date["']\s*:/.test(s);
 }
 
-module.exports = { splitByDate, toRecord, preview, todayKey, AI_PROMPT, parseAiJson, looksLikeAiJson };
+module.exports = { splitByDate, toRecord, preview, todayKey, AI_PROMPT, parseAiJson, looksLikeAiJson, extractDuration };
