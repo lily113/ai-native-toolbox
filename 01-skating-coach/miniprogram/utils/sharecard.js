@@ -131,7 +131,7 @@ function watermark(ctx, text) {
   ctx.font = '13px sans-serif';
   ctx.fillStyle = '#b6c6d4';
   ctx.textAlign = 'center';
-  ctx.fillText(text || '花样滑冰训练', CARD_W / 2, CARD_H - 22);
+  ctx.fillText(text || 'Edge Journal', CARD_W / 2, CARD_H - 22);
   ctx.textAlign = 'left';
 }
 
@@ -275,7 +275,7 @@ function drawTrainingCard(ctx, d) {
     ctx.fillStyle = '#b45309';
     ctx.fillText('⏳ ' + d.examCd, PAD, Math.min(y + 22, H - 54));
   }
-  watermark(ctx, '花样滑冰训练');
+  watermark(ctx, 'Edge Journal');
 }
 
 // ---------- A 卡：阶段（月度）报告卡 ----------
@@ -450,7 +450,7 @@ function drawMonthCard(ctx, d) {
     ctx.fillStyle = '#b45309';
     ctx.fillText('⏳ ' + d.examCd, PAD, Math.min(y + 10, H - 54));
   }
-  watermark(ctx, '花样滑冰训练');
+  watermark(ctx, 'Edge Journal');
 }
 
 // 统一的导出流程：找画布 → 按 dpr 放大 → 交给调用方画 → 导出文件 → 存相册 → 可转发
