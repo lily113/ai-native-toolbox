@@ -6,7 +6,7 @@
 // 画布约定：逻辑尺寸 540×720（3:4，小红书和朋友圈都友好），按 dpr 放大后导出
 // → 一般手机 dpr=2，输出正好 1080×1440。
 const store = require('./store');
-const { TYPES, MODES, EXAM_KINDS } = require('./const');
+const { TYPES, MODES, EXAM_KINDS, BRAND } = require('./const');
 const util = require('./util');
 
 const CARD_W = 540;
@@ -131,7 +131,7 @@ function watermark(ctx, text) {
   ctx.font = '13px sans-serif';
   ctx.fillStyle = '#b6c6d4';
   ctx.textAlign = 'center';
-  ctx.fillText(text || 'Edge Journal', CARD_W / 2, CARD_H - 22);
+  ctx.fillText(text || BRAND.mark, CARD_W / 2, CARD_H - 22);
   ctx.textAlign = 'left';
 }
 
@@ -275,7 +275,7 @@ function drawTrainingCard(ctx, d) {
     ctx.fillStyle = '#b45309';
     ctx.fillText('⏳ ' + d.examCd, PAD, Math.min(y + 22, H - 54));
   }
-  watermark(ctx, 'Edge Journal');
+  watermark(ctx, BRAND.mark);
 }
 
 // ---------- A 卡：阶段（月度）报告卡 ----------
@@ -450,7 +450,7 @@ function drawMonthCard(ctx, d) {
     ctx.fillStyle = '#b45309';
     ctx.fillText('⏳ ' + d.examCd, PAD, Math.min(y + 10, H - 54));
   }
-  watermark(ctx, 'Edge Journal');
+  watermark(ctx, BRAND.mark);
 }
 
 // 统一的导出流程：找画布 → 按 dpr 放大 → 交给调用方画 → 导出文件 → 存相册 → 可转发

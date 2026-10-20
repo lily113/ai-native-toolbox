@@ -1,10 +1,17 @@
 // 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
-const APP_VERSION = '2026.10.08.84';
+const APP_VERSION = '2026.10.08.85';
 
 // ---------- 对外发布的功能开关 ----------
 // 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
 // 要放出来：把这里改成 true，并在 app.json 的 pages 里恢复 "pages/pose/pose"。
+// ---- 小程序名：只有这里需要改 ----
+// cn   = 后台注册的名称（导航栏、首页品牌行、分享标题、备份文件名都用它）
+// mark = 分享卡片底部的小字落款
+// 改名时：改这两个值 + 后台改名 + 备案变更（app.json 的 navigationBarTitleText 是 json，只能单独改）
+// 目前先跟后台保持一致，等要认证（能"被搜索"）时再一起换成「冰刃手记 / Edge Journal」。
+const BRAND = { cn: '花样滑冰训练助手', mark: '花样滑冰训练助手' };
+
 const POSE_ENABLED = false;
 
 // ---- 只有开发者本人能用的功能（对外发布时保持关闭）----
@@ -499,4 +506,5 @@ module.exports = {
   DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
   MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS, SUBSCRIBE_TMPL, LAND_CATS, LAND_CAT_KNOWN,
   OWNER_ONLY,
+  BRAND,
 };
