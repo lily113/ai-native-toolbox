@@ -1,6 +1,7 @@
 // 「同门」小队：一起练的人互相看本周汇总（只看数字，看不到笔记/教练/伤病）
 const team = require('../../utils/team');
 const store = require('../../utils/store');
+const gate = require('../../utils/gate');
 
 // 这一行是"多久以前更新的" —— 能一眼看出榜上的数字是不是刚推上去的
 // （同一个微信号在模拟器和手机上 openid 是一样的，所以两端会互相覆盖，看时间能判断）
@@ -25,6 +26,7 @@ function fmtMin(m) {
 
 Page({
   data: {
+    blocked: false,        // 非开发者：显示"内测中"，不调云函数
     loading: true,
     joined: false,
     code: '',
@@ -46,10 +48,21 @@ Page({
     this.setData({ nick: team.localTeam().nick });
   },
 
-  onShow() { this.load(); },
+  onShow() {
+    // 对外发布期间，同门只给开发者本人用（见 utils/gate.js）——
+    // 别人从分享卡片点进来也会落到这里，所以要在页面上挡一道，而不是只藏入口
+    if (!gate.open('team')) { this.setData({ blocked: true, loading: false }); return; }
+    this.setData({ blocked: false });
+    this.load();
+  },
 
   onPullDownRefresh() {
     this.load().then(() => wx.stopPullDownRefresh());
+  },
+
+  goHome() {
+    wx.switchTab ? null : null;
+    wx.navigateBack({ fail: () => wx.reLaunch({ url: '/pages/index/index' }) });
   },
 
   load() {

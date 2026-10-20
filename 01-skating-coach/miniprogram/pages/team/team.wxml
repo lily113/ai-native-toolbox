@@ -1,4 +1,13 @@
 <view class="page">
+  <!-- 非开发者：不开放 -->
+  <view class="blocked" wx:if="{{blocked}}">
+    <view class="bk-icon">🔒</view>
+    <view class="bk-t">同门小队还在内测</view>
+    <view class="bk-s">这个功能会把你的本周训练汇总给同队的人看，暂时还没对外开放。训练记录、回顾、动作库等功能都可以正常用。</view>
+    <view class="bk-back" bindtap="goHome">回到首页</view>
+  </view>
+
+  <block wx:if="{{!blocked}}">
   <view class="tip-card">
     <view class="tip-t">👥 同门小队</view>
     <view class="tip-l">一起练的人互相看<text class="b">本周上冰天数 / 上冰时长 / 冰课次数</text>。</view>
@@ -82,4 +91,5 @@
   </block>
 
   <view class="loading" wx:if="{{loading}}">读取中…</view>
+  </block>
 </view>

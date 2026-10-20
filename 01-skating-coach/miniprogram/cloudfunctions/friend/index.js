@@ -12,6 +12,10 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
 
+// 对外发布期间「同门」只给开发者本人 —— 客户端已经藏了入口，这里再挡一道：
+// 别人就算直接调云函数也进不来（审核期间尤其不该对外提供）。
+const OWNER_OPENID_FALLBACK = 'oSfNN3U5QwRQnB-9r9--JDFURKFI';
+
 const TEAM = 'planner_team';
 const STAT = 'planner_team_stat';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 去掉 0/O/1/I
@@ -47,6 +51,12 @@ exports.main = async (event) => {
   const { OPENID } = cloud.getWXContext();
   const action = String((event && event.action) || '');
   try {
+    // 只给开发者本人用：非本人直接拒绝，**不会碰数据库**
+    const owner = String(process.env.OWNER_OPENID || OWNER_OPENID_FALLBACK || '').trim();
+    if (!owner || OPENID !== owner) {
+      console.log('[friend] 拒绝非本人调用 action=' + action);
+      return { ok: false, msg: '同门小队还在内测，暂时只对开发者本人开放' };
+    }
     await ensureCollections();
 
     // ---------- 建队 ----------

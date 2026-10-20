@@ -1,11 +1,17 @@
 // 版本号：**每次发布前必须 +1**（最后一段递增）。升级保护靠它判断"是不是换版本了"：
 // 换版本 → 启动时先本地快照 + 记数据指纹，迁移后再校验有没有变少。
-const APP_VERSION = '2026.10.08.82';
+const APP_VERSION = '2026.10.08.83';
 
 // ---------- 对外发布的功能开关 ----------
 // 姿态自查：真机上 VisionKit 关键点识别还没跑通（返回 0 个关键点），对外先隐藏。
 // 要放出来：把这里改成 true，并在 app.json 的 pages 里恢复 "pages/pose/pose"。
 const POSE_ENABLED = false;
+
+// ---- 只有开发者本人能用的功能（对外发布时保持关闭）----
+// ai   ：AI 教练 / AI 识别导入  → 属"生成式人工智能服务"，公开要合规；
+// team ：同门小队              → 会把训练汇总给他人看，隐私指引要单独声明；
+// 想公开时把对应项改成 false（或改成白名单），代码里不用动。
+const OWNER_ONLY = { ai: true, team: true };
 
 const TYPES = {
   ice:   { name: '上冰', emoji: '⛸️' },
@@ -491,5 +497,6 @@ const SYLLABUS = [
 module.exports = {
   APP_VERSION, POSE_ENABLED, TYPES, MODES, CATS, CAT_ORDER, DEFAULT_CATS, CAT_FALLBACK, CAT_SEED_MOVES,
   DEFAULT_MOVES, WEEK, ICE_THRESHOLDS, HOURS_THRESHOLDS,
-  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS, SUBSCRIBE_TMPL, LAND_CATS, LAND_CAT_KNOWN
+  MS_TYPES, EXAM_KINDS, EXAM_SECTIONS, SYLLABUS, LESSON_FORMS, POSE_JOINTS, SUBSCRIBE_TMPL, LAND_CATS, LAND_CAT_KNOWN,
+  OWNER_ONLY,
 };
