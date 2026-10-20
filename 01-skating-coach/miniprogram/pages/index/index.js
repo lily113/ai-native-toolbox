@@ -1,6 +1,6 @@
 const store = require('../../utils/store');
 const util = require('../../utils/util');
-const { POSE_ENABLED, TYPES, MODES, WEEK, EXAM_KINDS, LESSON_FORMS } = require('../../utils/const');
+const { POSE_ENABLED, TYPES, MODES, WEEK, EXAM_KINDS, LESSON_FORMS, BRAND } = require('../../utils/const');
 
 Page({
   data: {
@@ -25,6 +25,7 @@ Page({
     ymValue: '',
     aiOn: false,          // AI 教练入口：仅开发者本人可见（由 login 云函数确认）
     teamOn: false,        // 同门入口：同样只给开发者本人（见 utils/gate.js）
+    brand: BRAND.cn,      // 品牌名只有一处来源（utils/const.js 的 BRAND）
     poseOn: POSE_ENABLED, // 姿态自查：见 const.js 的开关
     firstRun: false,      // 一条记录都没有时，显示上手引导
     // 首页概览卡：本月 + 周均目标 + 连续达标周 + 久未练习的动作
@@ -274,14 +275,14 @@ Page({
     let n = 0;
     try { n = store.loadRecords().length; } catch (e) {}
     return {
-      title: n > 0 ? ('我用它记了 ' + n + ' 次花滑训练') : '冰刃手记 · 记训练、记动作、对着考纲备考',
+      title: n > 0 ? ('我用它记了 ' + n + ' 次花滑训练') : BRAND.cn + ' · 记训练、记动作、对着考纲备考',
       path: '/pages/index/index'
     };
   },
   onShareTimeline() {
     let n = 0;
     try { n = store.loadRecords().length; } catch (e) {}
-    return { title: n > 0 ? ('冰刃手记 · 已经记了 ' + n + ' 次') : '冰刃手记 · 记训练、记动作、对着考纲备考' };
+    return { title: n > 0 ? (BRAND.cn + ' · 已经记了 ' + n + ' 次') : BRAND.cn + ' · 记训练、记动作、对着考纲备考' };
   },
 
   switchMonth(e) {

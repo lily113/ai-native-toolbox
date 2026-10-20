@@ -1,6 +1,6 @@
 <view class="page">
   <view class="home-head">
-    <view class="brand">⛸️ 冰刃手记</view>
+    <view class="brand">⛸️ {{brand}}</view>
     <!-- 两个按钮要包成一组：直接用 space-between + 三个子元素，搜索键会被"均匀"扔到中间 -->
     <view class="head-ops">
       <view class="gear" bindtap="goSearch">🔍</view>
