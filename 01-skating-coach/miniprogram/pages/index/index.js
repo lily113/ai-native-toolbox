@@ -269,14 +269,14 @@ Page({
     let n = 0;
     try { n = store.loadRecords().length; } catch (e) {}
     return {
-      title: n > 0 ? ('我用它记了 ' + n + ' 次花滑训练') : '花样滑冰训练记录 · 记训练、记动作、对着考纲备考',
+      title: n > 0 ? ('我用它记了 ' + n + ' 次花滑训练') : '冰刃手记 · 记训练、记动作、对着考纲备考',
       path: '/pages/index/index'
     };
   },
   onShareTimeline() {
     let n = 0;
     try { n = store.loadRecords().length; } catch (e) {}
-    return { title: n > 0 ? ('花样滑冰训练记录 · 已经记了 ' + n + ' 次') : '花样滑冰训练记录 · 记训练、记动作、对着考纲备考' };
+    return { title: n > 0 ? ('冰刃手记 · 已经记了 ' + n + ' 次') : '冰刃手记 · 记训练、记动作、对着考纲备考' };
   },
 
   switchMonth(e) {

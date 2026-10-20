@@ -408,7 +408,7 @@ Page({
       const data = JSON.stringify(util.buildPayload());
       const now = new Date();
       const pad = n => (n < 10 ? '0' + n : '' + n);
-      name = '花样滑冰训练备份_' + store.todayKey() + '_' + pad(now.getHours()) + pad(now.getMinutes()) + '.json';
+      name = '冰刃手记备份_' + store.todayKey() + '_' + pad(now.getHours()) + pad(now.getMinutes()) + '.json';
       const dir = (wx.env && wx.env.USER_DATA_PATH) ? wx.env.USER_DATA_PATH : '';
       path = dir + '/' + name;
       wx.getFileSystemManager().writeFileSync(path, data, 'utf-8');
@@ -721,7 +721,7 @@ Page({
           success: res => {
             if (!res.confirm) return;
             wx.setClipboardData({
-              data: '【花样滑冰训练 · 同步诊断】\n' + body + '\n云环境：cloud1-d3gxrubwgdf9f71c7',
+              data: '【冰刃手记 · 同步诊断】\n' + body + '\n云环境：cloud1-d3gxrubwgdf9f71c7',
               success: () => wx.showToast({ title: '已复制，把它发给我', icon: 'none', duration: 2500 })
             });
           }
