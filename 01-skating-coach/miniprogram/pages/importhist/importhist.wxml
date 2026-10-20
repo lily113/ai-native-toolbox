@@ -38,10 +38,12 @@
       placeholder="例：&#10;2024-03-15&#10;今天练压步，老师说下沉一点&#10;&#10;2024.3.18&#10;旋转能转三圈了&#10;&#10;3月22日 陆地：压腿、核心"
       auto-height="{{false}}" />
     <button class="btn" bindtap="parse">按日期识别</button>
-    <view class="ai-row">
-      <button class="ghost-btn" bindtap="aiParse" disabled="{{aiBusy}}">{{aiBusy ? 'AI 识别中 ' + aiSteps : '🤖 规则认不出来？让 AI 试'}}</button>
-    </view>
-    <view class="ai-tip">AI 只填<text class="b">日期 / 冰上还是陆地 / 原文</text>，不填时长、不总结。结果先给你核对，不会直接写进记录。</view>
+    <block wx:if="{{aiOpen}}">
+      <view class="ai-row">
+        <button class="ghost-btn" bindtap="aiParse" disabled="{{aiBusy}}">{{aiBusy ? 'AI 识别中 ' + aiSteps : '🤖 规则认不出来？让 AI 试'}}</button>
+      </view>
+      <view class="ai-tip">AI 只填<text class="b">日期 / 冰上还是陆地 / 原文</text>，不填时长、不总结。结果先给你核对，不会直接写进记录。</view>
+    </block>
     <view class="ai-msg" wx:if="{{aiMsg}}">{{aiMsg}}</view>
   </view>
 

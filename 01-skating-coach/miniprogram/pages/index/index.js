@@ -24,6 +24,7 @@ Page({
     monthLesson: 0,
     ymValue: '',
     aiOn: false,          // AI 教练入口：仅开发者本人可见（由 login 云函数确认）
+    teamOn: false,        // 同门入口：同样只给开发者本人（见 utils/gate.js）
     poseOn: POSE_ENABLED, // 姿态自查：见 const.js 的开关
     firstRun: false,      // 一条记录都没有时，显示上手引导
     // 首页概览卡：本月 + 周均目标 + 连续达标周 + 久未练习的动作
@@ -119,7 +120,10 @@ Page({
   // 入口可见性 + 新用户引导（每次进首页都刷新一次）
   refreshEntries() {
     const app = getApp();
-    const apply = () => this.setData({ aiOn: !!(app && app.globalData && app.globalData.isOwner) });
+    const apply = () => this.setData({
+      aiOn: !!(app && app.globalData && app.globalData.isOwner),
+      teamOn: require('../../utils/gate').open('team')
+    });
     apply();
     // 启动时那次 login 可能还没回来（或失败），这里补问一次
     if (!app || !app.globalData || app.globalData.isOwner === undefined || !app.globalData.openid) {
@@ -129,6 +133,7 @@ Page({
           if (app && app.globalData) {
             if (res.openid) app.globalData.openid = res.openid;
             app.globalData.isOwner = !!res.isOwner;
+            apply();
           }
           apply();
         }).catch(() => {});

@@ -3,6 +3,7 @@
 // 只出现在搜索、日历当天列表、以及回顾的"笔记"里。
 const store = require('../../utils/store');
 const histnote = require('../../utils/histnote');
+const gate = require('../../utils/gate');
 
 Page({
   data: {
@@ -13,12 +14,17 @@ Page({
     importing: false,
     aiBusy: false, aiMsg: '', aiSteps: '', byAi: 0,
     promptOn: false,
+    aiOpen: false,          // 「🤖 让 AI 试」只给开发者本人（见 utils/gate.js）
     counted: true,          // 默认：当作真实训练记录（计入天数/时长）；关掉 = 只当笔记
   },
 
   onLoad() {
     // 记录一下"现有多少条"，导入后好算新增了几条
-    this.setData({ beforeN: (store.loadRecords() || []).length, promptText: histnote.AI_PROMPT });
+    this.setData({
+      beforeN: (store.loadRecords() || []).length,
+      promptText: histnote.AI_PROMPT,
+      aiOpen: gate.open('ai')
+    });
   },
 
   onInput(e) {
@@ -67,6 +73,7 @@ Page({
   // 说明清楚三件事：会发原文给 AI、要花调用费、AI 只填日期/冰上还是陆地/原文，不填时长
   aiParse() {
     if (this.data.aiBusy) return;
+    if (!gate.open('ai')) { wx.showToast({ title: '这个功能还在内测', icon: 'none' }); return; }
     const raw = String(this.data.raw || '');
     if (raw.trim().length < 10) { wx.showToast({ title: '先粘贴点内容', icon: 'none' }); return; }
     wx.showModal({
