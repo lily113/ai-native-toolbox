@@ -70,7 +70,9 @@
 
 /* 主按钮 + 快捷入口 */
 .cta { margin-top: 4px; }
-.quick { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+/* justify-content: center 只对"没排满的最后一行"生效（排满的行本来就占满宽度）——
+   普通用户 5 个 = 3+2、开发者 7 个 = 3+3+1，尾行都居中，不会孤零零贴左边 */
+.quick { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 12px; }
 .quick-item { width: calc((100% - 20px) / 3); box-sizing: border-box; background: #fff; border: 1px solid #cfe8f7; border-radius: 14px; padding: 12px 6px; text-align: center; }
 .quick-icon { font-size: 22px; }
 .quick-label { font-size: 12px; color: #075985; margin-top: 4px; font-weight: 600; }

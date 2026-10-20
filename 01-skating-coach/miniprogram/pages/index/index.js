@@ -529,6 +529,10 @@ Page({
   goReview() {
     wx.navigateTo({ url: '/pages/review/review' });
   },
+  goGear() {
+    wx.navigateTo({ url: '/pages/gear/gear' });
+  },
+
   goTeam() {
     wx.navigateTo({ url: '/pages/team/team' });
   },
