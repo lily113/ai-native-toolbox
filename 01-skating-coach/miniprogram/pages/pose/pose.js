@@ -41,6 +41,7 @@ Page({
     formatNote: '',           // 像素格式自检结论
     yuvLayout: 'nv12',        // YUV 布局（诊断会试 nv12/nv21/i420 并记住可用的）
     zoomed: false,            // 校准画布是否放大到人物
+    zoomText: '',             // 放大倍数（让用户看到"确实放大了"）
     cfgYuv: '',
     diag: [],                 // 诊断信息（可复制）
     downscale: true,          // 高分辨率视频先降采样再检测
@@ -125,6 +126,7 @@ Page({
     this.initWorkCanvas();
     this._detCount = 0; this._detErr = 0; this._frames = 0; this._flushT = 0; this._lowConf = 0;
     this._th = 0.5; this._miss = 0; this._frameCv = null; this._frameW = 0; this._frameH = 0;
+    this._view = null; this._calibBox = null;
     this.setData({ analyzing: true, progress: 0, decoded: 0, detected: 0, checks: [], stats: [], formatNote: '', diag: ['开始分析…'] });
     this._series = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [] };
     this._firstPts = null;
@@ -777,14 +779,25 @@ Page({
       // ① 先把首帧画面画上去（等比，留黑边）—— 否则只有一堆黄点，根本看不出哪个是头
       const fw = this._frameW, fh = this._frameH;
       const view = this._view || { x0: 0, y0: 0, x1: 1, y1: 1 };
+      this._calibAspect = r.width / Math.max(1, r.height);
       const box = this.fitRect(r.width, r.height, (view.x1 - view.x0) * fw, (view.y1 - view.y0) * fh);
       this._calibBox = box;
       if (this._frameCv && fw && fh) {
+        // 正常：按裁剪框绘制。少数机型对"离屏画布 + 裁剪参数"支持不好会抛错/静默失败，
+        // 兜底：退回整幅绘制（宁可不放大，也不要一片空白），并把原因写进 diag。
+        let drew = false;
         try {
           ctx.drawImage(this._frameCv,
             view.x0 * fw, view.y0 * fh, (view.x1 - view.x0) * fw, (view.y1 - view.y0) * fh,
             box.x, box.y, box.w, box.h);
-        } catch (e) {}
+          drew = true;
+        } catch (e) { drew = false; }
+        if (!drew) {
+          try {
+            ctx.drawImage(this._frameCv, 0, 0, fw, fh, box.x, box.y, box.w, box.h);
+            this.setData({ diag: (this.data.diag || []).concat(['⚠️ 本机不支持裁剪绘制，"放大"暂时用不了']) });
+          } catch (e2) {}
+        }
       } else {
         ctx.fillStyle = '#64748B'; ctx.font = '12px sans-serif';
         ctx.fillText('没有首帧画面（重新分析一次即可）', 12, 20);
@@ -800,23 +813,45 @@ Page({
       });
     });
   },
-  // 人小的时候点全挤在一起、根本点不准 —— 一键放大到"关键点的包围盒"
+  // 人小的时候点全挤在一起、根本点不准 —— 一键放大到人物
+  //
+  // 上一版用"去掉两端 10%"来剔离群点，但**一个跑偏的点就能把包围盒撑到整幅**
+  // （检测偶尔会在画面另一头冒一个孤立点），于是"放大"看起来毫无变化。
+  // 现在改用中位数 + MAD 剔除，并按画布比例收紧、强制至少放大 2 倍。
   zoomBody() {
     if (!this._firstPts || !this._firstPts.length) { wx.showToast({ title: '先分析一次', icon: 'none' }); return; }
-    if (this._view) { this._view = null; this.setData({ zoomed: false }); this.drawCalib(); return; }
-    const xs = [], ys = [];
-    this._firstPts.forEach(p => { if (p) { xs.push(p.x); ys.push(p.y); } });
-    if (xs.length < 4) { wx.showToast({ title: '关键点太少，无法放大', icon: 'none' }); return; }
-    xs.sort((a, b) => a - b); ys.sort((a, b) => a - b);
-    // 去掉两端 10% 的离群点（检测偶尔会在别处冒一个孤立点）
-    const lo = Math.floor(xs.length * 0.1), hi = Math.ceil(xs.length * 0.9) - 1;
-    let x0 = xs[lo], x1 = xs[hi], y0 = ys[lo], y1 = ys[hi];
-    const m = 0.25;                                  // 四周留 25% 边
-    const w = Math.max(0.05, x1 - x0), h = Math.max(0.05, y1 - y0);
-    x0 = Math.max(0, x0 - w * m); x1 = Math.min(1, x1 + w * m);
-    y0 = Math.max(0, y0 - h * m); y1 = Math.min(1, y1 + h * m);
-    this._view = { x0: x0, y0: y0, x1: x1, y1: y1 };
-    this.setData({ zoomed: true });
+    if (this._view) { this._view = null; this.setData({ zoomed: false, zoomText: '' }); this.drawCalib(); return; }
+    const pts = this._firstPts.filter(p => p && isFinite(p.x) && isFinite(p.y));
+    if (pts.length < 6) { wx.showToast({ title: '关键点太少，无法放大', icon: 'none' }); return; }
+
+    const med = arr => { const a = arr.slice().sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; };
+    const mx = med(pts.map(p => p.x)), my = med(pts.map(p => p.y));
+    const dev = pts.map(p => Math.hypot(p.x - mx, p.y - my));
+    const md = med(dev) || 0.05;
+    // 离群点判据：到中心距离超过 max(0.08, 2.2×中位偏差)
+    const keep = pts.filter((p, i) => dev[i] <= Math.max(0.08, md * 2.2));
+    const use = keep.length >= 6 ? keep : pts;
+
+    let x0 = Math.min.apply(null, use.map(p => p.x)), x1 = Math.max.apply(null, use.map(p => p.x));
+    let y0 = Math.min.apply(null, use.map(p => p.y)), y1 = Math.max.apply(null, use.map(p => p.y));
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+
+    // ① 按画布比例扩张（避免出现黑边，同时让画面填满）
+    const aspect = this._calibAspect || 1.25;
+    let w = Math.max(0.06, x1 - x0), h = Math.max(0.06, y1 - y0);
+    if (w / h > aspect) h = w / aspect; else w = h * aspect;
+    // ② 四周留 20% 边
+    w *= 1.2; h *= 1.2;
+    // ③ 强制至少放大 2 倍（否则"放大"看起来没变化）
+    const MAXW = 0.5, MAXH = MAXW / aspect;
+    if (w > MAXW) { h *= MAXW / w; w = MAXW; }
+    if (h > MAXH) { w *= MAXH / h; h = MAXH; }
+
+    x0 = Math.max(0, Math.min(1 - w, cx - w / 2));
+    y0 = Math.max(0, Math.min(1 - h, cy - h / 2));
+    this._view = { x0: x0, y0: y0, x1: x0 + w, y1: y0 + h };
+    const factor = Math.round(1 / w * 10) / 10;
+    this.setData({ zoomed: true, zoomText: ' ×' + factor });
     this.drawCalib();
   },
 
