@@ -41,6 +41,19 @@ function rejectOutliers(series, k) {
   if (!lim) return (series || []).slice();
   return (series || []).map(v => (typeof v === 'number' && isFinite(v) && Math.abs(v - m) <= lim) ? v : null);
 }
+// 映射合理性自检：不是"对不对"，而是抓那种一眼就错的（比如踝跑到头上面）
+function sanityCheck(pts, map) {
+  const M = (map && Object.keys(map).length) ? map : DEFAULT_MAP;
+  const at = k => { const i = M[k]; return (pts && i != null && i >= 0 && pts[i]) ? pts[i] : null; };
+  const warns = [];
+  const head = at('head'), ankL = at('ankL'), ankR = at('ankR');
+  const hipL = at('hipL'), hipR = at('hipR'), kneeL = at('kneeL'), kneeR = at('kneeR');
+  if (head && ankL && ankR && head.y > Math.max(ankL.y, ankR.y)) warns.push('头比踝还低：映射可能错位（人或镜像）');
+  if (hipL && hipR && kneeL && kneeR && kneeL.y < Math.min(hipL.y, hipR.y) - 0.15) warns.push('膝在髋上方太多：映射可能错位');
+  if (ankL && ankR && Math.abs(ankL.y - ankR.y) > 0.5) warns.push('两踝高度差超过半屏：可能把别的点当踝了');
+  return warns;
+}
+
 // 峰峰值（用于横向摆动幅度等"范围"类指标）
 function peakToPeak(series) {
   const a = (series || []).filter(v => typeof v === 'number' && isFinite(v));
@@ -91,7 +104,17 @@ function summarize(series) {
 // ---------- 单帧指标 ----------
 // pts: [{x,y}] 归一化坐标（[0,1]，y 向下）；map: {head:idx, ...}
 // 返回 { ok, bodyH, legGap, kneeL, kneeR, trunkTilt, cogOffset, oneFoot }
-function frameMetrics(pts, map, side, minConf) {
+// 默认映射：VisionKit 的 detectBody 返回的是 COCO 顺序的 17 个点
+//   0 鼻 · 1/2 眼 · 3/4 耳 · 5/6 肩 · 7/8 肘 · 9/10 腕 · 11/12 髋 · 13/14 膝 · 15/16 踝
+// 有它就不必手工校准了；校准只是"顺序不对/换个模型"时的修正手段。
+// neck 用 -1 表示"由两肩中点算出来"（COCO 里没有脖子这个点）。
+const DEFAULT_MAP = {
+  head: 0, neck: -1, shL: 5, shR: 6, hipL: 11, hipR: 12,
+  kneeL: 13, kneeR: 14, ankL: 15, ankR: 16
+};
+
+function frameMetrics(pts, map0, side, minConf) {
+  const map = (map0 && Object.keys(map0).length) ? map0 : DEFAULT_MAP;
   // 每个关键点：有映射、且置信度达标才可用（个别关节不可信时，只让它参与的指标缺失，
   // 而不是把整帧丢掉 —— 以前"一个脚踝不可信 → 整帧作废"就是"有效帧 0"的主因）
   const C = (typeof minConf === 'number') ? minConf : 0.5;
@@ -107,7 +130,9 @@ function frameMetrics(pts, map, side, minConf) {
     const p = pts[map[k]];
     return (p && p.c !== undefined) ? p.c : (p ? 1 : null);
   };
-  const head = P('head'), neck = P('neck'), hipL = P('hipL'), hipR = P('hipR');
+  const head = P('head'), hipL = P('hipL'), hipR = P('hipR');
+  const neckDirect = P('neck');
+  const neck = neckDirect || ((P('shL') && P('shR')) ? { x: (P('shL').x + P('shR').x) / 2, y: (P('shL').y + P('shR').y) / 2, c: Math.min(P('shL').c == null ? 1 : P('shL').c, P('shR').c == null ? 1 : P('shR').c) } : null);
   const ankL = P('ankL'), ankR = P('ankR');
   const kneeL = P('kneeL'), kneeR = P('kneeR');
   const shL = P('shL'), shR = P('shR');
@@ -116,6 +141,7 @@ function frameMetrics(pts, map, side, minConf) {
   ['head', 'neck', 'shL', 'shR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankL', 'ankR'].forEach(k => {
     const c = confOf(k);
     out.conf[k] = c;
+    if (k === 'neck') { if (!neck) out.miss.push(k); return; }
     if (!P(k)) out.miss.push(k);
   });
 
@@ -207,5 +233,5 @@ function judge(key, value) {
 module.exports = {
   angleAt: angleAt, mid: mid, dist: dist,
   median: median, medianFilter: medianFilter, rejectOutliers: rejectOutliers, summarize: summarize,
-  frameMetrics: frameMetrics, POSE_TARGETS: POSE_TARGETS, judge: judge, peakToPeak: peakToPeak, dominantPeriod: dominantPeriod
+  frameMetrics: frameMetrics, POSE_TARGETS: POSE_TARGETS, judge: judge, peakToPeak: peakToPeak, dominantPeriod: dominantPeriod, DEFAULT_MAP: DEFAULT_MAP, sanityCheck: sanityCheck
 };
