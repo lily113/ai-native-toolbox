@@ -128,6 +128,7 @@ Page({
     this._th = 0.5; this._miss = 0; this._frameCv = null; this._frameW = 0; this._frameH = 0;
     this._view = null; this._calibBox = null;
     this._minConf = this._minConf || 0.5;
+    this._skipBusy = 0;
     this._noMapN = 0; this._noMapKeys = []; this._confSum = 0; this._confN = 0; this._confOkSum = 0; this._confOkN = 0;
     this.setData({ analyzing: true, progress: 0, decoded: 0, detected: 0, checks: [], stats: [], formatNote: '', diag: ['开始分析…'] });
     this._series = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [] };
@@ -237,7 +238,11 @@ Page({
         }
         stall = 0; lastOk = Date.now();
         const n = idx++;
-        if (n % step === 0) this.detectOne(f, n);
+        if (n % step === 0) {
+          const busy = !!this._pending;
+          this.detectOne(f, n);
+          if (busy) this._skipBusy = (this._skipBusy || 0) + 1;
+        }
         if (n % 8 === 0) this.flushProgress(n);
         i++;
       }
@@ -511,6 +516,10 @@ Page({
 
   // 单帧检测：帧数据 → frameBuffer → detectBody → 等 updateAnchors
   detectOne(f, n) {
+    // ⚠️ 关键：同一时刻只允许一个 detectBody 在飞。
+    // 以前解码循环不等检测完成就连续调用，会互相覆盖 `_pending`，并让 `_lastPrep` 被后一帧顶掉 ——
+    // 结果就是"关键点来自第 N 帧、背景画面来自第 N+k 帧"，看起来像"算法不准，整片偏移"。
+    if (this._pending) return;
     // ⚠️ 这里以前直接拿 f.data（原厂帧）去检测 —— 如果是 YUV 就是 0 个关键点。
     // 现在统一走 prepareFrame：先判格式、YUV/灰度转 RGBA、再按需缩放。
     const prep = this.prepareFrame(f);
@@ -550,7 +559,7 @@ Page({
       if (!body) { this._miss = (this._miss || 0) + 1; return; }
       if (!this._firstPts) {
         this._firstPts = body.points;
-        this.captureFrame(this._lastPrep);          // 留一张首帧图，校准画布当背景
+        this.captureFrame(prep);                    // ← 必须是"这一帧"的画面，否则点和背景错位
       }
       if (this.data.calibrating) return;                       // 校准中只取首帧
       const map = this._map || store.load(store.KEYS.poseMap) || {};
@@ -586,6 +595,9 @@ Page({
     const decodedN = this._frames || this.data.decoded || 0;
     const detN = this._detCount || 0;
     const rate = decodedN ? Math.round(detN / decodedN * 100) : 0;
+    if (this._skipBusy) {
+      this.setData({ diag: (this.data.diag || []).concat(['为对齐画面与关键点，跳过了 ' + this._skipBusy + ' 帧（检测是串行的）']) });
+    }
     // 检出率诊断：解释"为什么这个视频不行"，而不是只丢一句"帧太少"
     const why = [];
     // 先说最可能的真原因：没校准 / 置信度不够
