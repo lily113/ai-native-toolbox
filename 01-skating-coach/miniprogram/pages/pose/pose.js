@@ -1,5 +1,6 @@
 const store = require('../../utils/store');
 const pose = require('../../utils/pose');
+const yuv = require('../../utils/yuv');
 const { POSE_JOINTS } = require('../../utils/const');
 
 // 姿态自查（视频分析）：
@@ -38,6 +39,8 @@ Page({
     decoded: 0,
     detected: 0,
     formatNote: '',           // 像素格式自检结论
+    yuvLayout: 'nv12',        // YUV 布局（诊断会试 nv12/nv21/i420 并记住可用的）
+    cfgYuv: '',
     diag: [],                 // 诊断信息（可复制）
     downscale: true,          // 高分辨率视频先降采样再检测
     cfgName: '',              // 实际生效的 VisionKit 配置
@@ -325,9 +328,14 @@ Page({
       diag.push('解码帧: ' + f.width + '×' + f.height + ' · 格式 ' + fmt(f));
       let working = null;
       // 参数矩阵：阈值 × 来源类型（每个组合发 3 次，给模型预热机会）
-      const combos = [
-        { th: 0.5, st: 1 }, { th: 0.5, st: 0 }, { th: 0.3, st: 1 }
-      ];
+      // 帧格式先定：YUV 的话要把三种布局都试一遍（字节数一样，只能靠试）
+      const fmtNow = yuv.sniff(f.data.byteLength || f.data.length || 0, f.width, f.height);
+      diag.push('像素格式判定: ' + fmtNow + '（' + Math.round((f.data.byteLength || f.data.length || 0) / (f.width * f.height) * 100) / 100 + ' 字节/像素）');
+      const layouts = fmtNow === 'yuv420' ? ['nv12', 'nv21', 'i420'] : [''];
+      const combos = [];
+      layouts.forEach(lay => {
+        [0.5, 0.3].forEach(th => { [1, 0].forEach(st => { combos.push({ th: th, st: st, lay: lay }); }); });
+      });
       const cfg = { n: '默认版本', v: undefined, opt: {} };
       const r = await this.tryConfig(cfg.n, cfg.v, null);
       const session = r.session;
@@ -337,23 +345,29 @@ Page({
         for (const cb of combos) {
           let pts = 0;
           for (let k = 0; k < 3; k++) {
+            if (cb.lay && this.data.yuvLayout !== cb.lay) this.setData({ yuvLayout: cb.lay });
             const one = await this.detectOnce(session, f, cb.th, cb.st);
             if (one > 0) { pts = one; break; }
           }
-          diag.push('  阈值 ' + cb.th + ' · sourceType ' + cb.st + ' → 关键点 ' + pts + (pts > 0 ? ' ✅' : ''));
+          diag.push('  阈值 ' + cb.th + ' · sourceType ' + cb.st + ' · 布局 ' + (cb.lay || '原始') + ' → 关键点 ' + pts + (pts > 0 ? ' ✅' : ''));
           if (pts > 0) { got = pts; break; }
         }
-        if (got > 0) working = { name: cfg.n, version: cfg.v, session: session };
+        if (got > 0) working = { name: cfg.n, version: cfg.v, session: session, yuv: this.data.yuvLayout };
         else { try { session.destroy(); } catch (e) {} }
       }
       try { if (working && working.session) working.session.destroy(); } catch (e) {}
       this.cleanup();
-      const okLine = working ? ('✅ 可用配置：' + working.name + '（分析将使用它）') : '❌ 两种配置都没拿到关键点：本机可能不支持「静态图片人体检测」';
+      const okLine = working
+        ? ('✅ 可用配置：' + working.name + (working.yuv ? ' · YUV 布局 ' + working.yuv : '') + '（分析将使用它）')
+        : ('❌ 所有组合都没拿到关键点。'
+           + (fmtNow === 'yuv420' ? '已试过 nv12/nv21/i420 三种 YUV 布局仍为 0 —— 多半是本机不支持「静态图片人体检测」。' : '')
+           + (fmtNow === 'rgba' ? '帧格式是 RGBA（符合接口），仍为 0 → 本机不支持「静态图片人体检测」。' : ''));
       this.setData({
         analyzing: false,
         diag: diag.concat([okLine]),
         cfgName: working ? working.name : '',
         cfgVersion: working ? (working.version || '') : '',
+        cfgYuv: working ? (working.yuv || '') : '',
         formatNote: fmt(f)
       });
     };
@@ -387,26 +401,48 @@ Page({
   // 高分辨率帧先降采样（减少内存与耗时；检测模型本身也会缩放）
   prepareFrame(f) {
     const maxSide = this.data.maxSide || 640;
-    if (!this.data.downscale || Math.max(f.width, f.height) <= maxSide) {
-      return { data: f.data, width: f.width, height: f.height };
+    const px0 = f.width * f.height;
+    const bytes0 = f.data.byteLength || f.data.length || 0;
+    const fmt0 = yuv.sniff(bytes0, f.width, f.height);
+
+    // ① 先把非 RGBA 的帧转成 RGBA（这一步是之前"0 个关键点"的解药）
+    let srcData = f.data, srcW = f.width, srcH = f.height, converted = '';
+    if (fmt0 === 'yuv420') {
+      const lay = this.data.yuvLayout || 'nv12';
+      try {
+        srcData = yuv.yuvToRgba(f.data, f.width, f.height, lay).buffer;
+        converted = 'YUV(' + lay + ')→RGBA';
+      } catch (e) { return { data: f.data, width: f.width, height: f.height, converted: 'YUV 转换失败: ' + (e.message || e) }; }
+    } else if (fmt0 === 'gray') {
+      try {
+        srcData = yuv.grayToRgba(f.data, f.width, f.height).buffer;
+        converted = '灰度→RGBA';
+      } catch (e) { return { data: f.data, width: f.width, height: f.height, converted: '灰度转换失败' }; }
+    }
+
+    // ② 再按需缩放（缩放走 canvas，输入必须已经是 RGBA）
+    if (!this.data.downscale || Math.max(srcW, srcH) <= maxSide) {
+      return { data: srcData, width: srcW, height: srcH, converted: converted };
     }
     try {
       const c1 = this._w1, c2 = this._w2;
-      if (!c1 || !c2) return { data: f.data, width: f.width, height: f.height };
-      const scale = maxSide / Math.max(f.width, f.height);
-      const w2 = Math.max(2, Math.round(f.width * scale)), h2 = Math.max(2, Math.round(f.height * scale));
+      if (!c1 || !c2) return { data: srcData, width: srcW, height: srcH, converted: converted };
+      const px = srcW * srcH;
+      if ((srcData.byteLength || srcData.length) < px * 4) {
+        return { data: srcData, width: srcW, height: srcH, converted: converted };
+      }
+      const scale = maxSide / Math.max(srcW, srcH);
+      const w2 = Math.max(2, Math.round(srcW * scale)), h2 = Math.max(2, Math.round(srcH * scale));
       const ctx1 = c1.getContext('2d'), ctx2 = c2.getContext('2d');
-      const px = f.width * f.height;
-      if ((f.data.byteLength || f.data.length) < px * 4) return { data: f.data, width: f.width, height: f.height };
-      const img = ctx1.createImageData(f.width, f.height);
-      img.data.set(new Uint8ClampedArray(f.data, 0, px * 4));
+      const img = ctx1.createImageData(srcW, srcH);
+      img.data.set(new Uint8ClampedArray(srcData, 0, px * 4));
       ctx1.putImageData(img, 0, 0);
       ctx2.clearRect(0, 0, w2, h2);
-      ctx2.drawImage(c1, 0, 0, f.width, f.height, 0, 0, w2, h2);
+      ctx2.drawImage(c1, 0, 0, srcW, srcH, 0, 0, w2, h2);
       const out = ctx2.getImageData(0, 0, w2, h2);
-      return { data: out.data.buffer, width: w2, height: h2 };
+      return { data: out.data.buffer, width: w2, height: h2, converted: converted };
     } catch (e) {
-      return { data: f.data, width: f.width, height: f.height };
+      return { data: srcData, width: srcW, height: srcH, converted: converted };
     }
   },
 
