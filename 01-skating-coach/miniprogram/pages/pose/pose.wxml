@@ -47,6 +47,17 @@
     </view>
 
     <!-- ④ 结果 -->
+    <!-- 拍摄质量：决定这些数能不能信 -->
+    <view class="q-banner q-{{quality.level}}" wx:if="{{quality}}">
+      <view class="q-top">
+        <text class="q-tag">{{quality.level === 'good' ? '拍摄达标' : (quality.level === 'fair' ? '人体偏小' : '拍摄不达标')}}</text>
+        <text class="q-px">人体约 {{quality.px}}px 高</text>
+      </view>
+      <view class="q-note">{{quality.note}}</view>
+      <view class="q-note2" wx:if="{{!quality.usable}}">数值已隐藏 —— 这个尺寸下的误差会吃掉判定区间。继续看骨架回放即可。</view>
+      <view class="q-note2" wx:else>每个数值后面标了误差（如 ±2°），是这个尺寸下的实测噪声。</view>
+    </view>
+
     <!-- 三个大数字（照参考产品形态：大字号、带单位、一眼能读） -->
     <view class="card" wx:if="{{big.length}}">
       <view class="card-t">③ 关键结果</view>
