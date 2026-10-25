@@ -41,6 +41,31 @@ function rejectOutliers(series, k) {
   if (!lim) return (series || []).slice();
   return (series || []).map(v => (typeof v === 'number' && isFinite(v) && Math.abs(v - m) <= lim) ? v : null);
 }
+// ---------- 拍摄质量闸门 ----------
+// 关键：指标的噪声取决于"人体在画面里占多少像素"。实测（Monte Carlo，见 CHANGELOG）：
+//   180px 高 · 2px 抖动 → 膝角 ±1.9°
+//    68px 高 · 2px 抖动 → 膝角 ±5.0°
+//    68px 高 · 4px 抖动 → 膝角 ±10.1°，单足判定错判 34%
+// 所以先算"人体像素高度"，再决定给不给数、给几个小数。
+function quality(bodyHPx, frameH) {
+  const px = Math.round(bodyHPx || 0);
+  const frac = frameH ? (bodyHPx / frameH) : 0;
+  // 噪声模型：误差 ∝ 1/人体像素高度（用实测两点拟合：68px→5.0°，180px→1.9°）
+  const kneeErr = px > 20 ? Math.min(30, 340 / px) : 30;
+  const hipErr = px > 20 ? Math.min(12, 122 / px) : 12;        // % 身高
+  const legErr = px > 20 ? Math.min(15, 156 / px) : 15;        // % 身高
+  let level = 'poor', note = '';
+  if (px >= 180) { level = 'good'; note = '拍摄达标，数值可参考'; }
+  else if (px >= 120) { level = 'fair'; note = '人体偏小，数值有误差（已标注）'; }
+  else { level = 'poor'; note = '拍摄不达标：人体只有 ' + px + 'px 高，量化数值不可信'; }
+  return {
+    px: px, frac: Math.round(frac * 1000) / 1000, level: level, note: note,
+    err: { knee: Math.round(kneeErr * 10) / 10, hip: Math.round(hipErr * 10) / 10, leg: Math.round(legErr * 10) / 10 },
+    // 低于这个值就别给数字了：误差已经吃掉判定区间
+    usable: px >= 120
+  };
+}
+
 // 映射合理性自检：不是"对不对"，而是抓那种一眼就错的（比如踝跑到头上面）
 function sanityCheck(pts, map) {
   const M = (map && Object.keys(map).length) ? map : DEFAULT_MAP;
@@ -233,5 +258,5 @@ function judge(key, value) {
 module.exports = {
   angleAt: angleAt, mid: mid, dist: dist,
   median: median, medianFilter: medianFilter, rejectOutliers: rejectOutliers, summarize: summarize,
-  frameMetrics: frameMetrics, POSE_TARGETS: POSE_TARGETS, judge: judge, peakToPeak: peakToPeak, dominantPeriod: dominantPeriod, DEFAULT_MAP: DEFAULT_MAP, sanityCheck: sanityCheck
+  frameMetrics: frameMetrics, POSE_TARGETS: POSE_TARGETS, judge: judge, peakToPeak: peakToPeak, dominantPeriod: dominantPeriod, DEFAULT_MAP: DEFAULT_MAP, sanityCheck: sanityCheck, quality: quality
 };

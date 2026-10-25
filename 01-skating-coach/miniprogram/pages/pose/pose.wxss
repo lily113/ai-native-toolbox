@@ -108,3 +108,17 @@
 .op-chip { font-size: 11.5px; color: #0284c7; background: #e0f2fe; border-radius: 999px; padding: 4px 12px; }
 .op-chip.on { background: #0284c7; color: #fff; }
 .op-hint { font-size: 10.5px; color: #94a3b8; }
+
+/* 拍摄质量横幅 */
+.q-banner { border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; border: 1px solid; }
+.q-good { background: #f0fdf4; border-color: #bbf7d0; }
+.q-fair { background: #fffbeb; border-color: #fde68a; }
+.q-poor { background: #fef2f2; border-color: #fecaca; }
+.q-top { display: flex; align-items: baseline; justify-content: space-between; }
+.q-tag { font-size: 13px; font-weight: 800; }
+.q-good .q-tag { color: #15803d; }
+.q-fair .q-tag { color: #b45309; }
+.q-poor .q-tag { color: #b91c1c; }
+.q-px { font-size: 11.5px; color: #475569; }
+.q-note { font-size: 12px; color: #334155; line-height: 1.6; margin-top: 4px; }
+.q-note2 { font-size: 11px; color: #64748B; line-height: 1.6; margin-top: 3px; }
