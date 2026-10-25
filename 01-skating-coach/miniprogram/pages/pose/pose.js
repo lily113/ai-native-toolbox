@@ -1,6 +1,7 @@
 const store = require('../../utils/store');
 const pose = require('../../utils/pose');
 const yuv = require('../../utils/yuv');
+const posepost = require('../../utils/posepost');
 const { POSE_JOINTS } = require('../../utils/const');
 
 // 姿态自查（视频分析）：
@@ -26,7 +27,7 @@ Page({
     videoInfo: '',            // 时长/尺寸
     step: 2,                  // 每 N 帧取 1 帧
     stepOptions: [1, 2, 3],
-    maxSide: 640,             // 降采样后的长边上限
+    maxSide: 1280,            // 降采样后的长边上限（越小越快、但点越差）
     // 校准
     calibrated: false,
     heightCm: 0,
@@ -724,7 +725,50 @@ Page({
     if (rate < 25) {
       this.setData({ diag: (this.data.diag || []).concat(['⚠️ 检出率 ' + rate + '%（' + detN + '/' + decodedN + '）—— 指标可信度会打折']) });
     }
+    // 关键点后处理：时间平滑 + 骨骼长度约束，然后**用处理后的点重算指标**
+    // （回放和指标都用同一份处理后的数据，避免"画面平滑了、数字还是抖的"）
+    try {
+      if ((this._track || []).length >= 5) {
+        const res = posepost.postProcess(this._track);
+        this._track = res.track;
+        this._postStats = res.stats;
+        this.rebuildSeries();
+        this.pushDiag('关键点后处理：剔除跳变 ' + (res.stats.jumps || 0)
+          + ' 处 · 插值补帧 ' + (res.stats.filled || 0) + ' 个 · 骨长校正 ' + (res.stats.bones || 0) + ' 次');
+      }
+    } catch (e) {
+      this.pushDiag('关键点后处理失败（不影响出指标）: ' + (e.message || e));
+    }
     this.computeResults();
+  },
+
+  // 用（后处理过的）_track 重算整段序列：指标与回放共用同一份数据
+  rebuildSeries() {
+    const map = this.getMap();
+    const asp = this._aspect || 1;
+    const S = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [],
+                hipH: [], shAng: [], hipAng: [], hipX: [], axisTilt: [] };
+    const pxList = [];
+    (this._track || []).forEach(f => {
+      if (!f || !f.pts) return;
+      const m = pose.frameMetrics(f.pts, map, 'right', this._minConf || 0.5, asp);
+      if (!m.have || !m.have.length) return;
+      S.t.push(f.n);
+      S.legGap.push(m.legGap == null ? null : m.legGap);
+      S.kneeL.push(m.kneeL == null ? null : m.kneeL);
+      S.kneeR.push(m.kneeR == null ? null : m.kneeR);
+      S.trunkTilt.push(m.trunkTilt == null ? null : m.trunkTilt);
+      S.cogOffset.push(m.cogOffset == null ? null : m.cogOffset);
+      S.oneFoot.push(m.legGap == null ? null : (m.oneFoot ? 1 : 0));
+      S.bodyH.push(m.bodyH == null ? null : m.bodyH);
+      S.hipH.push(m.hipH == null ? null : m.hipH);
+      S.shAng.push(m.shAng == null ? null : m.shAng);
+      S.hipAng.push(m.hipAng == null ? null : m.hipAng);
+      S.hipX.push(m.hipX == null ? null : m.hipX);
+      S.axisTilt.push(m.axisTilt == null ? null : m.axisTilt);
+      if (m.bodyH != null && this._frameH) pxList.push(m.bodyH * this._frameH);
+    });
+    if (S.t.length) { this._series = S; this._bodyPx = pxList; }
   },
 
   computeResults() {
