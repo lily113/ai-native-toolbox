@@ -138,8 +138,15 @@ const DEFAULT_MAP = {
   kneeL: 13, kneeR: 14, ankL: 15, ankR: 16
 };
 
-function frameMetrics(pts, map0, side, minConf) {
+// aspect = 画面宽/高。**必填**，否则角度会错：
+// 归一化坐标里 x、y 都映射到 0..1，但 16:9 画面里"x 的 1"只有"y 的 1"的 9/16 那么长。
+// 直接用归一化坐标算角度，一个真实的 45° 会被测成 60.6°（横屏）或 29.4°（竖屏）。
+// 修法：算角度前把 x 乘以 aspect，还原成各向同性的空间。
+function frameMetrics(pts, map0, side, minConf, aspect0) {
   const map = (map0 && Object.keys(map0).length) ? map0 : DEFAULT_MAP;
+  const AR = (aspect0 > 0.1 && aspect0 < 10) ? aspect0 : 1;
+  // 只用于算角度的投影函数
+  const AX = p => p ? { x: p.x * AR, y: p.y } : null;
   // 每个关键点：有映射、且置信度达标才可用（个别关节不可信时，只让它参与的指标缺失，
   // 而不是把整帧丢掉 —— 以前"一个脚踝不可信 → 整帧作废"就是"有效帧 0"的主因）
   const C = (typeof minConf === 'number') ? minConf : 0.5;
@@ -171,7 +178,10 @@ function frameMetrics(pts, map0, side, minConf) {
   });
 
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
-  const angleAt = (a, b, c) => (a && b && c) ? Math.abs(Math.atan2(c.y - b.y, c.x - b.x) * 180 / Math.PI - Math.atan2(a.y - b.y, a.x - b.x) * 180 / Math.PI) : null;
+  const angleAt = (a, b, c) => {
+    const A = AX(a), B = AX(b), C = AX(c);
+    return (A && B && C) ? Math.abs(Math.atan2(C.y - B.y, C.x - B.x) * 180 / Math.PI - Math.atan2(A.y - B.y, A.x - B.x) * 180 / Math.PI) : null;
+  };
   const ang = (a, b, c) => {
     if (!a || !b || !c) return null;
     let v = angleAt(a, b, c);
@@ -195,13 +205,14 @@ function frameMetrics(pts, map0, side, minConf) {
   // 上身前倾：颈 + 髋中点
   if (neck && hipL && hipR) {
     const hipC = mid(hipL, hipR);
-    out.trunkTilt = Math.abs(Math.atan2(neck.x - hipC.x, hipC.y - neck.y) * 180 / Math.PI);
+    out.trunkTilt = Math.abs(Math.atan2((neck.x - hipC.x) * AR, hipC.y - neck.y) * 180 / Math.PI);
   }
   // 重心前偏：髋中点 vs 支撑踝（画面里更低的那只脚）
   if (hipL && hipR && (ankL || ankR)) {
     const support = (ankL && ankR) ? (ankL.y >= ankR.y ? ankL : ankR) : (ankL || ankR);
     const hipC = mid(hipL, hipR);
-    if (bodyH > 0.05) out.cogOffset = (hipC.x - support.x) / bodyH * (side === 'left' ? -1 : 1);
+    if (bodyH > 0.05) out.cogOffset = ((hipC.x - support.x) * AR) / bodyH;
+    if (out.cogOffset != null && side === 'left') out.cogOffset *= -1;
   }
   if (out.legGap != null) out.oneFoot = out.legGap > 0.08;
 
@@ -214,13 +225,14 @@ function frameMetrics(pts, map0, side, minConf) {
     if (lowAnk >= 0) out.hipH = (lowAnk - hipC.y) / bodyH;
   }
   // 肩线 / 髋线倾角（度；0=水平，正=右高）
-  if (shL && shR) out.shAng = Math.atan2(shR.y - shL.y, shR.x - shL.x) * 180 / Math.PI;
-  if (hipL && hipR) out.hipAng = Math.atan2(hipR.y - hipL.y, hipR.x - hipL.x) * 180 / Math.PI;
+  if (shL && shR) out.shAng = Math.atan2(shR.y - shL.y, (shR.x - shL.x) * AR) * 180 / Math.PI;
+  if (hipL && hipR) out.hipAng = Math.atan2(hipR.y - hipL.y, (hipR.x - hipL.x) * AR) * 180 / Math.PI;
   // 髋中点横向位置（用于"横向摆动幅度"与"节奏"）
   if (hipC) out.hipX = hipC.x;
   // 头—髋连线相对竖直的倾角（整体轴线，比"上身前倾"更中性）
-  if (head && hipC) out.axisTilt = Math.abs(Math.atan2(hipC.x - head.x, hipC.y - head.y) * 180 / Math.PI);
+  if (head && hipC) out.axisTilt = Math.abs(Math.atan2((hipC.x - head.x) * AR, hipC.y - head.y) * 180 / Math.PI);
 
+  out.aspect = AR;
   out.have = ['bodyH', 'legGap', 'kneeL', 'kneeR', 'trunkTilt', 'cogOffset',
               'hipH', 'shAng', 'hipAng', 'hipX', 'axisTilt'].filter(k => out[k] != null);
   out.ok = out.have.length > 0;                 // 只要有一个指标能用，这帧就有价值

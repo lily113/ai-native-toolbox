@@ -143,7 +143,7 @@ Page({
     this._view = null; this._calibBox = null;
     this._minConf = this._minConf || 0.5;
     this._skipBusy = 0;
-    this._track = []; this._bodyPx = [];
+    this._track = []; this._bodyPx = []; this._aspect = 0;
     this._noMapN = 0; this._noMapKeys = []; this._confSum = 0; this._confN = 0; this._confOkSum = 0; this._confOkN = 0;
     this.setData({ analyzing: true, progress: 0, decoded: 0, detected: 0, checks: [], stats: [], formatNote: '', diag: ['开始分析…'] });
     this._series = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [],
@@ -599,7 +599,10 @@ Page({
       if (this.data.calibrating) return;                       // 校准中只取首帧
       // 没手工校准过 → 直接用内置默认映射（COCO 顺序），所以"不校准也能出指标"
       const map = this.getMap();
-      const m = pose.frameMetrics(body.points, map, 'right', this._minConf || 0.5);
+      // ⚠️ 必须传画面宽高比：否则横屏会把膝角算大、竖屏算小（16:9 时偏 +17°，9:16 时偏 -14°）
+      const asp = (prep && prep.width && prep.height) ? (prep.width / prep.height) : (this._aspect || 1);
+      if (!this._aspect) this._aspect = asp;
+      const m = pose.frameMetrics(body.points, map, 'right', this._minConf || 0.5, asp);
       // 一个指标都算不出来：只记原因（缺映射 / 置信度不够），不推入序列
       if (!m.have || !m.have.length) {
         if (m.noMap) { this._noMapN = (this._noMapN || 0) + 1; this._noMapKeys = m.miss || []; }
