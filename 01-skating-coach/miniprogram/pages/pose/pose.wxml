@@ -25,8 +25,8 @@
 
     <!-- ② 校准 -->
     <view class="card">
-      <view class="card-t">② 校准关键点 {{calibrated ? '（已完成）' : '（首次必做）'}}</view>
-      <view class="card-s">先点「开始分析」取一帧，再点「校准关键点」，按提示依次点选关节（约 1 分钟）</view>
+          <view class="card-t">② 关键点映射（{{calibrated ? '已手工校准' : '默认自动'}}）</view>
+      <view class="card-s">{{calibrated ? '你手工校准过映射（换视频/换机型后如指标异常，可重新校准）。' : '已用内置默认映射（COCO 顺序），不用手工校准就能出指标。只有当骨架明显标错位置时才需要校准。'}}</view>
       <view class="row">
         <button class="btn ghost" bindtap="startCalib" disabled="{{calibrating}}">校准关键点</button>
         <button class="btn ghost" wx:if="{{calibrating}}" bindtap="cancelCalib">取消</button>

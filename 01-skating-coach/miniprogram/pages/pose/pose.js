@@ -564,9 +564,16 @@ Page({
       if (!this._firstPts) {
         this._firstPts = body.points;
         this.captureFrame(prep);                    // ← 必须是"这一帧"的画面，否则点和背景错位
+        // 用内置映射做一次合理性自检：不对就提示去校准（不拦着分析）
+        const warns = pose.sanityCheck(body.points, this._map || store.load(store.KEYS.poseMap) || pose.DEFAULT_MAP);
+        this._sanityWarn = warns;
+        if (warns.length) {
+          this.setData({ diag: (this.data.diag || []).concat(['⚠️ 关键点映射可能不对：' + warns.join('；') + ' → 建议点「校准关键点」']) });
+        }
       }
       if (this.data.calibrating) return;                       // 校准中只取首帧
-      const map = this._map || store.load(store.KEYS.poseMap) || {};
+      // 没手工校准过 → 直接用内置默认映射（COCO 顺序），所以"不校准也能出指标"
+      const map = this._map || store.load(store.KEYS.poseMap) || pose.DEFAULT_MAP;
       const m = pose.frameMetrics(body.points, map, 'right', this._minConf || 0.5);
       // 一个指标都算不出来：只记原因（缺映射 / 置信度不够），不推入序列
       if (!m.have || !m.have.length) {
@@ -974,16 +981,10 @@ Page({
     const pts = this._firstPts.filter(p => p && isFinite(p.x) && isFinite(p.y));
     if (pts.length < 6) { wx.showToast({ title: '关键点太少，无法放大', icon: 'none' }); return; }
 
-    const med = arr => { const a = arr.slice().sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; };
-    const mx = med(pts.map(p => p.x)), my = med(pts.map(p => p.y));
-    const dev = pts.map(p => Math.hypot(p.x - mx, p.y - my));
-    const md = med(dev) || 0.05;
-    // 离群点判据：到中心距离超过 max(0.08, 2.2×中位偏差)
-    const keep = pts.filter((p, i) => dev[i] <= Math.max(0.08, md * 2.2));
-    const use = keep.length >= 6 ? keep : pts;
-
-    let x0 = Math.min.apply(null, use.map(p => p.x)), x1 = Math.max.apply(null, use.map(p => p.x));
-    let y0 = Math.min.apply(null, use.map(p => p.y)), y1 = Math.max.apply(null, use.map(p => p.y));
+    // 视野必须**包含所有关键点** —— 否则放大后有的点跑到画布外，就"点不到"了。
+    // 代价是：如果有个别离群点，放大幅度会被它拖小；所以把放大上限定在 3 倍，两边都照顾。
+    let x0 = Math.min.apply(null, pts.map(p => p.x)), x1 = Math.max.apply(null, pts.map(p => p.x));
+    let y0 = Math.min.apply(null, pts.map(p => p.y)), y1 = Math.max.apply(null, pts.map(p => p.y));
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
 
     // ① 按画布比例扩张（避免出现黑边，同时让画面填满）
@@ -992,10 +993,18 @@ Page({
     if (w / h > aspect) h = w / aspect; else w = h * aspect;
     // ② 四周留 20% 边
     w *= 1.2; h *= 1.2;
-    // ③ 强制至少放大 2 倍（否则"放大"看起来没变化）
-    const MAXW = 0.5, MAXH = MAXW / aspect;
-    if (w > MAXW) { h *= MAXW / w; w = MAXW; }
-    if (h > MAXH) { w *= MAXH / h; h = MAXH; }
+    // ③ 放大上限 3 倍（w ≥ 0.33）：既看得出"确实放大了"，又不至于把边上的点挤出视野
+    const MINW = 0.33, MINH = MINW / aspect;
+    if (w > 1) { h /= w; w = 1; }
+    if (w > MINW) { h *= MINW / w; w = MINW; }
+    if (h > MINH) { w *= MINH / h; h = MINH; }
+    if (w > 1) { w = 1; h = aspect; }
+    if (h > 1) { h = 1; w = aspect; }
+    // 兜底：视野不小于所有点的范围
+    const spanX = Math.max.apply(null, pts.map(p => p.x)) - Math.min.apply(null, pts.map(p => p.x));
+    const spanY = Math.max.apply(null, pts.map(p => p.y)) - Math.min.apply(null, pts.map(p => p.y));
+    if (w < spanX) w = Math.min(1, spanX);
+    if (h < spanY) h = Math.min(1, spanY);
 
     x0 = Math.max(0, Math.min(1 - w, cx - w / 2));
     y0 = Math.max(0, Math.min(1 - h, cy - h / 2));
