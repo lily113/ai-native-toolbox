@@ -52,8 +52,12 @@ Page({
     checks: [],               // 动作检查项
     stats: [],                // 指标统计
     general: [],              // 通用指标（跟动作无关）
+    big: [],                  // 三个大数字
+    summaryText: '',          // 一句人话结论
+    advice: [],               // 训练建议
     trackN: 0,                // 已存的关键点帧数（>0 才能回放叠加）
     playing: false,
+    hud: null,                // 回放时叠加在画面上的实时数字
     playPct: 0,
     playTime: '0.0s',
     chartKey: 'legGap',
@@ -759,8 +763,48 @@ Page({
         hint: '压步/换脚的节拍：4 拍一动≈0.25 Hz，1 拍一动≈1 Hz' }
     ];
 
+    // ---------- 三个大数字（照参考产品的形态：一眼能读） ----------
+    const sKnee = pose.summarize([].concat(kneeL, kneeR).filter(v => v != null));
+    const oneN = (S.oneFoot || []).filter(v => v === 1).length;
+    const oneTotal = (S.oneFoot || []).filter(v => v != null).length || 1;
+    const onePct = Math.round(oneN / oneTotal * 100);
+    const hipHv = sHipH ? Math.round(sHipH.median * 100) : null;
+    const kneeV = sKnee ? Math.round(sKnee.median) : null;
+    const big = [
+      { k: 'hip', v: hipHv == null ? '—' : String(hipHv), unit: '% 身高', name: '重心高度（中位）', sub: sHipH ? ('范围 ' + Math.round(sHipH.min * 100) + '–' + Math.round(sHipH.max * 100) + '%') : '' },
+      { k: 'knee', v: kneeV == null ? '—' : String(kneeV), unit: '°', name: '膝角（中位）', sub: sKnee ? ('最小 ' + Math.round(sKnee.min) + '°') : '' },
+      { k: 'one', v: String(onePct), unit: '% 时间', name: '单足滑行占比', sub: holdMax.frames ? ('最长 ' + (Math.round(holdMax.sec * 10) / 10) + ' s') : '' }
+    ];
+
+    // ---------- 一句人话结论 ----------
+    const say = [];
+    if (hipHv != null) say.push('重心平均在 ' + hipHv + '% 身高');
+    if (kneeV != null) say.push('膝角中位 ' + kneeV + '°' + (kneeV < 120 ? '（蹲得偏深）' : kneeV > 160 ? '（腿偏直）' : '（适中）'));
+    say.push('单足滑行占 ' + onePct + '%' + (holdMax.frames ? '，最长连续 ' + (Math.round(holdMax.sec * 10) / 10) + ' 秒' : ''));
+    if (rhythmHz) say.push('动作节律约 ' + (Math.round(rhythmHz * 10) / 10) + ' Hz');
+    const summaryText = '这段视频里：' + say.join('，') + '。';
+
+    // ---------- 训练建议（规则生成，且明确"不是医疗/教练诊断"）----------
+    const advice = [];
+    if (kneeV != null && kneeV < 120) {
+      advice.push({ t: '膝角偏深：先练"浅蹲控制"', s: ['扶墙做 1/4 蹲，保持 10 秒×5 组', '压步时刻意"蹲少一点、起来更快"', '录像对比：膝角目标 130–150°'] });
+    } else if (kneeV != null && kneeV > 165) {
+      advice.push({ t: '腿偏直：加"屈膝缓冲"', s: ['落地/滑行时膝盖保持微屈（别锁死）', '做压步节奏练习：1-2 蹲 3 起', '注意上身前趴不要代偿'] });
+    }
+    if (onePct < 25) {
+      advice.push({ t: '单足时间偏少：加单足滑行', s: ['单足直线滑行 5 米×6 组（左右各）', '单足蛇形：一手上举、尾椎下沉', '目标：连续单足 ≥3 秒'] });
+    }
+    if (!rhythmHz) {
+      advice.push({ t: '没检出节律：练"节拍"', s: ['压步跟着口令：4 拍一动（1-2 蹲住，3 站起，4 下蹲）', '熟了改 2 拍、1 拍', '用音乐或节拍器辅助'] });
+    }
+    if (sRot != null && sRot < 90) {
+      advice.push({ t: '转体量偏小：加转体', s: ['转 3 单独练：前十次只求"不碰刀齿"', '连续转 3 × 全场一躺', '转体时"手—胯—脚"依次带动'] });
+    }
+    if (!advice.length) advice.push({ t: '这段视频的各项都在合理范围', s: ['保持当前节奏', '连续拍 3 次同一动作，比较"重心高度范围"和"单足占比"是否稳定'] });
+
     this._clean = { t: S.t, legGap: legGap, kneeL: kneeL, kneeR: kneeR, trunk: trunk, cog: cog };
-    this.setData({ checks: checks, stats: stats, general: general, chartKey: 'legGap', chartTitle: '浮足高度差（按身高归一 · 已平滑）' });
+    this.setData({ checks: checks, stats: stats, general: general, big: big, summaryText: summaryText, advice: advice,
+      chartKey: 'legGap', chartTitle: '浮足高度差（按身高归一 · 已平滑）' });
     this.drawChart();
     this.setData({ trackN: (this._track || []).length });
   },
@@ -809,7 +853,30 @@ Page({
       n++;
       this.drawPlayFrame(f, n, track);
       const sec = n / Math.max(1, this._fps || 30);
-      if (n % 6 === 0) this.setData({ playPct: Math.min(100, Math.round(sec / (total / (this._fps || 30)) * 100)), playTime: sec.toFixed(1) + 's' });
+      if (n % 6 === 0) {
+        // 画面上的实时数字（照参考产品：时间/帧号/关键点真实坐标）
+        let hud = { t: sec.toFixed(2) + 's', n: String(n) };
+        const hCm = Number(this.data.heightCm) || 0;
+        let near = null, best = 1e9;
+        (track || []).forEach(it => { const d = Math.abs(it.n - n); if (d < best) { best = d; near = it; } });
+        if (near && best <= 8) {
+          const map = this.getMap();
+          const at = k => { const i = map[k]; return (i != null && near.pts && near.pts[i]) ? near.pts[i] : null; };
+          const head = at('head'), ankL = at('ankL'), ankR = at('ankR');
+          const hipL = at('hipL'), hipR = at('hipR');
+          if (head && ankL && ankR && hipL && hipR) {
+            const bodyH = Math.abs(head.y - Math.max(ankL.y, ankR.y));
+            const lowAnk = Math.max(ankL.y, ankR.y);
+            const hipY = (hipL.y + hipR.y) / 2;
+            const hipH = bodyH > 0.01 ? (lowAnk - hipY) / bodyH : 0;
+            hud.hip = hCm ? (Math.round(hipH * hCm) + ' cm') : (Math.round(hipH * 100) + '%');
+            hud.leg = Math.round(Math.abs(ankL.y - ankR.y) / Math.max(0.01, bodyH) * 100) + '%';
+            const oneFoot = Math.abs(ankL.y - ankR.y) / Math.max(0.01, bodyH) > 0.08;
+            hud.foot = oneFoot ? '单足' : '双足';
+          }
+        }
+        this.setData({ playPct: Math.min(100, Math.round(sec / (total / (this._fps || 30)) * 100)), playTime: sec.toFixed(1) + 's', hud: hud });
+      }
       setTimeout(tick, 0);
     };
     tick();
