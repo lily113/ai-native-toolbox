@@ -127,6 +127,8 @@ Page({
     this._detCount = 0; this._detErr = 0; this._frames = 0; this._flushT = 0; this._lowConf = 0;
     this._th = 0.5; this._miss = 0; this._frameCv = null; this._frameW = 0; this._frameH = 0;
     this._view = null; this._calibBox = null;
+    this._minConf = this._minConf || 0.5;
+    this._noMapN = 0; this._noMapKeys = []; this._confSum = 0; this._confN = 0; this._confOkSum = 0; this._confOkN = 0;
     this.setData({ analyzing: true, progress: 0, decoded: 0, detected: 0, checks: [], stats: [], formatNote: '', diag: ['开始分析…'] });
     this._series = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [] };
     this._firstPts = null;
@@ -552,8 +554,13 @@ Page({
       }
       if (this.data.calibrating) return;                       // 校准中只取首帧
       const map = this._map || store.load(store.KEYS.poseMap) || {};
-      const m = pose.frameMetrics(body.points, map);
-      if (!m.ok) { if (m.lowConf) this._lowConf = (this._lowConf || 0) + 1; return; }
+      const m = pose.frameMetrics(body.points, map, 'right', this._minConf || 0.5);
+      if (!m.ok) {
+        if (m.lowConf) { this._lowConf = (this._lowConf || 0) + 1; this._confSum = (this._confSum || 0) + (m.avgConf || 0); this._confN = (this._confN || 0) + 1; }
+        else if (m.noMap) { this._noMapN = (this._noMapN || 0) + 1; this._noMapKeys = m.missing || []; }
+        return;
+      }
+      this._confOkSum = (this._confOkSum || 0) + (m.avgConf || 0); this._confOkN = (this._confOkN || 0) + 1;
       const S = this._series;
       S.t.push(n); S.legGap.push(m.legGap); S.kneeL.push(m.kneeL); S.kneeR.push(m.kneeR);
       S.trunkTilt.push(m.trunkTilt); S.cogOffset.push(m.cogOffset); S.oneFoot.push(m.oneFoot ? 1 : 0);
@@ -581,6 +588,17 @@ Page({
     const rate = decodedN ? Math.round(detN / decodedN * 100) : 0;
     // 检出率诊断：解释"为什么这个视频不行"，而不是只丢一句"帧太少"
     const why = [];
+    // 先说最可能的真原因：没校准 / 置信度不够
+    if (this._noMapN) {
+      const miss = (this._noMapKeys || []).slice(0, 5).map(k => (POSE_JOINTS.filter(j => j.k === k)[0] || {}).n || k);
+      why.push('『还没校准』：' + this._noMapN + ' 帧因为没有关节映射被跳过（缺 ' + miss.join('、') + '…）。');
+      why.push('先点「校准关键点」把关节一一点出来，完成后会自动重新分析。');
+    }
+    if (this._lowConf) {
+      const avg = this._confN ? (this._confSum / this._confN) : 0;
+      why.push('『置信度不够』：' + this._lowConf + ' 帧被挡（这些帧平均置信度 ' + avg.toFixed(2) + '，门槛 ' + (this._minConf || 0.5) + '）。');
+      why.push('主体在画面里太小时置信度就是低 —— 可以点「重跑」降门槛到 0.3，但结果要打折看。');
+    }
     if (detN === 0) {
       why.push(this.data.formatNote || '');
       why.push('这个视频一帧都没检出。常见原因：① 人在画面里太小（建议占画面高度 ≥ 1/3）；');
@@ -590,13 +608,17 @@ Page({
       why.push('建议：让主体在画面里更大、正侧面、光线均匀，再试一次。');
     }
     if (!S.legGap || S.legGap.length < 5) {
+      const canRetry = !this._noMapN && this._lowConf > 0 && (this._minConf || 0.5) > 0.3;
       wx.showModal({
         title: detN ? '有效帧太少' : '这个视频没检出人体',
-        content: (detN ? ('检出 ' + detN + ' 帧，但可用于计算的只有 ' + (S.legGap ? S.legGap.length : 0) + ' 帧。'
-                        + '可能是没校准关键点（先「开始分析」再「校准关键点」）。\n')
-                      : '')
+        content: (detN ? ('检出 ' + detN + ' 帧，但可用于计算的只有 ' + (S.legGap ? S.legGap.length : 0) + ' 帧。\n') : '')
           + why.filter(Boolean).join('\n'),
-        showCancel: false
+        showCancel: canRetry,
+        confirmText: canRetry ? '重跑' : '知道了',
+        cancelText: '取消',
+        success: r => {
+          if (canRetry && r.confirm) { this._minConf = 0.3; this.analyze(); }
+        }
       });
       return;
     }
@@ -758,7 +780,8 @@ Page({
         store.save(store.KEYS.poseMap, this._newMap);
         this._map = this._newMap;
         this.setData({ calibrating: false, calibrated: true, calibText: '' });
-        wx.showModal({ title: '校准完成', content: '已保存关键点映射。再点一次「开始分析」即可出指标。', showCancel: false });
+        wx.showToast({ title: '校准完成，正在重新分析…', icon: 'none' });
+        setTimeout(() => { this.analyze(); }, 700);
       } else {
         this.setData({ calibIdx: next, calibText: '请点选：' + POSE_JOINTS[next].n });
       }

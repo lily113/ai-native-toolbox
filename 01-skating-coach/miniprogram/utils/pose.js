@@ -51,13 +51,19 @@ function summarize(series) {
 // ---------- 单帧指标 ----------
 // pts: [{x,y}] 归一化坐标（[0,1]，y 向下）；map: {head:idx, ...}
 // 返回 { ok, bodyH, legGap, kneeL, kneeR, trunkTilt, cogOffset, oneFoot }
-function frameMetrics(pts, map, side) {
+function frameMetrics(pts, map, side, minConf) {
   const P = k => (pts && typeof map[k] === 'number' && pts[map[k]]) ? pts[map[k]] : null;
   const need = ['head', 'neck', 'shL', 'shR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankL', 'ankR'];
-  if (!need.every(k => P(k))) return { ok: false };
+  // 缺映射 → 这一帧根本没法算（最常见原因：还没做完校准）
+  const missing = need.filter(k => !P(k));
+  if (missing.length) return { ok: false, noMap: true, missing: missing };
   // 置信度门限：关键点不可信时丢弃该帧（避免把"猜出来的关节"当数据）
-  const MIN_CONF = 0.5;
-  if (!need.every(k => { const p = pts[map[k]]; return p && (p.c === undefined || p.c >= MIN_CONF); })) return { ok: false, lowConf: true };
+  // 默认 0.5；主体很小时可以降到 0.3（页面上会允许"低置信度重跑"，结果会标注）
+  const MIN_CONF = typeof minConf === 'number' ? minConf : 0.5;
+  const confs = need.map(k => pts[map[k]]).map(p => (p && p.c !== undefined) ? p.c : 1);
+  const minC = Math.min.apply(null, confs);
+  const avgC = confs.reduce((a, b) => a + b, 0) / confs.length;
+  if (minC < MIN_CONF) return { ok: false, lowConf: true, minConf: minC, avgConf: avgC };
   const head = P('head'), neck = P('neck');
   const hipC = mid(P('hipL'), P('hipR'));
   const ankL = P('ankL'), ankR = P('ankR');
@@ -75,7 +81,7 @@ function frameMetrics(pts, map, side) {
   const cogOffset = (hipC.x - support.x) / bodyH * (side === 'left' ? -1 : 1);
   // 单足：一踝明显高于另一踝
   const oneFoot = legGap > 0.08;
-  return { ok: true, bodyH: bodyH, legGap: legGap, kneeL: kneeL, kneeR: kneeR, trunkTilt: trunkTilt, cogOffset: cogOffset, oneFoot: oneFoot };
+  return { ok: true, avgConf: avgC, minConf: minC, bodyH: bodyH, legGap: legGap, kneeL: kneeL, kneeR: kneeR, trunkTilt: trunkTilt, cogOffset: cogOffset, oneFoot: oneFoot };
 }
 
 // ---------- 动作检查项目标（阈值可按自己情况调整）----------
