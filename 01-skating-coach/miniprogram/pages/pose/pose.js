@@ -276,7 +276,36 @@ Page({
     if (!m) { try { m = store.load(store.KEYS.poseMap); } catch (e) { m = null; } }
     const need = ['head', 'neck', 'shL', 'shR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankL', 'ankR'];
     const okMap = m && need.every(k => typeof m[k] === 'number');
+    if (okMap && this._mapBad) return pose.DEFAULT_MAP;    // 已被判定为"明显不对"
     return okMap ? m : pose.DEFAULT_MAP;
+  },
+
+  // 用首帧检验当前映射是否"明显不对"：不对就记下来并退回内置默认（否则所有指标都是 0/垃圾）
+  checkMap(pts) {
+    if (!pts || !pts.length) return;
+    const map = this.getMap();
+    const warns = pose.sanityCheck(pts, map);
+    // 额外判据：头到踝的纵向跨度太小（说明点和人没对应上）
+    const at = k => { const i = map[k]; return (i != null && pts[i]) ? pts[i] : null; };
+    const head = at('head'), ankL = at('ankL'), ankR = at('ankR');
+    let spanBad = false;
+    if (head && ankL && ankR) {
+      const span = Math.abs(head.y - Math.max(ankL.y, ankR.y));
+      if (!(span > 0.08)) spanBad = true;
+    } else {
+      spanBad = true;
+    }
+    if (warns.length || spanBad) {
+      const usedCustom = !!(this._map || store.load(store.KEYS.poseMap));
+      this._mapBad = true;
+      this.setData({
+        advOpen: true,
+        diag: (this.data.diag || []).concat([
+          '⚠️ 当前关键点映射明显不对' + (spanBad ? '（头到踝的纵向跨度太小）' : '') + '：' + (warns.join('；') || '点没对到身上'),
+          usedCustom ? '已自动改用内置标准映射（你之前手工校准过，可在页面底部「高级」里恢复/重校）' : '请打开回放的「显示序号」核对一下点序'
+        ])
+      });
+    }
   },
 
   // ---------- 会话与诊断 ----------
@@ -588,15 +617,8 @@ Page({
       if (!this._firstPts) {
         this._firstPts = body.points;
         this.captureFrame(prep);                    // ← 必须是"这一帧"的画面，否则点和背景错位
-        // 用内置映射做一次合理性自检：不对就提示去校准（不拦着分析）
-        const warns = pose.sanityCheck(body.points, map);
-        this._sanityWarn = warns;
-        if (warns.length) {
-          this.setData({
-            advOpen: true,          // 自动展开"高级：关键点映射"，告诉用户补救入口在哪
-            diag: (this.data.diag || []).concat(['⚠️ 关键点映射可能不对：' + warns.join('；') + ' → 已在页面底部展开「高级：关键点映射」'])
-          });
-        }
+        // 首帧检验映射：明显不对就自动退回内置标准映射（否则后续指标全是 0/垃圾）
+        this.checkMap(body.points);
       }
       if (this.data.calibrating) return;                       // 校准中只取首帧
       // 没手工校准过 → 直接用内置默认映射（COCO 顺序），所以"不校准也能出指标"
@@ -931,7 +953,7 @@ Page({
     if (!isFinite(n) || n < 0) return;
     if (!this.data.videoPath) return;
     this.stopPlay();
-    this._playerCv = null; this._playerW = 0; this._playerH = 0;   // 重新量（防旋转/布局变化后沿用旧宽高）
+    this._needMeasure = true;      // 重新测画布（实测 rect，防旋转/布局变化后沿用旧宽高）
     this.setData({ seekBusy: true });
     let dec = null;
     try { dec = wx.createVideoDecoder(); } catch (err) { this.setData({ seekBusy: false }); return; }
@@ -997,7 +1019,7 @@ Page({
       wx.showToast({ title: '启动解码失败', icon: 'none' }); return;
     }
     this._playing = true;
-    this._playerCv = null; this._playerW = 0; this._playerH = 0;   // 重新量画布
+    this._needMeasure = true;      // 重新测画布（实测 rect，不依赖 CSS 比例）
     this.setData({ playing: true, playPct: 0, playTime: '0.0s' });
     const track = this._track || [];
     const total = Math.max(1, (this._fps || 30) * (this._durSec || 20));
@@ -1049,16 +1071,17 @@ Page({
   drawPlayFrame(f, n, track) {
     const prep = this.prepareFrame(f);
     const fw = prep.width, fh = prep.height;
-    const run = (canvas, W, H) => {
-      if (!canvas) return;
+    const draw = (canvas, cw, ch) => {
+      if (!canvas || !cw || !ch) return;
       let dpr = 2;
       try { dpr = wx.getWindowInfo().pixelRatio || 2; } catch (e) {}
-      const bw = Math.round(W * dpr), bh = Math.round(H * dpr);
+      const bw = Math.round(cw * dpr), bh = Math.round(ch * dpr);
       if (canvas.width !== bw || canvas.height !== bh) { canvas.width = bw; canvas.height = bh; }
       const ctx = canvas.getContext('2d');
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, W, H);
-      // 画面铺满整块画布（画布比例已按视频比例设好，所以不变形、不需要 letterbox）
+      ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, cw, ch);
+      // **唯一的一套坐标**：画面和骨架都用这个 box（letterbox，按实际画布尺寸算）
+      const box = this.fitRect(cw, ch, fw, fh);
       try {
         const c = this._w1;
         if (c) {
@@ -1067,16 +1090,15 @@ Page({
           const img = x1.createImageData(fw, fh);
           img.data.set(new Uint8ClampedArray(prep.data, 0, fw * fh * 4));
           x1.putImageData(img, 0, 0);
-          ctx.drawImage(c, 0, 0, fw, fh, 0, 0, W, H);
+          ctx.drawImage(c, 0, 0, fw, fh, box.x, box.y, box.w, box.h);
         }
       } catch (e) {}
-      // 骨架：直接按画布尺寸映射（与画面同一坐标系）
       let near = null, best = 1e9;
       (track || []).forEach(it => { const d = Math.abs(it.n - n); if (d < best) { best = d; near = it; } });
       if (!near || best > 8) return;
       const map = this.getMap();
       const P = {};
-      (near.pts || []).forEach((p, i) => { if (p) P[i] = { x: p.x * W, y: p.y * H }; });
+      (near.pts || []).forEach((p, i) => { if (p) P[i] = { x: box.x + p.x * box.w, y: box.y + p.y * box.h }; });
       const SEG = [['head', 'neck'], ['neck', 'hipL'], ['neck', 'hipR'], ['hipL', 'hipR'],
                    ['hipL', 'kneeL'], ['kneeL', 'ankL'], ['hipR', 'kneeR'], ['kneeR', 'ankR'],
                    ['neck', 'shL'], ['neck', 'shR'], ['shL', 'hipL'], ['shR', 'hipR']];
@@ -1090,27 +1112,22 @@ Page({
       });
       ctx.fillStyle = 'rgba(250,204,21,.95)';
       Object.keys(P).forEach(k => { const p = P[k]; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2); ctx.fill(); });
-      // 序号核对（可选）：用来确认 VisionKit 的点序到底是不是 COCO
       if (this.data.showIdx) {
         ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = '10px sans-serif';
         Object.keys(P).forEach(k => { const p = P[k]; ctx.fillText(k, p.x + 3, p.y - 3); });
       }
     };
-
-    // 画布 CSS 宽度量一次，高度按视频比例由 setData 决定（这样比例=视频比例）
-    const withSize = cb => {
-      if (this._playerW) { cb(this._playerCv, this._playerW, this._playerH || Math.round(this._playerW * fh / fw)); return; }
-      wx.createSelectorQuery().in(this).select('#player').fields({ node: true, size: true }).exec(r => {
+    // 画布尺寸：每次都实测（旋转/布局变化都能跟上），缓存只用于"同一轮连续播放"
+    if (this._playerCv && this._cw && !this._needMeasure) { draw(this._playerCv, this._cw, this._ch); return; }
+    wx.createSelectorQuery().in(this).select('#player').boundingClientRect(rect => {
+      if (!rect || !rect.width || !rect.height) return;
+      wx.createSelectorQuery().in(this).select('#player').fields({ node: true }).exec(r => {
         const q = r && r[0];
         if (!q || !q.node) return;
-        this._playerCv = q.node;
-        this._playerW = q.width || 320;
-        const h = Math.round(this._playerW * fh / fw);
-        this._playerH = h;
-        this.setData({ playerH: h }, () => cb(this._playerCv, this._playerW, h));
+        this._playerCv = q.node; this._cw = rect.width; this._ch = rect.height; this._needMeasure = false;
+        draw(q.node, rect.width, rect.height);
       });
-    };
-    withSize(run);
+    }).exec();
   },
 
   switchChart(e) {
