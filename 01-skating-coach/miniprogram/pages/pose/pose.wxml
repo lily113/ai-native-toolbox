@@ -23,25 +23,9 @@
       </view>
     </view>
 
-    <!-- ② 校准 -->
+    <!-- ② 分析 -->
     <view class="card">
-          <view class="card-t">② 关键点映射（{{calibrated ? '已手工校准' : '默认自动'}}）</view>
-      <view class="card-s">{{calibrated ? '你手工校准过映射（换视频/换机型后如指标异常，可重新校准）。' : '已用内置默认映射（COCO 顺序），不用手工校准就能出指标。只有当骨架明显标错位置时才需要校准。'}}</view>
-      <view class="row">
-        <button class="btn ghost" bindtap="startCalib" disabled="{{calibrating}}">校准关键点</button>
-        <button class="btn ghost" wx:if="{{calibrating}}" bindtap="cancelCalib">取消</button>
-      </view>
-      <view class="calib-box" wx:if="{{calibrating}}">
-        <canvas type="2d" id="calib" class="calib-canvas" bindtap="onCanvasTap"></canvas>
-        <view class="calib-zoom" bindtap="zoomBody">{{zoomed ? '↺ 还原整幅' : '🔍 放大到人（点更准）'}}{{zoomText}}</view>
-        <view class="calib-tip">{{calibText}}</view>
-        <view class="calib-sub">黄点是检测到的关键点（带编号），点选对应的身体位置即可</view>
-      </view>
-    </view>
-
-    <!-- ③ 分析 -->
-    <view class="card">
-      <view class="card-t">③ 分析</view>
+      <view class="card-t">② 分析</view>
       <view class="row">
         <button class="btn {{analyzing ? 'stop' : ''}}" bindtap="{{analyzing ? 'stop' : 'analyze'}}">{{analyzing ? '停止' : '开始分析'}}</button>
         <button class="btn ghost" bindtap="testOne" disabled="{{analyzing}}">测试一帧</button>
@@ -65,7 +49,7 @@
     <!-- ④ 结果 -->
     <!-- 三个大数字（照参考产品形态：大字号、带单位、一眼能读） -->
     <view class="card" wx:if="{{big.length}}">
-      <view class="card-t">④ 关键结果</view>
+      <view class="card-t">③ 关键结果</view>
       <view class="big-row">
         <view class="big-cell" wx:for="{{big}}" wx:key="k">
           <view class="big-v">{{item.v}}<text class="big-u">{{item.unit}}</text></view>
@@ -78,7 +62,7 @@
 
     <!-- 通用指标：跟动作无关，任何花滑动作都能看 -->
     <view class="card" wx:if="{{general.length}}">
-      <view class="card-t">⑤ 通用指标（任何动作都适用）</view>
+      <view class="card-t">④ 通用指标（任何动作都适用）</view>
       <view class="gen-row" wx:for="{{general}}" wx:key="k">
         <view class="gen-l">
           <view class="gen-n">{{item.name}}</view>
@@ -94,7 +78,7 @@
 
     <!-- 视频 + 骨架：在原始画面上叠加关键点 -->
     <view class="card" wx:if="{{trackN}}">
-      <view class="card-t">⑥ 回放：视频上叠加关键点</view>
+      <view class="card-t">⑤ 回放：视频上叠加关键点</view>
       <view class="player-wrap">
         <canvas type="2d" id="player" class="player-canvas" style="height:{{playerH}}px"></canvas>
         <!-- 画面上的实时数字（照参考产品：时间/帧号/关键点真实量） -->
@@ -120,7 +104,7 @@
 
     <block wx:if="{{checks.length}}">
       <view class="card">
-        <view class="card-t">⑦ 动作专项参考（燕式 / 步法）</view>
+        <view class="card-t">⑥ 动作专项参考（燕式 / 步法）</view>
         <view class="gen-tip">下面四项是<text class="b">燕式转 / 步法</text>的判据；练别的动作时只看数字，不必在意"需改进"。</view>
         <view class="chk" wx:for="{{checks}}" wx:key="k">
           <view class="chk-top">
@@ -136,7 +120,7 @@
       </view>
 
       <view class="card">
-        <view class="card-t">⑧ 曲线</view>
+        <view class="card-t">⑦ 曲线</view>
         <view class="row">
           <view class="tag {{chartKey === 'legGap' ? 'on' : ''}}" bindtap="switchChart" data-k="legGap">浮足高度</view>
           <view class="tag {{chartKey === 'kneeL' ? 'on' : ''}}" bindtap="switchChart" data-k="kneeL">左膝角</view>
@@ -165,11 +149,29 @@
   </view>
   <!-- 训练建议 -->
   <view class="card" wx:if="{{advice.length}}">
-    <view class="card-t">⑨ 下一步练什么</view>
+    <view class="card-t">⑧ 下一步练什么</view>
     <view class="adv" wx:for="{{advice}}" wx:key="t">
       <view class="adv-t">{{item.t}}</view>
       <view class="adv-s" wx:for="{{item.s}}" wx:for-item="step" wx:key="*this">· {{step}}</view>
     </view>
     <view class="gen-tip">建议是按这段视频的数值规则生成的，<text class="b">不是教练/医生的诊断</text>；有伤病请先问专业人士。</view>
   </view>
+    <!-- 高级：关键点映射（默认自动，平时不用） -->
+    <view class="card">
+      <view class="adv-toggle" bindtap="toggleAdv">{{advOpen ? '▾' : '▸'}} 高级：关键点映射（平时不用）</view>
+      <block wx:if="{{advOpen}}">
+        <view class="card-s">默认已按标准点序自动映射，<text class="b">不需要手工点</text>。只有回放时打开「显示序号」发现关节标错了位置，才需要在这里重挑一遍。</view>
+        <view class="row">
+          <button class="btn ghost" bindtap="startCalib" disabled="{{calibrating}}">{{calibrated ? '重新校准' : '手工校准（可选）'}}</button>
+          <button class="btn ghost" wx:if="{{calibrating}}" bindtap="cancelCalib">取消</button>
+          <button class="btn ghost" wx:if="{{calibrated}}" bindtap="resetCalib">恢复自动映射</button>
+        </view>
+        <view class="calib-box" wx:if="{{calibrating}}">
+          <canvas type="2d" id="calib" class="calib-canvas" bindtap="onCanvasTap"></canvas>
+          <view class="calib-zoom" bindtap="zoomBody">{{zoomed ? '↺ 还原整幅' : '🔍 放大到人（点更准）'}}{{zoomText}}</view>
+          <view class="calib-tip">{{calibText}}</view>
+          <view class="calib-sub">黄点是检测到的关键点（带编号），点选对应的身体位置即可</view>
+        </view>
+      </block>
+    </view>
 </view>
