@@ -63,9 +63,33 @@
     </view>
 
     <!-- ④ 结果 -->
+    <!-- 通用指标：跟动作无关，任何花滑动作都能看 -->
+    <view class="card" wx:if="{{general.length}}">
+      <view class="card-t">④ 通用指标（任何动作都适用）</view>
+      <view class="gen-row" wx:for="{{general}}" wx:key="k">
+        <view class="gen-l">
+          <view class="gen-n">{{item.name}}</view>
+          <view class="gen-h">{{item.hint}}</view>
+        </view>
+        <view class="gen-r">
+          <view class="gen-v">{{item.value}}</view>
+          <view class="gen-s">{{item.sub}}</view>
+        </view>
+      </view>
+      <view class="gen-tip">这些量不针对某个动作：用来对比"同一动作的不同次""同一天的不同趟"。</view>
+    </view>
+
+    <!-- 整段视频的骨架连环画 -->
+    <view class="card" wx:if="{{stripN}}">
+      <view class="card-t">⑤ 整段动作（骨架连环画 · 每 0.5 秒一格）</view>
+      <canvas type="2d" id="strip" class="strip-canvas"></canvas>
+      <view class="gen-tip">按时间顺序从左到右。看姿态怎么变、有没有突然塌/歪/掉。</view>
+    </view>
+
     <block wx:if="{{checks.length}}">
       <view class="card">
-        <view class="card-t">④ 客观指标与检查项</view>
+        <view class="card-t">⑥ 动作专项参考（燕式 / 步法）</view>
+        <view class="gen-tip">下面四项是<text class="b">燕式转 / 步法</text>的判据；练别的动作时只看数字，不必在意"需改进"。</view>
         <view class="chk" wx:for="{{checks}}" wx:key="k">
           <view class="chk-top">
             <text class="chk-name">{{item.name}}</text>

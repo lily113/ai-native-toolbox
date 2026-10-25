@@ -63,3 +63,15 @@
 
 .calib-zoom { margin-top: 8px; display: inline-block; font-size: 12.5px; color: #0284c7;
   background: #e0f2fe; border-radius: 999px; padding: 6px 14px; }
+
+/* 通用指标 */
+.gen-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.gen-l { flex: 1; min-width: 0; }
+.gen-n { font-size: 13px; font-weight: 700; color: #0f172a; }
+.gen-h { font-size: 11px; color: #94a3b8; line-height: 1.5; margin-top: 2px; }
+.gen-r { flex: none; text-align: right; }
+.gen-v { font-size: 17px; font-weight: 800; color: #0284c7; }
+.gen-s { font-size: 11px; color: #64748B; margin-top: 2px; }
+.gen-tip { font-size: 11px; color: #94a3b8; line-height: 1.6; margin: 6px 0 2px; }
+.gen-tip .b { color: #0369a1; font-weight: 600; }
+.strip-canvas { width: 100%; height: 260px; background: #0b1220; border-radius: 12px; margin-top: 8px; }
