@@ -130,35 +130,6 @@
       <view class="gen-tip">蓝线=骨架，黄点=关键点。看一眼就知道关键点标得准不准；视频不上传、不保存。</view>
     </view>
 
-    <block wx:if="{{checks.length}}">
-      <view class="card">
-        <view class="card-t">⑦ 动作专项参考（燕式 / 步法）</view>
-        <view class="gen-tip">下面四项是<text class="b">燕式转 / 步法</text>的判据；练别的动作时只看数字，不必在意"需改进"。</view>
-        <view class="chk" wx:for="{{checks}}" wx:key="k">
-          <view class="chk-top">
-            <text class="chk-name">{{item.name}}</text>
-            <text class="chk-badge {{item.state}}">{{item.text}}</text>
-          </view>
-          <view class="chk-val">{{item.value}}<text class="chk-sub">（{{item.sub}}）</text></view>
-          <view class="chk-hint">{{item.hint}}</view>
-        </view>
-        <view class="stat-row" wx:for="{{stats}}" wx:key="name">
-          <text class="stat-k">{{item.name}}</text><text class="stat-v">{{item.value}}</text>
-        </view>
-      </view>
-
-      <view class="card">
-        <view class="card-t">⑧ 曲线</view>
-        <view class="row">
-          <view class="tag {{chartKey === 'legGap' ? 'on' : ''}}" bindtap="switchChart" data-k="legGap">浮足高度</view>
-          <view class="tag {{chartKey === 'kneeL' ? 'on' : ''}}" bindtap="switchChart" data-k="kneeL">左膝角</view>
-          <view class="tag {{chartKey === 'trunk' ? 'on' : ''}}" bindtap="switchChart" data-k="trunk">上身前倾</view>
-          <view class="tag {{chartKey === 'cog' ? 'on' : ''}}" bindtap="switchChart" data-k="cog">重心偏移</view>
-        </view>
-        <view class="chart-t">{{chartTitle}}</view>
-        <canvas type="2d" id="chart" class="chart"></canvas>
-      </view>
-    </block>
   </block>
 
   <view class="work">
@@ -168,7 +139,7 @@
 
   <view class="tips">
     <view class="tip-t">能看什么 / 不能看什么</view>
-    <view class="tip-l">✅ 能看：浮足高度、两腿夹角、膝角、上身前倾/压平、重心前后偏移、单足保持时长、节奏</view>
+    <view class="tip-l">✅ 能看：重心高度、身体轴线、横向摆动、肩髋扭转、膝角、最长单足、关键帧回放</view>
     <view class="tip-l">❌ 不能看：<text class="b">用刃（内/外刃）</text>、跳跃高度、快速旋转圈数、定级判定</view>
     <view class="tip-t warn">免责</view>
     <view class="tip-l warn">识别的是「关节在画面里的位置」，只作<text class="b">自查参考</text>，不代表技术是否达标。</view>
@@ -177,7 +148,7 @@
   </view>
   <!-- 训练建议 -->
   <view class="card" wx:if="{{advice.length}}">
-    <view class="card-t">⑨ 下一步练什么</view>
+    <view class="card-t">⑦ 下一步练什么</view>
     <view class="adv" wx:for="{{advice}}" wx:key="t">
       <view class="adv-t">{{item.t}}</view>
       <view class="adv-s" wx:for="{{item.s}}" wx:for-item="step" wx:key="*this">· {{step}}</view>

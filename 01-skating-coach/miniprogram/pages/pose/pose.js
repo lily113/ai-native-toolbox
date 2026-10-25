@@ -49,8 +49,6 @@ Page({
     // 结果
     rangeStart: '',
     rangeEnd: '',
-    checks: [],               // 动作检查项
-    stats: [],                // 指标统计
     general: [],              // 通用指标（跟动作无关）
     big: [],                  // 三个大数字
     quality: null,            // 拍摄质量（决定数值可信度）
@@ -109,7 +107,7 @@ Page({
       success: res => {
         const f = (res.tempFiles || [])[0];
         if (!f || !f.tempFilePath) return;
-        this.setData({ videoPath: f.tempFilePath, videoInfo: '时长 ' + Math.round(f.duration || 0) + ' 秒 · ' + (f.size ? Math.round(f.size / 1048576 * 10) / 10 + ' MB' : ''), progress: 0, decoded: 0, detected: 0, checks: [], stats: [], formatNote: '' });
+        this.setData({ videoPath: f.tempFilePath, videoInfo: '时长 ' + Math.round(f.duration || 0) + ' 秒 · ' + (f.size ? Math.round(f.size / 1048576 * 10) / 10 + ' MB' : ''), progress: 0, decoded: 0, detected: 0, formatNote: '' });
         // 补充真实尺寸/帧率
         if (typeof wx.getVideoInfo === 'function') {
           wx.getVideoInfo({
@@ -147,7 +145,7 @@ Page({
     this._skipBusy = 0;
     this._track = []; this._bodyPx = []; this._aspect = 0;
     this._noMapN = 0; this._noMapKeys = []; this._confSum = 0; this._confN = 0; this._confOkSum = 0; this._confOkN = 0;
-    this.setData({ analyzing: true, progress: 0, decoded: 0, detected: 0, checks: [], stats: [], formatNote: '', diag: ['开始分析…'] });
+    this.setData({ analyzing: true, progress: 0, decoded: 0, detected: 0, formatNote: '', diag: ['开始分析…'] });
     this._series = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [],
                      hipH: [], shAng: [], hipAng: [], hipX: [], axisTilt: [] };
     this._firstPts = null;
@@ -751,42 +749,8 @@ Page({
     const hCm = Number(this.data.heightCm) || 0;
     const pct = (v, isCm) => (v == null ? '—' : (isCm && hCm ? (Math.round(v * hCm * 10) / 10) + ' cm' : (Math.round(v * 1000) / 10) + '%'));
 
-    // 检查项（按“动作目标”给结论；燕式/步法各自的判据不同，这里给客观值与参考阈值）
-    const jFree = pose.judge('freeLeg', st ? st.median : null);
-    const jFlat = pose.judge('trunkFlat', tr ? (90 - tr.median) : null);   // 与竖直角的补角=与水平角
-    const jFront = pose.judge('cogFront', cg ? cg.median : null);
-    const jKnee = pose.judge('kneeHold', k1 ? k1.median : null);
+    const sRot = pose.peakToPeak(S.shAng);                  // 肩线角度的范围（转体幅度，仅参考）
 
-    const checks = [
-      { k: 'freeLeg', name: '浮足高度（两踝垂直差）', value: st ? pct(st.median, true) : '—', sub: '最大 ' + (st ? pct(st.max, true) : '—'), state: jFree.state, text: jFree.text, hint: pose.POSE_TARGETS.freeLeg.hint },
-      { k: 'trunkFlat', name: '上身压低（燕式：与水平夹角）', value: tr ? (Math.round((90 - tr.median) * 10) / 10) + '°' : '—', sub: '最小 ' + (tr ? Math.round((90 - tr.max) * 10) / 10 + '°' : '—'), state: jFlat.state, text: jFlat.text, hint: pose.POSE_TARGETS.trunkFlat.hint },
-      { k: 'cogFront', name: '重心前偏（髋 vs 支撑踝）', value: cg ? pct(cg.median, true) : '—', sub: '最大 ' + (cg ? pct(cg.max, true) : '—'), state: jFront.state, text: jFront.text, hint: pose.POSE_TARGETS.cogFront.hint },
-      { k: 'kneeHold', name: '支撑膝角（左）', value: k1 ? Math.round(k1.median) + '°' : '—', sub: '最小 ' + (k1 ? Math.round(k1.min) + '°' : '—'), state: jKnee.state, text: jKnee.text, hint: pose.POSE_TARGETS.kneeHold.hint }
-    ];
-    const nn = a => (a || []).filter(v => typeof v === 'number' && isFinite(v)).length;
-    const stats = [
-      { name: '各指标可用帧', value: '浮足 ' + nn(legGap) + ' · 左膝 ' + nn(kneeL) + ' · 右膝 ' + nn(kneeR) + ' · 前倾 ' + nn(trunk) + ' · 重心 ' + nn(cog) },
-      { name: '关键点质量', value: (S.t.length ? Math.round((this._confOkN || 0) / S.t.length * 100) : 0) + '% 帧可用'
-          + (this._confOkN ? '（平均置信度 ' + ((this._confOkSum || 0) / this._confOkN).toFixed(2) + '）' : '')
-          + (this._lowConf ? ' · 低置信丢弃 ' + this._lowConf + ' 帧' : '') },
-      { name: '视频帧率 / 采样', value: (this._fps || '?') + ' fps · 每 ' + this.data.step + ' 帧取 1' },
-      { name: '单足最长保持', value: holdMax.frames ? (Math.round(holdMax.sec * 10) / 10) + ' s' : '—' },
-      { name: '右膝角中位', value: k2 ? Math.round(k2.median) + '°' : '—' },
-      { name: '单足帧占比', value: Math.round(S.oneFoot.filter(v => v).length / S.oneFoot.length * 100) + '%' }
-    ];
-
-    // ---------- 通用指标（跟动作无关）----------
-    const nn0 = a => (a || []).filter(v => typeof v === 'number' && isFinite(v));
-    const sHipH = pose.summarize(S.hipH), sHipX = pose.summarize(S.hipX), sAxis = pose.summarize(S.axisTilt);
-    const p2pHipX = pose.peakToPeak(S.hipX);
-    // 左右扭转：肩线与髋线的夹角（转体/旋转时这个值会明显变化）
-    const twist = S.shAng.map((v, i) => (v == null || S.hipAng[i] == null) ? null : Math.abs(((v - S.hipAng[i]) + 540) % 360 - 180));
-    const sTwist = pose.summarize(twist);
-    // 节奏：髋横向的主导周期（压步/换脚的节拍）
-    const per = pose.dominantPeriod(S.hipX, 4, 60);
-    const fpsEff = (this._fps || 30) / (this.data.step || 1);
-    const rhythmHz = per ? (fpsEff / per.lag) : null;
-    const sRot = pose.peakToPeak(S.shAng);                  // 肩线角度的范围（转体幅度）
     const general = [
       { k: 'hipH', name: '重心高度（髋 vs 支撑踝）', value: sHipH ? (Math.round(sHipH.median * 100) + '% 身高') : '—',
         sub: sHipH ? ('范围 ' + Math.round(sHipH.min * 100) + '–' + Math.round(sHipH.max * 100) + '%')
@@ -828,7 +792,6 @@ Page({
     if (hipHv != null) say.push('重心平均在 ' + hipHv + '% 身高');
     if (kneeV != null) say.push('膝角中位 ' + kneeV + '°' + (kneeV < 120 ? '（蹲得偏深）' : kneeV > 160 ? '（腿偏直）' : '（适中）'));
     say.push('单足滑行占 ' + onePct + '%' + (holdMax.frames ? '，最长连续 ' + (Math.round(holdMax.sec * 10) / 10) + ' 秒' : ''));
-    if (rhythmHz) say.push('动作节律约 ' + (Math.round(rhythmHz * 10) / 10) + ' Hz');
     const summaryText = showNum
       ? ('这段视频里：' + say.join('，') + '。')
       : ('这段视频**不适合做量化分析**：' + q.note + '。骨架回放可以看姿态，但上面的数值不会给出来 —— '
@@ -843,9 +806,6 @@ Page({
     }
     if (onePct < 25) {
       advice.push({ t: '单足时间偏少：加单足滑行', s: ['单足直线滑行 5 米×6 组（左右各）', '单足蛇形：一手上举、尾椎下沉', '目标：连续单足 ≥3 秒'] });
-    }
-    if (!rhythmHz) {
-      advice.push({ t: '没检出节律：练"节拍"', s: ['压步跟着口令：4 拍一动（1-2 蹲住，3 站起，4 下蹲）', '熟了改 2 拍、1 拍', '用音乐或节拍器辅助'] });
     }
     if (sRot != null && sRot < 90) {
       advice.push({ t: '转体量偏小：加转体', s: ['转 3 单独练：前十次只求"不碰刀齿"', '连续转 3 × 全场一躺', '转体时"手—胯—脚"依次带动'] });
@@ -929,7 +889,7 @@ Page({
     }));
 
     this._clean = { t: S.t, legGap: legGap, kneeL: kneeL, kneeR: kneeR, trunk: trunk, cog: cog };
-    this.setData({ checks: checks, stats: stats, general: general, big: big, summaryText: summaryText, advice: advice, quality: q, highlights: highlights,
+    this.setData({ general: general, big: big, summaryText: summaryText, advice: advice, quality: q, highlights: highlights,
       chartKey: 'legGap', chartTitle: '浮足高度差（按身高归一 · 已平滑）' });
     this.drawChart();
     this.setData({ trackN: (this._track || []).length });
