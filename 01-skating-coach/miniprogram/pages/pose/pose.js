@@ -64,9 +64,6 @@ Page({
     advOpen: false,           // 高级区（关键点映射）默认收起
     playPct: 0,
     playTime: '0.0s',
-    chartKey: 'legGap',
-    chartTitle: '',
-    legend: []
   },
 
   onLoad() {
@@ -733,7 +730,6 @@ Page({
     const legGap = clean(S.legGap), kneeL = clean(S.kneeL), kneeR = clean(S.kneeR);
     const trunk = clean(S.trunkTilt), cog = clean(S.cogOffset);
 
-    const oneFootGaps = S.legGap.map((v, i) => S.oneFoot[i] ? v : null).filter(v => v != null);
     const holdMax = (() => {                                  // 最长连续单足段（帧数 × 帧间隔）
       let best = 0, cur = 0, bestStart = -1, curStart = -1;
       S.oneFoot.forEach((v, i) => {
@@ -744,12 +740,19 @@ Page({
       return { frames: best, sec: fps > 0 ? (best / fps) : 0, startIdx: bestStart, fps: this._fps || 30 };
     })();
 
-    const st = pose.summarize(legGap), k1 = pose.summarize(kneeL), k2 = pose.summarize(kneeR);
-    const tr = pose.summarize(trunk), cg = pose.summarize(cog.map(v => Math.abs(v)));
-    const hCm = Number(this.data.heightCm) || 0;
-    const pct = (v, isCm) => (v == null ? '—' : (isCm && hCm ? (Math.round(v * hCm * 10) / 10) + ' cm' : (Math.round(v * 1000) / 10) + '%'));
+    // ---------- 通用指标（跟动作无关）----------
+    const sHipH = pose.summarize(S.hipH), sHipX = pose.summarize(S.hipX), sAxis = pose.summarize(S.axisTilt);
+    const p2pHipX = pose.peakToPeak(S.hipX);
+    // 肩髋扭转 = 肩线与髋线的夹角（转体/旋转时变化明显）
+    const twist = S.shAng.map((v, i) => (v == null || S.hipAng[i] == null) ? null : Math.abs(((v - S.hipAng[i]) + 540) % 360 - 180));
+    const sTwist = pose.summarize(twist);
+    const sRot = pose.peakToPeak(S.shAng);                  // 肩线角度范围（转体幅度，仅参考）
 
-    const sRot = pose.peakToPeak(S.shAng);                  // 肩线角度的范围（转体幅度，仅参考）
+    // ---------- 拍摄质量（决定这些数到底能不能信） ----------
+    const pxList = (this._bodyPx || []).slice().sort((a, b) => a - b);
+    const bodyPx = pxList.length ? pxList[Math.floor(pxList.length / 2)] : 0;
+    const q = pose.quality(bodyPx, this._frameH || 540);
+    const showNum = q.usable;                       // 不达标就不给数字
 
     const general = [
       { k: 'hipH', name: '重心高度（髋 vs 支撑踝）', value: sHipH ? (Math.round(sHipH.median * 100) + '% 身高') : '—',
@@ -764,12 +767,6 @@ Page({
       { k: 'rot', name: '肩线转动范围', value: (!showNum) ? '—' : (sRot != null ? (Math.round(sRot) + '°') : '—'),
         sub: '仅参考（依赖肩点精度）', hint: '转体量：180°≈半圈，360°≈一圈' }
     ];
-
-    // ---------- 拍摄质量（决定这些数到底能不能信） ----------
-    const pxList = (this._bodyPx || []).slice().sort((a, b) => a - b);
-    const bodyPx = pxList.length ? pxList[Math.floor(pxList.length / 2)] : 0;
-    const q = pose.quality(bodyPx, this._frameH || 540);
-    const showNum = q.usable;                       // 不达标就不给数字
 
     // ---------- 三个大数字（照参考产品的形态：一眼能读） ----------
     const sKnee = pose.summarize([].concat(kneeL, kneeR).filter(v => v != null));
@@ -888,10 +885,7 @@ Page({
       n: c.n, t: t2s(c.n) + 's', label: c.label, value: c.value, why: c.why
     }));
 
-    this._clean = { t: S.t, legGap: legGap, kneeL: kneeL, kneeR: kneeR, trunk: trunk, cog: cog };
-    this.setData({ general: general, big: big, summaryText: summaryText, advice: advice, quality: q, highlights: highlights,
-      chartKey: 'legGap', chartTitle: '浮足高度差（按身高归一 · 已平滑）' });
-    this.drawChart();
+    this.setData({ general: general, big: big, summaryText: summaryText, advice: advice, quality: q, highlights: highlights });
     this.setData({ trackN: (this._track || []).length });
   },
 
@@ -1095,59 +1089,6 @@ Page({
     }).exec();
   },
 
-  switchChart(e) {
-    const k = e.currentTarget.dataset.k;
-    const map = { legGap: '浮足高度差（按身高归一 · 已平滑）', kneeL: '左膝角（度 · 已平滑）', trunk: '上身前倾（度 · 已平滑）', cog: '重心前后偏移（按身高归一）' };
-    this.setData({ chartKey: k, chartTitle: map[k] || '' });
-    this._chartKey = k;
-    this.drawChart();
-  },
-
-  drawChart() {
-    const key = this._chartKey || 'legGap';
-    const C = this._clean;
-    if (!C) return;
-    wx.createSelectorQuery().in(this).select('#chart').fields({ node: true, size: true }).exec(res => {
-      const r = res && res[0];
-      if (!r || !r.node) return;
-      const canvas = r.node;
-      let dpr = 2;
-      try { dpr = wx.getWindowInfo().pixelRatio || 2; } catch (e) {}
-      canvas.width = r.width * dpr; canvas.height = r.height * dpr;
-      const ctx = canvas.getContext('2d');
-      ctx.scale(dpr, dpr);
-      const W = r.width, H = r.height;
-      ctx.clearRect(0, 0, W, H);
-      const series = C[key] || [];
-      const vals = series.filter(v => typeof v === 'number' && isFinite(v));
-      if (vals.length < 2) { ctx.fillStyle = '#94a3b8'; ctx.font = '12px sans-serif'; ctx.fillText('数据不足', 10, 20); return; }
-      const mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
-      const pad = 22, plotW = W - pad * 2, plotH = H - pad * 2;
-      const X = i => pad + (series.length < 2 ? 0 : (i / (series.length - 1)) * plotW);
-      const Y = v => pad + plotH - ((v - mn) / (mx - mn || 1)) * plotH;
-      // 网格
-      ctx.strokeStyle = 'rgba(148,163,184,.25)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, pad + plotH); ctx.lineTo(pad + plotW, pad + plotH); ctx.stroke();
-      // 曲线
-      ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.beginPath();
-      let started = false;
-      series.forEach((v, i) => {
-        if (typeof v !== 'number' || !isFinite(v)) { started = false; return; }
-        if (!started) { ctx.moveTo(X(i), Y(v)); started = true; } else ctx.lineTo(X(i), Y(v));
-      });
-      ctx.stroke();
-      // 中位线
-      const med = pose.median(vals);
-      ctx.strokeStyle = 'rgba(250,204,21,.85)'; ctx.setLineDash([5, 4]); ctx.beginPath();
-      ctx.moveTo(pad, Y(med)); ctx.lineTo(pad + plotW, Y(med)); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = '#cbd5e1'; ctx.font = '11px sans-serif';
-      ctx.fillText('max ' + (Math.round(mx * 1000) / 1000), pad + 4, pad - 8);
-      ctx.fillText('min ' + (Math.round(mn * 1000) / 1000), pad + 4, pad + plotH + 14);
-      this._canvas = canvas;
-    });
-  },
-
-  // ---------- 校准（在首帧点上依次点选） ----------
   startCalib() {
     if (!this._firstPts) { wx.showToast({ title: '先分析一次，取得首帧关键点', icon: 'none' }); return; }
     this._newMap = {};
