@@ -564,16 +564,23 @@ Page({
       if (this.data.calibrating) return;                       // 校准中只取首帧
       const map = this._map || store.load(store.KEYS.poseMap) || {};
       const m = pose.frameMetrics(body.points, map, 'right', this._minConf || 0.5);
-      if (!m.ok) {
-        if (m.lowConf) { this._lowConf = (this._lowConf || 0) + 1; this._confSum = (this._confSum || 0) + (m.avgConf || 0); this._confN = (this._confN || 0) + 1; }
-        else if (m.noMap) { this._noMapN = (this._noMapN || 0) + 1; this._noMapKeys = m.missing || []; }
+      // 一个指标都算不出来：只记原因（缺映射 / 置信度不够），不推入序列
+      if (!m.have || !m.have.length) {
+        if (m.noMap) { this._noMapN = (this._noMapN || 0) + 1; this._noMapKeys = m.miss || []; }
+        else { this._lowConf = (this._lowConf || 0) + 1; this._confSum = (this._confSum || 0) + (m.avgConf || 0); this._confN = (this._confN || 0) + 1; }
         return;
       }
       this._confOkSum = (this._confOkSum || 0) + (m.avgConf || 0); this._confOkN = (this._confOkN || 0) + 1;
+      // **能算的就算，算不出的留 null** —— 不再因为某个关节不可信把整帧丢掉
       const S = this._series;
-      S.t.push(n); S.legGap.push(m.legGap); S.kneeL.push(m.kneeL); S.kneeR.push(m.kneeR);
-      S.trunkTilt.push(m.trunkTilt); S.cogOffset.push(m.cogOffset); S.oneFoot.push(m.oneFoot ? 1 : 0);
-      S.bodyH.push(m.bodyH);
+      S.t.push(n);
+      S.legGap.push(m.legGap == null ? null : m.legGap);
+      S.kneeL.push(m.kneeL == null ? null : m.kneeL);
+      S.kneeR.push(m.kneeR == null ? null : m.kneeR);
+      S.trunkTilt.push(m.trunkTilt == null ? null : m.trunkTilt);
+      S.cogOffset.push(m.cogOffset == null ? null : m.cogOffset);
+      S.oneFoot.push(m.legGap == null ? null : (m.oneFoot ? 1 : 0));
+      S.bodyH.push(m.bodyH == null ? null : m.bodyH);
     }).catch(() => {});
   },
 
@@ -592,6 +599,9 @@ Page({
     this.setData({ analyzing: false, progress: 100, detected: this._detCount || 0, decoded: this._frames || this.data.decoded });
     this.cleanup();
     const S = this._series || { legGap: [] };
+    const cnt = k => (S[k] || []).filter(v => typeof v === 'number' && isFinite(v)).length;
+    const perMetric = { legGap: cnt('legGap'), kneeL: cnt('kneeL'), kneeR: cnt('kneeR'), trunkTilt: cnt('trunkTilt'), cogOffset: cnt('cogOffset') };
+    const bestN = Math.max.apply(null, Object.keys(perMetric).map(k => perMetric[k]));
     const decodedN = this._frames || this.data.decoded || 0;
     const detN = this._detCount || 0;
     const rate = decodedN ? Math.round(detN / decodedN * 100) : 0;
@@ -619,11 +629,11 @@ Page({
       why.push('检出率偏低（' + detN + '/' + decodedN + ' 帧 = ' + rate + '%），指标可能不稳。');
       why.push('建议：让主体在画面里更大、正侧面、光线均匀，再试一次。');
     }
-    if (!S.legGap || S.legGap.length < 5) {
+    if (bestN < 5) {
       const canRetry = !this._noMapN && this._lowConf > 0 && (this._minConf || 0.5) > 0.3;
       wx.showModal({
         title: detN ? '有效帧太少' : '这个视频没检出人体',
-        content: (detN ? ('检出 ' + detN + ' 帧，但可用于计算的只有 ' + (S.legGap ? S.legGap.length : 0) + ' 帧。\n') : '')
+        content: (detN ? ('检出 ' + detN + ' 帧，但每个指标可用的帧都太少（浮足 ' + perMetric.legGap + '、左膝 ' + perMetric.kneeL + '、右膝 ' + perMetric.kneeR + '、前倾 ' + perMetric.trunkTilt + '）。\n') : '')
           + why.filter(Boolean).join('\n'),
         showCancel: canRetry,
         confirmText: canRetry ? '重跑' : '知道了',
@@ -675,10 +685,12 @@ Page({
       { k: 'cogFront', name: '重心前偏（髋 vs 支撑踝）', value: cg ? pct(cg.median, true) : '—', sub: '最大 ' + (cg ? pct(cg.max, true) : '—'), state: jFront.state, text: jFront.text, hint: pose.POSE_TARGETS.cogFront.hint },
       { k: 'kneeHold', name: '支撑膝角（左）', value: k1 ? Math.round(k1.median) + '°' : '—', sub: '最小 ' + (k1 ? Math.round(k1.min) + '°' : '—'), state: jKnee.state, text: jKnee.text, hint: pose.POSE_TARGETS.kneeHold.hint }
     ];
+    const nn = a => (a || []).filter(v => typeof v === 'number' && isFinite(v)).length;
     const stats = [
-      { name: '有效帧', value: String(legGap.filter(v => v != null).length) + ' / ' + S.legGap.length },
-      { name: '关键点质量', value: (S.legGap.length ? Math.round(legGap.filter(v => v != null).length / S.legGap.length * 100) : 0) + '%' +
-          (this._lowConf ? '（低置信丢弃 ' + this._lowConf + ' 帧）' : '') },
+      { name: '各指标可用帧', value: '浮足 ' + nn(legGap) + ' · 左膝 ' + nn(kneeL) + ' · 右膝 ' + nn(kneeR) + ' · 前倾 ' + nn(trunk) + ' · 重心 ' + nn(cog) },
+      { name: '关键点质量', value: (S.t.length ? Math.round((this._confOkN || 0) / S.t.length * 100) : 0) + '% 帧可用'
+          + (this._confOkN ? '（平均置信度 ' + ((this._confOkSum || 0) / this._confOkN).toFixed(2) + '）' : '')
+          + (this._lowConf ? ' · 低置信丢弃 ' + this._lowConf + ' 帧' : '') },
       { name: '视频帧率 / 采样', value: (this._fps || '?') + ' fps · 每 ' + this.data.step + ' 帧取 1' },
       { name: '单足最长保持', value: holdMax.frames ? (Math.round(holdMax.sec * 10) / 10) + ' s' : '—' },
       { name: '右膝角中位', value: k2 ? Math.round(k2.median) + '°' : '—' },

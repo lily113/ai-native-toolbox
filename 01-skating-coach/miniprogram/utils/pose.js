@@ -52,36 +52,76 @@ function summarize(series) {
 // pts: [{x,y}] 归一化坐标（[0,1]，y 向下）；map: {head:idx, ...}
 // 返回 { ok, bodyH, legGap, kneeL, kneeR, trunkTilt, cogOffset, oneFoot }
 function frameMetrics(pts, map, side, minConf) {
-  const P = k => (pts && typeof map[k] === 'number' && pts[map[k]]) ? pts[map[k]] : null;
-  const need = ['head', 'neck', 'shL', 'shR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankL', 'ankR'];
-  // 缺映射 → 这一帧根本没法算（最常见原因：还没做完校准）
-  const missing = need.filter(k => !P(k));
-  if (missing.length) return { ok: false, noMap: true, missing: missing };
-  // 置信度门限：关键点不可信时丢弃该帧（避免把"猜出来的关节"当数据）
-  // 默认 0.5；主体很小时可以降到 0.3（页面上会允许"低置信度重跑"，结果会标注）
-  const MIN_CONF = typeof minConf === 'number' ? minConf : 0.5;
-  const confs = need.map(k => pts[map[k]]).map(p => (p && p.c !== undefined) ? p.c : 1);
-  const minC = Math.min.apply(null, confs);
-  const avgC = confs.reduce((a, b) => a + b, 0) / confs.length;
-  if (minC < MIN_CONF) return { ok: false, lowConf: true, minConf: minC, avgConf: avgC };
-  const head = P('head'), neck = P('neck');
-  const hipC = mid(P('hipL'), P('hipR'));
+  // 每个关键点：有映射、且置信度达标才可用（个别关节不可信时，只让它参与的指标缺失，
+  // 而不是把整帧丢掉 —— 以前"一个脚踝不可信 → 整帧作废"就是"有效帧 0"的主因）
+  const C = (typeof minConf === 'number') ? minConf : 0.5;
+  const P = k => {
+    if (!pts || typeof map[k] !== 'number') return null;
+    const p = pts[map[k]];
+    if (!p || !isFinite(p.x) || !isFinite(p.y)) return null;
+    if (p.c !== undefined && p.c < C) return null;      // 置信度不够的关节当"没有"
+    return p;
+  };
+  const confOf = k => {
+    if (!pts || typeof map[k] !== 'number') return null;
+    const p = pts[map[k]];
+    return (p && p.c !== undefined) ? p.c : (p ? 1 : null);
+  };
+  const head = P('head'), neck = P('neck'), hipL = P('hipL'), hipR = P('hipR');
   const ankL = P('ankL'), ankR = P('ankR');
-  const bodyH = Math.abs(head.y - Math.max(ankL.y, ankR.y));
-  if (!(bodyH > 0.05)) return { ok: false };
-  // 浮足高度差：两踝垂直距离 / 身高
-  const legGap = Math.abs(ankL.y - ankR.y) / bodyH;
-  // 膝角
-  const kneeL = angleAt(P('hipL'), P('kneeL'), ankL);
-  const kneeR = angleAt(P('hipR'), P('kneeR'), ankR);
-  // 上身前倾：髋中点→颈 相对竖直方向的角度（0 = 直立，90 = 水平）
-  const trunkTilt = Math.abs(Math.atan2(neck.x - hipC.x, hipC.y - neck.y) * 180 / Math.PI);
-  // 重心前后偏移：髋中点相对“支撑脚踝”的水平偏移（正=偏前，按身高归一）
-  const support = (ankL.y >= ankR.y) ? ankL : ankR;      // 画面里更低的那只脚视为支撑脚
-  const cogOffset = (hipC.x - support.x) / bodyH * (side === 'left' ? -1 : 1);
-  // 单足：一踝明显高于另一踝
-  const oneFoot = legGap > 0.08;
-  return { ok: true, avgConf: avgC, minConf: minC, bodyH: bodyH, legGap: legGap, kneeL: kneeL, kneeR: kneeR, trunkTilt: trunkTilt, cogOffset: cogOffset, oneFoot: oneFoot };
+  const kneeL = P('kneeL'), kneeR = P('kneeR');
+  const shL = P('shL'), shR = P('shR');
+
+  const out = { ok: false, have: [], miss: [], conf: {} };
+  ['head', 'neck', 'shL', 'shR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankL', 'ankR'].forEach(k => {
+    const c = confOf(k);
+    out.conf[k] = c;
+    if (!P(k)) out.miss.push(k);
+  });
+
+  const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+  const angleAt = (a, b, c) => (a && b && c) ? Math.abs(Math.atan2(c.y - b.y, c.x - b.x) * 180 / Math.PI - Math.atan2(a.y - b.y, a.x - b.x) * 180 / Math.PI) : null;
+  const ang = (a, b, c) => {
+    if (!a || !b || !c) return null;
+    let v = angleAt(a, b, c);
+    if (v == null) return null;
+    if (v > 180) v = 360 - v;
+    return v;
+  };
+
+  // 身高（头顶 → 更低那只踝）：只要头和一只踝就够
+  const minAnkY = Math.max(ankL ? ankL.y : -1, ankR ? ankR.y : -1);
+  const bodyH = (head && minAnkY >= 0) ? Math.abs(head.y - minAnkY) : null;
+  if (bodyH != null && bodyH > 0.05) out.bodyH = bodyH;
+
+  // 浮足高度差：两只踝都要
+  if (ankL && ankR && bodyH > 0.05) out.legGap = Math.abs(ankL.y - ankR.y) / bodyH;
+
+  // 膝角：各自一侧的三个点
+  if (hipL && kneeL && ankL) out.kneeL = ang(hipL, kneeL, ankL);
+  if (hipR && kneeR && ankR) out.kneeR = ang(hipR, kneeR, ankR);
+
+  // 上身前倾：颈 + 髋中点
+  if (neck && hipL && hipR) {
+    const hipC = mid(hipL, hipR);
+    out.trunkTilt = Math.abs(Math.atan2(neck.x - hipC.x, hipC.y - neck.y) * 180 / Math.PI);
+  }
+  // 重心前偏：髋中点 vs 支撑踝（画面里更低的那只脚）
+  if (hipL && hipR && (ankL || ankR)) {
+    const support = (ankL && ankR) ? (ankL.y >= ankR.y ? ankL : ankR) : (ankL || ankR);
+    const hipC = mid(hipL, hipR);
+    if (bodyH > 0.05) out.cogOffset = (hipC.x - support.x) / bodyH * (side === 'left' ? -1 : 1);
+  }
+  if (out.legGap != null) out.oneFoot = out.legGap > 0.08;
+
+  out.have = ['bodyH', 'legGap', 'kneeL', 'kneeR', 'trunkTilt', 'cogOffset'].filter(k => out[k] != null);
+  out.ok = out.have.length > 0;                 // 只要有一个指标能用，这帧就有价值
+  // 兼容旧调用方
+  out.lowConf = out.miss.length > 0;
+  out.noMap = out.have.length === 0 && out.miss.length > 0;
+  const cs = Object.keys(out.conf).map(k => out.conf[k]).filter(v => v != null);
+  if (cs.length) { out.avgConf = cs.reduce((a, b) => a + b, 0) / cs.length; out.minConf = Math.min.apply(null, cs); }
+  return out;
 }
 
 // ---------- 动作检查项目标（阈值可按自己情况调整）----------
