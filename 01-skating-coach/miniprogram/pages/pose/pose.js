@@ -931,6 +931,7 @@ Page({
     if (!isFinite(n) || n < 0) return;
     if (!this.data.videoPath) return;
     this.stopPlay();
+    this._playerCv = null; this._playerW = 0; this._playerH = 0;   // 重新量（防旋转/布局变化后沿用旧宽高）
     this.setData({ seekBusy: true });
     let dec = null;
     try { dec = wx.createVideoDecoder(); } catch (err) { this.setData({ seekBusy: false }); return; }
