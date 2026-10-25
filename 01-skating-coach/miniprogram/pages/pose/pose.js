@@ -9,7 +9,7 @@ const { POSE_JOINTS } = require('../../utils/const');
 // 视频不上传、不保存；帧数据用完即丢。基础库要求：VideoDecoder ≥2.11.0，人体检测 ≥2.28.0
 const MIN_SDK_BODY = '2.28.0';
 const MIN_SDK_DEC = '2.11.0';
-const HIT_R = 0.12;              // 点选校准命中半径（归一化）
+const HIT_R = 0.10;              // 点选校准命中半径（归一化到首帧图）
 
 function cmpVer(a, b) {
   const pa = String(a).split('.').map(Number), pb = String(b).split('.').map(Number);
@@ -391,6 +391,33 @@ Page({
     });
   },
 
+  // 把首帧画面存进一张离屏画布（校准时要当背景画出来，否则只有一堆黄点，看不出哪个是头）
+  captureFrame(prep) {
+    try {
+      if (!prep || !prep.data) return;
+      const w = prep.width, h = prep.height;
+      if (!w || !h) return;
+      let cv = this._frameCv;
+      if (!cv || this._frameW !== w || this._frameH !== h) {
+        cv = wx.createOffscreenCanvas ? wx.createOffscreenCanvas({ type: '2d', width: w, height: h }) : null;
+        this._frameCv = cv; this._frameW = w; this._frameH = h;
+      }
+      if (!cv) return;
+      const ctx = cv.getContext('2d');
+      const img = ctx.createImageData(w, h);
+      img.data.set(new Uint8ClampedArray(prep.data, 0, w * h * 4));
+      ctx.putImageData(img, 0, 0);
+    } catch (e) { /* 存不下就算了：校准仍然可以点，只是没有背景图 */ }
+  },
+
+  // 把帧等比放进画布（letterbox）——点选和绘制必须用同一个矩形，否则会点歪
+  fitRect(cw, ch, fw, fh) {
+    if (!fw || !fh) return { x: 0, y: 0, w: cw, h: ch };
+    const s = Math.min(cw / fw, ch / fh);
+    const w = fw * s, h = fh * s;
+    return { x: (cw - w) / 2, y: (ch - h) / 2, w: w, h: h };
+  },
+
   copyDiag() {
     const t = (this.data.diag || []).join('\n') + '\n— 基础库 ' + (this._sdk || '?') + ' · ' + (this._platform || '?');
     wx.setClipboardData({ data: t });
@@ -470,15 +497,23 @@ Page({
 
   // 单帧检测：帧数据 → frameBuffer → detectBody → 等 updateAnchors
   detectOne(f, n) {
-    const buf = f.data;
-    const w = f.width, h = f.height;
-    const px = w * h;
-    const bytes = buf.byteLength || buf.length || 0;
-    let frameBuffer = buf;
+    // ⚠️ 这里以前直接拿 f.data（原厂帧）去检测 —— 如果是 YUV 就是 0 个关键点。
+    // 现在统一走 prepareFrame：先判格式、YUV/灰度转 RGBA、再按需缩放。
+    const prep = this.prepareFrame(f);
+    const frameBuffer = prep.data;
+    const w = prep.width, h = prep.height;
+    this._lastPrep = prep;
     if (!this.data.formatNote) {
-      if (Math.abs(bytes - px * 4) < px * 0.1) this.setData({ formatNote: '像素格式：RGBA（' + w + '×' + h + '，每像素 4 字节）✅ 与检测接口匹配' });
-      else if (Math.abs(bytes - px * 1.5) < px * 0.2) this.setData({ formatNote: '⚠️ 像素格式疑似 YUV420（' + bytes + ' 字节 / ' + px + ' 像素）——检测接口需要 RGBA，若检测始终为 0，请把这条发我' });
-      else this.setData({ formatNote: '像素格式未知：' + bytes + ' 字节 / ' + w + '×' + h + ' 像素（若检测为 0，请把这条发我）' });
+      const bytes0 = f.data.byteLength || f.data.length || 0;
+      const fmt0 = yuv.sniff(bytes0, f.width, f.height);
+      const per = Math.round(bytes0 / (f.width * f.height) * 100) / 100;
+      this.setData({
+        formatNote: '像素格式：' + fmt0 + '（' + f.width + '×' + f.height + '，' + per + ' 字节/像素）'
+          + (fmt0 === 'rgba' ? ' ✅ 与检测接口匹配'
+             : fmt0 === 'yuv420' ? ' → 已自动转 RGBA（布局 ' + (this.data.yuvLayout || 'nv12') + '）'
+             : fmt0 === 'gray' ? ' → 已按灰度转 RGBA'
+             : ' ⚠️ 未知格式，可能检测不到')
+      });
     }
     const anchors = new Promise(resolve => {
       this._pending = resolve;
@@ -495,7 +530,10 @@ Page({
       const body = arr.filter(a => a && a.type === 5 && a.points && a.points.length)[0];
       if (body) this._detCount = (this._detCount || 0) + 1;
       if (!body) return;
-      if (!this._firstPts) this._firstPts = body.points;
+      if (!this._firstPts) {
+        this._firstPts = body.points;
+        this.captureFrame(this._lastPrep);          // 留一张首帧图，校准画布当背景
+      }
       if (this.data.calibrating) return;                       // 校准中只取首帧
       const map = this._map || store.load(store.KEYS.poseMap) || {};
       const m = pose.frameMetrics(body.points, map);
@@ -645,8 +683,11 @@ Page({
     if (!this.data.calibrating || !this._firstPts) return;
     wx.createSelectorQuery().in(this).select('#calib').boundingClientRect(rect => {
       if (!rect) return;
-      const x = (e.detail.x - rect.left) / rect.width;
-      const y = (e.detail.y - rect.top) / rect.height;
+      const box = this._calibBox || { x: 0, y: 0, w: rect.width, h: rect.height };
+      const px0 = e.detail.x - rect.left, py0 = e.detail.y - rect.top;
+      // 换到"首帧图内部"的归一化坐标（和关键点同一个坐标系）
+      const x = (px0 - box.x) / (box.w || 1);
+      const y = (py0 - box.y) / (box.h || 1);
       let best = -1, bd = HIT_R;
       this._firstPts.forEach((p, i) => {
         if (!p) return;
@@ -677,9 +718,22 @@ Page({
       const ctx = canvas.getContext('2d');
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, r.width, r.height);
+
+      // ① 先把首帧画面画上去（等比，留黑边）—— 否则只有一堆黄点，根本看不出哪个是头
+      const fw = this._frameW, fh = this._frameH;
+      const box = this.fitRect(r.width, r.height, fw, fh);
+      this._calibBox = box;
+      if (this._frameCv && fw && fh) {
+        try { ctx.drawImage(this._frameCv, 0, 0, fw, fh, box.x, box.y, box.w, box.h); } catch (e) {}
+      } else {
+        ctx.fillStyle = '#64748B'; ctx.font = '12px sans-serif';
+        ctx.fillText('没有首帧画面（重新分析一次即可）', 12, 20);
+      }
+
+      // ② 关键点画在同一个矩形里（和点选的坐标换算一致）
       this._firstPts.forEach((p, i) => {
         if (!p) return;
-        const x = p.x * r.width, y = p.y * r.height;
+        const x = box.x + p.x * box.w, y = box.y + p.y * box.h;
         ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fillStyle = 'rgba(250,204,21,.95)'; ctx.fill();
         ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 12px sans-serif'; ctx.fillText(String(i), x + 7, y - 6);
       });
