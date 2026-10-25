@@ -15,30 +15,36 @@
 function clamp8(v) { return v < 0 ? 0 : (v > 255 ? 255 : v); }
 
 // layout: 'nv12' | 'nv21' | 'i420'
-function yuvToRgba(data, w, h, layout) {
+// stride: Y 平面每行占多少**字节**（默认为宽度 w）。很多解码器会把每行对齐到 16/32 字节，
+//         这时总字节数会比 w*h*1.5 略大 —— 如果还按 stride=w 去读，后面每一行都会错位，
+//         检测器看到的就是"斜着撕裂的画面" → 0 个关键点。这是"有的视频能、有的不能"的常见原因。
+function yuvToRgba(data, w, h, layout, stride) {
   const px = w * h;
   const src = (data instanceof Uint8Array) ? data : new Uint8Array(data);
   const out = new Uint8ClampedArray(px * 4);
   const lay = layout || 'nv12';
-  const hw = w >> 1, hh = h >> 1;
+  const yStride = Math.max(w, Math.floor(stride || w));
+  const yPlane = yStride * h;
+  const uvStride = (lay === 'i420') ? Math.max(w >> 1, Math.floor(yStride / 2)) : yStride;
+  const uvH = h >> 1;
 
   for (let y = 0; y < h; y++) {
-    const uvRow = (y >> 1) * hw;
-    const rowY = y * w;
+    const rowY = y * yStride;
+    const uvRow = (y >> 1) * uvStride;
     for (let x = 0; x < w; x++) {
       const yi = rowY + x;
       const Y = src[yi];
-      const q = uvRow + (x >> 1);
+      const q = (x >> 1);
       let U, V;
       if (lay === 'i420') {
-        U = src[px + q];
-        V = src[px + (px >> 2) + q];
+        U = src[yPlane + uvRow + q];
+        V = src[yPlane + uvStride * uvH + uvRow + q];
       } else if (lay === 'nv21') {
-        V = src[px + q * 2];
-        U = src[px + q * 2 + 1];
+        V = src[yPlane + uvRow + q * 2];
+        U = src[yPlane + uvRow + q * 2 + 1];
       } else {                       // nv12
-        U = src[px + q * 2];
-        V = src[px + q * 2 + 1];
+        U = src[yPlane + uvRow + q * 2];
+        V = src[yPlane + uvRow + q * 2 + 1];
       }
       const c = Y - 16, d = U - 128, e = V - 128;
       const o = yi * 4;
@@ -75,4 +81,27 @@ function sniff(bytes, w, h) {
   return 'unknown';
 }
 
-module.exports = { yuvToRgba, grayToRgba, sniff };
+// 更完整的一次判定：格式 + 每行字节数（stride）。
+// 除了"刚好等于理论字节数"的正常情况，还兼容"每行对齐了 padding"的情况。
+function sniffFrame(bytes, w, h) {
+  if (!w || !h || !bytes) return { fmt: 'unknown', stride: w, per: 0 };
+  const px = w * h;
+  const per = bytes / px;
+  if (Math.abs(per - 4) < 0.02) return { fmt: 'rgba', stride: w * 4, per: per };
+  if (Math.abs(per - 1.5) < 0.02) return { fmt: 'yuv420', stride: w, per: per };
+  if (Math.abs(per - 1) < 0.02) return { fmt: 'gray', stride: w, per: per };
+  if (Math.abs(per - 2) < 0.02) return { fmt: 'yuv422', stride: w, per: per };
+  // 带 padding 的情况：总字节数能被"行数（或其 1.5 倍）"整除
+  if (bytes % (h * 1.5) < 1) {
+    const st = Math.round(bytes / (h * 1.5));
+    if (st >= w && st <= w * 2) return { fmt: 'yuv420', stride: st, per: per, padded: true };
+  }
+  if (bytes % h === 0) {
+    const st = bytes / h;
+    if (st >= w * 4 && st <= w * 8) return { fmt: 'rgba', stride: st, per: per, padded: true };
+    if (st >= w && st <= w * 2) return { fmt: 'gray', stride: st, per: per, padded: true };
+  }
+  return { fmt: 'unknown', stride: w, per: per };
+}
+
+module.exports = { yuvToRgba, grayToRgba, sniff, sniffFrame };

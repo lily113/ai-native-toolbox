@@ -123,6 +123,7 @@ Page({
     if (!this.data.supported) { wx.showToast({ title: '当前环境不支持', icon: 'none' }); return; }
     this.initWorkCanvas();
     this._detCount = 0; this._detErr = 0; this._frames = 0; this._flushT = 0; this._lowConf = 0;
+    this._th = 0.5; this._miss = 0; this._frameCv = null; this._frameW = 0; this._frameH = 0;
     this.setData({ analyzing: true, progress: 0, decoded: 0, detected: 0, checks: [], stats: [], formatNote: '', diag: ['开始分析…'] });
     this._series = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [] };
     this._firstPts = null;
@@ -428,22 +429,30 @@ Page({
   // 高分辨率帧先降采样（减少内存与耗时；检测模型本身也会缩放）
   prepareFrame(f) {
     const maxSide = this.data.maxSide || 640;
-    const px0 = f.width * f.height;
     const bytes0 = f.data.byteLength || f.data.length || 0;
-    const fmt0 = yuv.sniff(bytes0, f.width, f.height);
+    const info = yuv.sniffFrame(bytes0, f.width, f.height);
+    const fmt0 = info.fmt;
+    const stride0 = info.stride || f.width;
 
     // ① 先把非 RGBA 的帧转成 RGBA（这一步是之前"0 个关键点"的解药）
     let srcData = f.data, srcW = f.width, srcH = f.height, converted = '';
     if (fmt0 === 'yuv420') {
       const lay = this.data.yuvLayout || 'nv12';
       try {
-        srcData = yuv.yuvToRgba(f.data, f.width, f.height, lay).buffer;
-        converted = 'YUV(' + lay + ')→RGBA';
+        srcData = yuv.yuvToRgba(f.data, f.width, f.height, lay, stride0).buffer;
+        converted = 'YUV(' + lay + (info.padded ? '·stride' + stride0 : '') + ')→RGBA';
       } catch (e) { return { data: f.data, width: f.width, height: f.height, converted: 'YUV 转换失败: ' + (e.message || e) }; }
+    } else if (fmt0 === 'yuv422') {
+      // 422 不常见，按 420 的口径试一次（错位也比直接喂强不了多少，但至少能出日志）
+      const lay = this.data.yuvLayout || 'nv12';
+      try {
+        srcData = yuv.yuvToRgba(f.data, f.width, f.height, lay, stride0).buffer;
+        converted = 'YUV422(按420处理)→RGBA';
+      } catch (e) { return { data: f.data, width: f.width, height: f.height, converted: 'YUV422 转换失败' }; }
     } else if (fmt0 === 'gray') {
       try {
         srcData = yuv.grayToRgba(f.data, f.width, f.height).buffer;
-        converted = '灰度→RGBA';
+        converted = '灰度' + (info.padded ? '·stride' + stride0 : '') + '→RGBA';
       } catch (e) { return { data: f.data, width: f.width, height: f.height, converted: '灰度转换失败' }; }
     }
 
@@ -519,8 +528,12 @@ Page({
       this._pending = resolve;
       setTimeout(() => { if (this._pending === resolve) { this._pending = null; resolve(null); } }, 400);
     });
+    // 自适应阈值：固定 0.8 太严 —— 主体远一点、光暗一点的视频就直接 0 点。
+    // 先 0.5；连续 12 帧一个点都没有就降到 0.3（检出后的姿态质量还有一道 pose.frameMetrics 把关）。
+    if (this._th === undefined) this._th = 0.5;
+    if (this._miss >= 12 && this._th > 0.3) { this._th = 0.3; this._miss = 0; }
     try {
-      this._session.detectBody({ frameBuffer: frameBuffer, width: w, height: h, scoreThreshold: 0.8, sourceType: 0 });
+      this._session.detectBody({ frameBuffer: frameBuffer, width: w, height: h, scoreThreshold: this._th, sourceType: 0 });
     } catch (e) {
       this._pending = null;
       return;
@@ -528,8 +541,8 @@ Page({
     anchors.then(list => {
       const arr = Array.isArray(list) ? list : [];
       const body = arr.filter(a => a && a.type === 5 && a.points && a.points.length)[0];
-      if (body) this._detCount = (this._detCount || 0) + 1;
-      if (!body) return;
+      if (body) { this._detCount = (this._detCount || 0) + 1; this._miss = 0; }
+      if (!body) { this._miss = (this._miss || 0) + 1; return; }
       if (!this._firstPts) {
         this._firstPts = body.points;
         this.captureFrame(this._lastPrep);          // 留一张首帧图，校准画布当背景
@@ -560,13 +573,33 @@ Page({
     this.setData({ analyzing: false, progress: 100, detected: this._detCount || 0, decoded: this._frames || this.data.decoded });
     this.cleanup();
     const S = this._series || { legGap: [] };
+    const decodedN = this._frames || this.data.decoded || 0;
+    const detN = this._detCount || 0;
+    const rate = decodedN ? Math.round(detN / decodedN * 100) : 0;
+    // 检出率诊断：解释"为什么这个视频不行"，而不是只丢一句"帧太少"
+    const why = [];
+    if (detN === 0) {
+      why.push(this.data.formatNote || '');
+      why.push('这个视频一帧都没检出。常见原因：① 人在画面里太小（建议占画面高度 ≥ 1/3）；');
+      why.push('② 手机竖拍但视频是横的（人侧躺着）；③ 逆光/过曝/剪影；④ 只拍到局部（只有腿或只有上半身）。');
+    } else if (rate < 25) {
+      why.push('检出率偏低（' + detN + '/' + decodedN + ' 帧 = ' + rate + '%），指标可能不稳。');
+      why.push('建议：让主体在画面里更大、正侧面、光线均匀，再试一次。');
+    }
     if (!S.legGap || S.legGap.length < 5) {
       wx.showModal({
-        title: '没拿到足够数据',
-        content: '检测到的有效帧太少（' + (S.legGap ? S.legGap.length : 0) + ' 帧）。请确认：① 视频里主体清晰、占画面够大；② 已校准关键点；③ 基础库 ≥ 2.28.0。' + (this.data.formatNote ? '\n' + this.data.formatNote : ''),
+        title: detN ? '有效帧太少' : '这个视频没检出人体',
+        content: (detN ? ('检出 ' + detN + ' 帧，但可用于计算的只有 ' + (S.legGap ? S.legGap.length : 0) + ' 帧。'
+                        + '可能是没校准关键点（先「开始分析」再「校准关键点」）。\n')
+                      : '')
+          + why.filter(Boolean).join('\n'),
         showCancel: false
       });
       return;
+    }
+    // 检出率不高时也提醒一句，但不挡住结果
+    if (rate < 25) {
+      this.setData({ diag: (this.data.diag || []).concat(['⚠️ 检出率 ' + rate + '%（' + detN + '/' + decodedN + '）—— 指标可信度会打折']) });
     }
     this.computeResults();
   },
