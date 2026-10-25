@@ -33,7 +33,7 @@
       </view>
       <view class="calib-box" wx:if="{{calibrating}}">
         <canvas type="2d" id="calib" class="calib-canvas" bindtap="onCanvasTap"></canvas>
-        <view class="calib-zoom" bindtap="zoomBody">{{zoomed ? '↺ 还原整幅' : '🔍 放大到人（点更准）'}}</view>
+        <view class="calib-zoom" bindtap="zoomBody">{{zoomed ? '↺ 还原整幅' : '🔍 放大到人（点更准）'}}{{zoomText}}</view>
         <view class="calib-tip">{{calibText}}</view>
         <view class="calib-sub">黄点是检测到的关键点（带编号），点选对应的身体位置即可</view>
       </view>
