@@ -58,9 +58,13 @@
       <view class="q-note2" wx:else>每个数值后面标了误差（如 ±2°），是这个尺寸下的实测噪声。</view>
     </view>
 
+    <!-- 数据（可选）：默认收起 -->
+    <view class="card">
+      <view class="adv-toggle" bindtap="toggleData">{{dataOpen ? '▾' : '▸'}} 详细数据（可选）</view>
+      <block wx:if="{{dataOpen}}">
     <!-- 三个大数字（照参考产品形态：大字号、带单位、一眼能读） -->
     <view class="card" wx:if="{{big.length}}">
-      <view class="card-t">③ 关键结果</view>
+      <view class="card-t">关键数字</view>
       <view class="big-row">
         <view class="big-cell" wx:for="{{big}}" wx:key="k">
           <view class="big-v">{{item.v}}<text class="big-u">{{item.unit}}</text></view>
@@ -71,9 +75,28 @@
       <view class="concl" wx:if="{{summaryText}}">{{summaryText}}</view>
     </view>
 
+    <!-- 通用指标：跟动作无关，任何花滑动作都能看 -->
+    <view class="card" wx:if="{{general.length}}">
+      <view class="card-t">通用指标（任何动作都适用）</view>
+      <view class="gen-row" wx:for="{{general}}" wx:key="k">
+        <view class="gen-l">
+          <view class="gen-n">{{item.name}}</view>
+          <view class="gen-h">{{item.hint}}</view>
+        </view>
+        <view class="gen-r">
+          <view class="gen-v">{{item.value}}</view>
+          <view class="gen-s">{{item.sub}}</view>
+        </view>
+      </view>
+      <view class="gen-tip">这些量不针对某个动作：用来对比"同一动作的不同次""同一天的不同趟"。</view>
+    </view>
+
+      </block>
+    </view>
+
     <!-- 最值得看的瞬间：单次分析里最有用的东西 -->
     <view class="card" wx:if="{{highlights.length}}">
-      <view class="card-t">④ 最值得看的 3 个瞬间</view>
+      <view class="card-t">③ 最值得看的 3 个瞬间</view>
       <view class="hl" wx:for="{{highlights}}" wx:key="n" bindtap="seekTo" data-n="{{item.n}}">
         <view class="hl-l">
           <text class="hl-t">{{item.t}}</text>
@@ -88,25 +111,9 @@
       <view class="gen-tip">点任意一行 → 回放停在那一帧（画面 + 骨架）。人看 20 秒会漏，这里替你挑。</view>
     </view>
 
-    <!-- 通用指标：跟动作无关，任何花滑动作都能看 -->
-    <view class="card" wx:if="{{general.length}}">
-      <view class="card-t">⑤ 通用指标（任何动作都适用）</view>
-      <view class="gen-row" wx:for="{{general}}" wx:key="k">
-        <view class="gen-l">
-          <view class="gen-n">{{item.name}}</view>
-          <view class="gen-h">{{item.hint}}</view>
-        </view>
-        <view class="gen-r">
-          <view class="gen-v">{{item.value}}</view>
-          <view class="gen-s">{{item.sub}}</view>
-        </view>
-      </view>
-      <view class="gen-tip">这些量不针对某个动作：用来对比"同一动作的不同次""同一天的不同趟"。</view>
-    </view>
-
     <!-- 视频 + 骨架：在原始画面上叠加关键点 -->
     <view class="card" wx:if="{{trackN}}">
-      <view class="card-t">⑥ 回放：视频上叠加关键点</view>
+      <view class="card-t">④ 回放：视频上叠加关键点</view>
       <view class="player-wrap">
         <canvas type="2d" id="player" class="player-canvas" style="height:{{playerH}}px"></canvas>
         <!-- 画面上的实时数字（照参考产品：时间/帧号/关键点真实量） -->
@@ -123,11 +130,27 @@
         <text class="play-time">{{playTime}}</text>
       </view>
       <view class="play-bar"><view class="play-bar-in" style="width:{{playPct}}%"></view></view>
+      <!-- 逐帧 + 倍速 -->
+      <view class="frame-row">
+        <view class="fr-btn" bindtap="stepFrame" data-d="-5">⏮ −5</view>
+        <view class="fr-btn" bindtap="stepFrame" data-d="-1">◀ 上一帧</view>
+        <view class="fr-n">第 {{curFrame}} 帧</view>
+        <view class="fr-btn" bindtap="stepFrame" data-d="1">下一帧 ▶</view>
+        <view class="fr-btn" bindtap="stepFrame" data-d="5">+5 ⏭</view>
+      </view>
+      <view class="speed-row">
+        <text class="sp-lb">倍速</text>
+        <view class="sp {{speed === 0.25 ? 'on' : ''}}" bindtap="setSpeed" data-v="0.25">0.25×</view>
+        <view class="sp {{speed === 0.5 ? 'on' : ''}}" bindtap="setSpeed" data-v="0.5">0.5×</view>
+        <view class="sp {{speed === 1 ? 'on' : ''}}" bindtap="setSpeed" data-v="1">1×</view>
+        <view class="sp {{speed === 2 ? 'on' : ''}}" bindtap="setSpeed" data-v="2">2×</view>
+      </view>
       <view class="play-ops">
         <text class="op-chip {{showIdx ? 'on' : ''}}" bindtap="toggleIdx">{{showIdx ? '隐藏序号' : '显示序号'}}</text>
         <text class="op-hint">序号用来核对"第几号点是头/髋/踝"</text>
       </view>
-      <view class="gen-tip">蓝线=骨架，黄点=关键点。看一眼就知道关键点标得准不准；视频不上传、不保存。</view>
+      <view class="gen-tip"><text class="b">蓝线</text>=骨架　<text class="b">横线</text>=肩线/髋线（绿<3° 黄<8° 红≥8°）　<text class="b">竖虚线</text>=过支撑脚的铅垂线</view>
+      <view class="gen-tip">逐帧看：肩该平不平、髋有没有一边高、重心是不是压在支撑脚上。视频不上传、不保存。</view>
     </view>
 
   </block>
@@ -148,7 +171,7 @@
   </view>
   <!-- 训练建议 -->
   <view class="card" wx:if="{{advice.length}}">
-    <view class="card-t">⑦ 下一步练什么</view>
+    <view class="card-t">⑤ 下一步练什么</view>
     <view class="adv" wx:for="{{advice}}" wx:key="t">
       <view class="adv-t">{{item.t}}</view>
       <view class="adv-s" wx:for="{{item.s}}" wx:for-item="step" wx:key="*this">· {{step}}</view>
