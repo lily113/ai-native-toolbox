@@ -149,7 +149,7 @@
         <text class="op-chip {{showIdx ? 'on' : ''}}" bindtap="toggleIdx">{{showIdx ? '隐藏序号' : '显示序号'}}</text>
         <text class="op-hint">序号用来核对"第几号点是头/髋/踝"</text>
       </view>
-      <view class="gen-tip"><text class="b">蓝线</text>=骨架　<text class="b">横线</text>=肩线/髋线（绿<3° 黄<8° 红≥8°）　<text class="b">竖虚线</text>=过支撑脚的铅垂线</view>
+      <view class="gen-tip"><text class="b">蓝线</text>=骨架　<text class="b">横线</text>=肩线/髋线（绿 &lt;3° 黄 &lt;8° 红 ≥8°）　<text class="b">竖虚线</text>=过支撑脚的铅垂线</view>
       <view class="gen-tip">逐帧看：肩该平不平、髋有没有一边高、重心是不是压在支撑脚上。视频不上传、不保存。</view>
     </view>
 
