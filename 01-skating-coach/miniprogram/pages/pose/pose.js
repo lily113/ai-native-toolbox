@@ -54,6 +54,8 @@ Page({
     general: [],              // 通用指标（跟动作无关）
     big: [],                  // 三个大数字
     quality: null,            // 拍摄质量（决定数值可信度）
+    highlights: [],           // 最值得看的 3 个瞬间
+    seekBusy: false,          // 正在跳到某一帧
     summaryText: '',          // 一句人话结论
     advice: [],               // 训练建议
     trackN: 0,                // 已存的关键点帧数（>0 才能回放叠加）
@@ -837,8 +839,75 @@ Page({
       advice.push({ t: '这段视频的各项都在合理范围', s: ['保持当前节奏', '连续拍 3 次同一动作，比较"重心高度范围"和"最长单足"是否稳定'] });
     }
 
+    // ---------- 最值得看的瞬间（单次分析里最有用的东西）----------
+    // 人看 20 秒视频会漏掉关键帧，机器不会。挑 3 个"最有信息量"的时刻并说明为什么。
+    const fpsE = (this._fps || 30) / (this.data.step || 1);
+    const t2s = n => Math.round((n / Math.max(1, fpsE)) * 10) / 10;
+    const cands = [];
+    const push = (arr, pick) => {
+      const idx = pick(arr);
+      if (idx == null) return;
+      cands.push(idx);
+    };
+    // 膝角最深（蹲最狠）/最直（腿没屈）
+    const kneeMinPer = S.kneeL.map((v, i) => {
+      const a = (v == null ? Infinity : v), b = (S.kneeR[i] == null ? Infinity : S.kneeR[i]);
+      return Math.min(a, b);
+    });
+    const kneeMaxPer = S.kneeL.map((v, i) => {
+      const a = (v == null ? -Infinity : v), b = (S.kneeR[i] == null ? -Infinity : S.kneeR[i]);
+      return Math.max(a, b);
+    });
+    const argExtreme = (arr, sign) => {
+      let bestIdx = null;
+      let bestVal = sign > 0 ? -Infinity : Infinity;
+      for (let i = 0; i < arr.length; i++) {
+        const v = arr[i];
+        if (typeof v !== 'number' || !isFinite(v)) continue;
+        if (sign > 0 ? v > bestVal : v < bestVal) { bestVal = v; bestIdx = i; }
+      }
+      return bestIdx;
+    };
+    const argMin = arr => argExtreme(arr, -1);
+    const argMax = arr => argExtreme(arr, 1);
+    const addCand = (i, kind, label, value, why, weight) => {
+      if (i == null) return;
+      cands.push({ i: i, n: S.t[i], kind: kind, label: label, value: value, why: why, w: weight });
+    };
+    addCand(argMin(kneeMinPer), 'kneeMin', '膝盖屈得最深', Math.round(kneeMinPer[argMin(kneeMinPer)]) + '°',
+      '这里支撑腿蹲得最深；如果比你的目标还深，说明在"塌"，起速会慢', 10);
+    addCand(argMax(kneeMaxPer), 'kneeMax', '膝盖最直', Math.round(kneeMaxPer[argMax(kneeMaxPer)]) + '°',
+      '这里腿最"锁死"；落地/滑行时膝盖太直会吃冲击', 9);
+    addCand(argMin(S.hipH), 'hipLow', '重心最低', Math.round(S.hipH[argMin(S.hipH)] * 100) + '% 身高',
+      '整段里蹲得最低的一刻，看这一刻上身有没有跟着塌', 9);
+    addCand(argMax(S.hipH), 'hipHigh', '重心最高', Math.round(S.hipH[argMax(S.hipH)] * 100) + '% 身高',
+      '起速/站起最充分的一刻，和最低点对比能看出起伏幅度', 7);
+    addCand(argMax(S.trunkTilt), 'trunk', '上身前倾最大', Math.round(S.trunkTilt[argMax(S.trunkTilt)] * 10) / 10 + '°',
+      '上身趴得最厉害的一刻；超过 25° 就要看看是不是在靠上身代偿', 8);
+    // 单足断掉：连续单足 ≥3 帧之后第一次变双足
+    let run0 = 0, broke = null;
+    S.oneFoot.forEach((v, i) => {
+      if (v === 1) run0++;
+      else { if (run0 >= 3 && broke == null) broke = i; run0 = 0; }
+    });
+    addCand(broke, 'oneFootBreak', '单足断掉', '第 ' + (broke == null ? 0 : Math.round(t2s(S.t[broke]) * 10) / 10) + 's',
+      '前面单足支撑了 ' + Math.round(run0) + ' 帧后落回双足 —— 这里看是不是"撑不住"或"主动收"', 12);
+
+    // 去重：时间上太近（<1s）的只留一个，按权重取前 3
+    cands.sort((a, b) => b.w - a.w);
+    const picked = [];
+    cands.forEach(c => {
+      if (picked.length >= 3) return;
+      if (picked.some(p => Math.abs(p.n - c.n) < fpsE * 1.0)) return;
+      picked.push(c);
+    });
+    picked.sort((a, b) => a.n - b.n);
+    const highlights = picked.map(c => ({
+      n: c.n, t: t2s(c.n) + 's', label: c.label, value: c.value, why: c.why
+    }));
+
     this._clean = { t: S.t, legGap: legGap, kneeL: kneeL, kneeR: kneeR, trunk: trunk, cog: cog };
-    this.setData({ checks: checks, stats: stats, general: general, big: big, summaryText: summaryText, advice: advice, quality: q,
+    this.setData({ checks: checks, stats: stats, general: general, big: big, summaryText: summaryText, advice: advice, quality: q, highlights: highlights,
       chartKey: 'legGap', chartTitle: '浮足高度差（按身高归一 · 已平滑）' });
     this.drawChart();
     this.setData({ trackN: (this._track || []).length });
@@ -855,6 +924,40 @@ Page({
   },
 
   toggleIdx() { this.setData({ showIdx: !this.data.showIdx }); },
+
+  // 点"最值得看的瞬间"→ 解码到那一帧并画出画面+骨架（不连续播放，直接停住）
+  seekTo(e) {
+    const n = Number(e.currentTarget.dataset.n);
+    if (!isFinite(n) || n < 0) return;
+    if (!this.data.videoPath) return;
+    this.stopPlay();
+    this.setData({ seekBusy: true });
+    let dec = null;
+    try { dec = wx.createVideoDecoder(); } catch (err) { this.setData({ seekBusy: false }); return; }
+    let ended = false;
+    try { dec.on('ended', () => { ended = true; }); } catch (err) {}
+    try { dec.start({ source: this.data.videoPath, mode: 1, abortAudio: true }); }
+    catch (err) { this.setData({ seekBusy: false }); return; }
+    let i = -1;
+    const tick = () => {
+      if (!this.data.seekBusy) { try { dec.stop(); dec.remove(); } catch (err) {} return; }
+      let f = null;
+      try { f = dec.getFrameData(); } catch (err) {}
+      if (!f || !f.data) {
+        if (ended) { this.setData({ seekBusy: false }); try { dec.stop(); dec.remove(); } catch (err) {} return; }
+        setTimeout(tick, 20); return;
+      }
+      i++;
+      if (i >= n) {
+        this.drawPlayFrame(f, i, this._track || []);
+        this.setData({ seekBusy: false, playTime: (i / Math.max(1, this._fps || 30)).toFixed(1) + 's' });
+        try { dec.stop(); dec.remove(); } catch (err) {}
+        return;
+      }
+      setTimeout(tick, 0);
+    };
+    tick();
+  },
 
   toggleAdv() { this.setData({ advOpen: !this.data.advOpen }); },
 
