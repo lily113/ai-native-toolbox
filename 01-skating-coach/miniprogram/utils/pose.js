@@ -163,7 +163,10 @@ function frameMetrics(pts, map0, side, minConf, aspect0) {
   // 每个关键点：有映射、且置信度达标才可用（个别关节不可信时，只让它参与的指标缺失，
   // 而不是把整帧丢掉 —— 以前"一个脚踝不可信 → 整帧作废"就是"有效帧 0"的主因）
   const C = (typeof minConf === 'number') ? minConf : 0.5;
+  const blockedK = {};                                  // 被判定为"离群"的关节
+  let outOfRange = [];
   const P = k => {
+    if (blockedK[k]) return null;
     if (!pts || typeof map[k] !== 'number') return null;
     const p = pts[map[k]];
     if (!p || !isFinite(p.x) || !isFinite(p.y)) return null;
@@ -175,6 +178,32 @@ function frameMetrics(pts, map0, side, minConf, aspect0) {
     const p = pts[map[k]];
     return (p && p.c !== undefined) ? p.c : (p ? 1 : null);
   };
+  // ---- 先剔除明显离群的点（模型的误检：偶尔在画面角落冒一个孤立点）----
+  // 做法：用所有已映射点的中位位置当"人体中心"，距离超过中位距离 3 倍以上的当噪声。
+  const mapped = [];
+  ['head', 'neck', 'shL', 'shR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankL', 'ankR'].forEach(k => {
+    const p = P(k);
+    if (p) mapped.push({ k: k, p: p });
+  });
+  if (mapped.length >= 5) {
+    // 用"人体包围盒 + 半个体长"当合理范围：模型偶尔会在画面角落冒一个孤立点，
+    // 如果它被当成头/踝，bodyH 就会算错（真机上表现为"左上角多一个点，指标全乱"）
+    // 用 10%–90% 分位算范围：**不能让离群点自己参与定范围**（否则它永远"在范围内"）
+    const pct = (arr, t) => { const a = arr.slice().sort((m, n) => m - n); return a[Math.min(a.length - 1, Math.round((a.length - 1) * t))]; };
+    const xsA = mapped.map(o => o.p.x), ysA = mapped.map(o => o.p.y);
+    const minX = pct(xsA, 0.1), maxX = pct(xsA, 0.9);
+    const minY = pct(ysA, 0.1), maxY = pct(ysA, 0.9);
+    const span = Math.max(0.06, Math.max(maxX - minX, maxY - minY));
+    const pad = span * 0.5;
+    const badK = [];
+    mapped.forEach(o => {
+      const x = o.p.x, y = o.p.y;
+      if (x < minX - pad || x > maxX + pad || y < minY - pad || y > maxY + pad) badK.push(o.k);
+    });
+    badK.forEach(k => { blockedK[k] = true; });
+    outOfRange = badK;
+  }
+
   const head = P('head'), hipL = P('hipL'), hipR = P('hipR');
   const neckDirect = P('neck');
   const neck = neckDirect || ((P('shL') && P('shR')) ? { x: (P('shL').x + P('shR').x) / 2, y: (P('shL').y + P('shR').y) / 2, c: Math.min(P('shL').c == null ? 1 : P('shL').c, P('shR').c == null ? 1 : P('shR').c) } : null);
@@ -183,12 +212,15 @@ function frameMetrics(pts, map0, side, minConf, aspect0) {
   const shL = P('shL'), shR = P('shR');
 
   const out = { ok: false, have: [], miss: [], conf: {} };
+  (outOfRange || []).forEach(k => { out.miss.push(k + '(离群)'); });
   ['head', 'neck', 'shL', 'shR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankL', 'ankR'].forEach(k => {
     const c = confOf(k);
     out.conf[k] = c;
     if (k === 'neck') { if (!neck) out.miss.push(k); return; }
     if (!P(k)) out.miss.push(k);
   });
+
+
 
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
   const angleAt = (a, b, c) => {

@@ -1083,7 +1083,12 @@ Page({
       // **唯一的一套坐标**：画面和骨架都用这个 box（letterbox，按实际画布尺寸算）
       const box = this.fitRect(cw, ch, fw, fh);
       try {
-        const c = this._w1;
+        // ⚠️ 用**专属**缓冲画布：以前借用了 prepareFrame 的 _w1，而那块会被改尺寸/清空，
+        // 结果画面按错误比例画（真机上表现为"画面缩在左上角"）。
+        if (!this._pbc) {
+          try { this._pbc = wx.createOffscreenCanvas({ type: '2d', width: fw, height: fh }); } catch (e) { this._pbc = null; }
+        }
+        const c = this._pbc;
         if (c) {
           if (c.width !== fw || c.height !== fh) { c.width = fw; c.height = fh; }
           const x1 = c.getContext('2d');
