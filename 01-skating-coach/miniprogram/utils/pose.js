@@ -74,6 +74,19 @@ function sanityCheck(pts, map) {
   const head = at('head'), ankL = at('ankL'), ankR = at('ankR');
   const hipL = at('hipL'), hipR = at('hipR'), kneeL = at('kneeL'), kneeR = at('kneeR');
   if (head && ankL && ankR && head.y > Math.max(ankL.y, ankR.y)) warns.push('头比踝还低：映射可能错位（人或镜像）');
+  // 人体解剖上的硬约束：髋在踝上方、膝在踝上方。违反 = 点序错了（最常见的错是把手腕当踝）
+  if (hipL && hipR && ankL && ankR) {
+    const ankY = Math.max(ankL.y, ankR.y);
+    if ((hipL.y + hipR.y) / 2 >= ankY - 0.02) warns.push('髋不在踝上方：映射明显错位');
+  }
+  if (kneeL && kneeR && ankL && ankR) {
+    const ankY = Math.max(ankL.y, ankR.y);
+    if ((kneeL.y + kneeR.y) / 2 >= ankY - 0.02) warns.push('膝不在踝上方：映射明显错位');
+  }
+  if (head && ankL && ankR) {
+    const span = Math.abs(head.y - Math.max(ankL.y, ankR.y));
+    if (!(span > 0.15)) warns.push('头到踝的纵向跨度只有 ' + (Math.round(span * 100) / 100) + '：点没对到人身上');
+  }
   if (hipL && hipR && kneeL && kneeR && kneeL.y < Math.min(hipL.y, hipR.y) - 0.15) warns.push('膝在髋上方太多：映射可能错位');
   if (ankL && ankR && Math.abs(ankL.y - ankR.y) > 0.5) warns.push('两踝高度差超过半屏：可能把别的点当踝了');
   return warns;
