@@ -40,6 +40,7 @@ Page({
     detected: 0,
     formatNote: '',           // 像素格式自检结论
     yuvLayout: 'nv12',        // YUV 布局（诊断会试 nv12/nv21/i420 并记住可用的）
+    zoomed: false,            // 校准画布是否放大到人物
     cfgYuv: '',
     diag: [],                 // 诊断信息（可复制）
     downscale: true,          // 高分辨率视频先降采样再检测
@@ -716,17 +717,38 @@ Page({
     if (!this.data.calibrating || !this._firstPts) return;
     wx.createSelectorQuery().in(this).select('#calib').boundingClientRect(rect => {
       if (!rect) return;
+      // tap 的坐标在部分基础库上是"画布内坐标"，在另一些上是"页面坐标"——
+      // 原来一律当成页面坐标去减 rect.left，如果是画布内坐标就会变成负数，于是"怎么点都点不中"。
+      // 这里两种都兼容：先取两个候选值，谁落在画布范围内就用谁。
+      const dx = e.detail && e.detail.x, dy = e.detail && e.detail.y;
+      const cand = [
+        { x: dx - rect.left, y: dy - rect.top },     // 页面坐标
+        { x: dx, y: dy }                             // 画布内坐标
+      ];
+      const inCanvas = cand.filter(c => c.x >= -2 && c.y >= -2 && c.x <= rect.width + 2 && c.y <= rect.height + 2);
+      const pick = inCanvas.length ? inCanvas[inCanvas.length - 1] : cand[0];
       const box = this._calibBox || { x: 0, y: 0, w: rect.width, h: rect.height };
-      const px0 = e.detail.x - rect.left, py0 = e.detail.y - rect.top;
-      // 换到"首帧图内部"的归一化坐标（和关键点同一个坐标系）
-      const x = (px0 - box.x) / (box.w || 1);
-      const y = (py0 - box.y) / (box.h || 1);
+      const view = this._view || { x0: 0, y0: 0, x1: 1, y1: 1 };
+      // 屏幕坐标 → 首帧图内部归一化坐标（跟关键点同一个坐标系）
+      const x = view.x0 + ((pick.x - box.x) / (box.w || 1)) * (view.x1 - view.x0);
+      const y = view.y0 + ((pick.y - box.y) / (box.h || 1)) * (view.y1 - view.y0);
+
+      // 先找 HIT_R 以内的；没有就退一步取最近的（人小的时候点很难精确定位）
       let best = -1, bd = HIT_R;
       this._firstPts.forEach((p, i) => {
         if (!p) return;
         const d = Math.hypot(p.x - x, p.y - y);
         if (d < bd) { bd = d; best = i; }
       });
+      if (best < 0) {
+        let bd2 = 1e9, b2 = -1;
+        this._firstPts.forEach((p, i) => {
+          if (!p) return;
+          const d = Math.hypot(p.x - x, p.y - y);
+          if (d < bd2) { bd2 = d; b2 = i; }
+        });
+        if (b2 >= 0 && bd2 < 0.45) { best = b2; bd = bd2; }
+      }
       if (best < 0) { wx.showToast({ title: '没点到点，靠近再点', icon: 'none' }); return; }
       this._newMap[POSE_JOINTS[this.data.calibIdx].k] = best;
       const next = this.data.calibIdx + 1;
@@ -754,10 +776,15 @@ Page({
 
       // ① 先把首帧画面画上去（等比，留黑边）—— 否则只有一堆黄点，根本看不出哪个是头
       const fw = this._frameW, fh = this._frameH;
-      const box = this.fitRect(r.width, r.height, fw, fh);
+      const view = this._view || { x0: 0, y0: 0, x1: 1, y1: 1 };
+      const box = this.fitRect(r.width, r.height, (view.x1 - view.x0) * fw, (view.y1 - view.y0) * fh);
       this._calibBox = box;
       if (this._frameCv && fw && fh) {
-        try { ctx.drawImage(this._frameCv, 0, 0, fw, fh, box.x, box.y, box.w, box.h); } catch (e) {}
+        try {
+          ctx.drawImage(this._frameCv,
+            view.x0 * fw, view.y0 * fh, (view.x1 - view.x0) * fw, (view.y1 - view.y0) * fh,
+            box.x, box.y, box.w, box.h);
+        } catch (e) {}
       } else {
         ctx.fillStyle = '#64748B'; ctx.font = '12px sans-serif';
         ctx.fillText('没有首帧画面（重新分析一次即可）', 12, 20);
@@ -766,12 +793,33 @@ Page({
       // ② 关键点画在同一个矩形里（和点选的坐标换算一致）
       this._firstPts.forEach((p, i) => {
         if (!p) return;
-        const x = box.x + p.x * box.w, y = box.y + p.y * box.h;
+        const x = box.x + ((p.x - view.x0) / (view.x1 - view.x0)) * box.w;
+        const y = box.y + ((p.y - view.y0) / (view.y1 - view.y0)) * box.h;
         ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fillStyle = 'rgba(250,204,21,.95)'; ctx.fill();
         ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 12px sans-serif'; ctx.fillText(String(i), x + 7, y - 6);
       });
     });
   },
+  // 人小的时候点全挤在一起、根本点不准 —— 一键放大到"关键点的包围盒"
+  zoomBody() {
+    if (!this._firstPts || !this._firstPts.length) { wx.showToast({ title: '先分析一次', icon: 'none' }); return; }
+    if (this._view) { this._view = null; this.setData({ zoomed: false }); this.drawCalib(); return; }
+    const xs = [], ys = [];
+    this._firstPts.forEach(p => { if (p) { xs.push(p.x); ys.push(p.y); } });
+    if (xs.length < 4) { wx.showToast({ title: '关键点太少，无法放大', icon: 'none' }); return; }
+    xs.sort((a, b) => a - b); ys.sort((a, b) => a - b);
+    // 去掉两端 10% 的离群点（检测偶尔会在别处冒一个孤立点）
+    const lo = Math.floor(xs.length * 0.1), hi = Math.ceil(xs.length * 0.9) - 1;
+    let x0 = xs[lo], x1 = xs[hi], y0 = ys[lo], y1 = ys[hi];
+    const m = 0.25;                                  // 四周留 25% 边
+    const w = Math.max(0.05, x1 - x0), h = Math.max(0.05, y1 - y0);
+    x0 = Math.max(0, x0 - w * m); x1 = Math.min(1, x1 + w * m);
+    y0 = Math.max(0, y0 - h * m); y1 = Math.min(1, y1 + h * m);
+    this._view = { x0: x0, y0: y0, x1: x1, y1: y1 };
+    this.setData({ zoomed: true });
+    this.drawCalib();
+  },
+
   setHeight(e) {
     const cm = Math.max(0, Math.min(220, Number(e.detail.value) || 0));
     const meta = store.load(store.KEYS.meta) || {};

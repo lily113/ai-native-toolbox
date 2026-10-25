@@ -60,3 +60,6 @@
 /* 离屏工作画布（用于降采样） */
 .work { position: fixed; left: -9999px; top: 0; width: 1px; height: 1px; overflow: hidden; }
 .work-c { width: 1px; height: 1px; }
+
+.calib-zoom { margin-top: 8px; display: inline-block; font-size: 12.5px; color: #0284c7;
+  background: #e0f2fe; border-radius: 999px; padding: 6px 14px; }
