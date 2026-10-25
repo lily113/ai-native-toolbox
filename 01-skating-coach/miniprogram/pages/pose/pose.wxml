@@ -96,7 +96,7 @@
     <view class="card" wx:if="{{trackN}}">
       <view class="card-t">⑥ 回放：视频上叠加关键点</view>
       <view class="player-wrap">
-        <canvas type="2d" id="player" class="player-canvas"></canvas>
+        <canvas type="2d" id="player" class="player-canvas" style="height:{{playerH}}px"></canvas>
         <!-- 画面上的实时数字（照参考产品：时间/帧号/关键点真实量） -->
         <view class="hud" wx:if="{{hud}}">
           <view class="hud-l">Time: {{hud.t}}</view>
@@ -111,6 +111,10 @@
         <text class="play-time">{{playTime}}</text>
       </view>
       <view class="play-bar"><view class="play-bar-in" style="width:{{playPct}}%"></view></view>
+      <view class="play-ops">
+        <text class="op-chip {{showIdx ? 'on' : ''}}" bindtap="toggleIdx">{{showIdx ? '隐藏序号' : '显示序号'}}</text>
+        <text class="op-hint">序号用来核对"第几号点是头/髋/踝"</text>
+      </view>
       <view class="gen-tip">蓝线=骨架，黄点=关键点。看一眼就知道关键点标得准不准；视频不上传、不保存。</view>
     </view>
 
