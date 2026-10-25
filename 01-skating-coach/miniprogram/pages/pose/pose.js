@@ -62,8 +62,11 @@ Page({
     playerH: 200,             // 回放画布高度（按视频比例算出来）
     showIdx: false,           // 是否叠加关键点序号（核对点序用）
     advOpen: false,           // 高级区（关键点映射）默认收起
+    dataOpen: false,          // 详细数据（大数字/通用指标）默认收起
     playPct: 0,
     playTime: '0.0s',
+    speed: 1,                 // 回放倍速
+    curFrame: 0,              // 当前停在的帧号（逐帧用）
   },
 
   onLoad() {
@@ -926,8 +929,9 @@ Page({
       }
       i++;
       if (i >= n) {
+        this._curFrame = i;
         this.drawPlayFrame(f, i, this._track || []);
-        this.setData({ seekBusy: false, playTime: (i / Math.max(1, this._fps || 30)).toFixed(1) + 's' });
+        this.setData({ seekBusy: false, curFrame: i, playTime: (i / Math.max(1, this._fps || 30)).toFixed(1) + 's' });
         try { dec.stop(); dec.remove(); } catch (err) {}
         return;
       }
@@ -937,6 +941,8 @@ Page({
   },
 
   toggleAdv() { this.setData({ advOpen: !this.data.advOpen }); },
+
+  toggleData() { this.setData({ dataOpen: !this.data.dataOpen }); },
 
   // 恢复自动映射：清掉手工校准的结果
   resetCalib() {
@@ -975,6 +981,9 @@ Page({
     this._playing = true;
     this._needMeasure = true;      // 重新测画布（实测 rect，不依赖 CSS 比例）
     this.setData({ playing: true, playPct: 0, playTime: '0.0s' });
+    const spd = Number(this.data.speed) || 1;
+    const skip = spd >= 2 ? 2 : 1;                                  // 2 倍速：隔帧画
+    const delay = spd >= 1 ? 0 : Math.round(1000 / (28 * spd));     // 慢放：在两次绘制间等待
     const track = this._track || [];
     const total = Math.max(1, (this._fps || 30) * (this._durSec || 20));
     let n = -1;
@@ -987,7 +996,8 @@ Page({
         setTimeout(tick, 25); return;
       }
       n++;
-      this.drawPlayFrame(f, n, track);
+      this._curFrame = n;
+      if (n % skip === 0) this.drawPlayFrame(f, n, track);
       const sec = n / Math.max(1, this._fps || 30);
       if (n % 6 === 0) {
         // 画面上的实时数字（照参考产品：时间/帧号/关键点真实坐标）
@@ -1017,9 +1027,24 @@ Page({
         }
         this.setData({ playPct: Math.min(100, Math.round(sec / (total / (this._fps || 30)) * 100)), playTime: sec.toFixed(1) + 's', hud: hud });
       }
-      setTimeout(tick, 0);
+      setTimeout(tick, delay);
     };
     tick();
+  },
+
+  // 倍速切换（0.25× / 0.5× / 1× / 2×）
+  setSpeed(e) {
+    const v = Number(e.currentTarget.dataset.v) || 1;
+    this.setData({ speed: v });
+    if (this._playing) { this.stopPlay(); this.startPlay(); }
+  },
+
+  // 逐帧：往前/往后走 n 帧（复用 seekTo：解码到目标帧并停住）
+  stepFrame(e) {
+    const d = Number(e.currentTarget.dataset.d) || 0;
+    const cur = (this._curFrame == null ? 0 : this._curFrame);
+    const target = Math.max(0, cur + d);
+    this.seekTo({ currentTarget: { dataset: { n: String(target) } } });
   },
 
   drawPlayFrame(f, n, track) {
@@ -1071,6 +1096,43 @@ Page({
       });
       ctx.fillStyle = 'rgba(250,204,21,.95)';
       Object.keys(P).forEach(k => { const p = P[k]; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2); ctx.fill(); });
+
+      // ---------- 姿势参考线：直接回答"肩/髋/胯的位置对不对" ----------
+      const AR = (fw && fh) ? fw / fh : 1;
+      const col = d => d < 3 ? 'rgba(52,211,153,.95)' : (d < 8 ? 'rgba(251,191,36,.95)' : 'rgba(248,113,113,.95)');
+      const shA = [map.shL, map.shR].every(i => i != null && P[i]) ? [P[map.shL], P[map.shR]] : null;
+      const hipA = [map.hipL, map.hipR].every(i => i != null && P[i]) ? [P[map.hipL], P[map.hipR]] : null;
+      const lineSeg = (A, B, color, dash) => {
+        ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 1.6;
+        if (dash) ctx.setLineDash(dash);
+        const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1;
+        const ex = dx / L * 18, ey = dy / L * 18;                 // 两端各延长一点，看得清倾斜
+        ctx.beginPath(); ctx.moveTo(A.x - ex, A.y - ey); ctx.lineTo(B.x + ex, B.y + ey); ctx.stroke();
+        ctx.restore();
+      };
+      let shDeg = null, hipDeg = null, plumbOff = null;
+      if (shA) { shDeg = Math.abs(Math.atan2(shA[1].y - shA[0].y, (shA[1].x - shA[0].x) * AR) * 180 / Math.PI); lineSeg(shA[0], shA[1], col(shDeg)); }
+      if (hipA) { hipDeg = Math.abs(Math.atan2(hipA[1].y - hipA[0].y, (hipA[1].x - hipA[0].x) * AR) * 180 / Math.PI); lineSeg(hipA[0], hipA[1], col(hipDeg)); }
+      const ankIdx = [map.ankL, map.ankR].filter(i => i != null && P[i]);
+      if (ankIdx.length && hipA) {
+        const support = ankIdx.length === 2 ? (P[ankIdx[0]].y >= P[ankIdx[1]].y ? P[ankIdx[0]] : P[ankIdx[1]]) : P[ankIdx[0]];
+        const hipC = { x: (hipA[0].x + hipA[1].x) / 2, y: (hipA[0].y + hipA[1].y) / 2 };
+        plumbOff = (hipC.x - support.x) * AR;                     // 正=重心在支撑脚前/一侧
+        ctx.save();
+        ctx.strokeStyle = col(Math.abs(plumbOff) * 100);
+        ctx.lineWidth = 1.4; ctx.setLineDash([5, 5]);
+        ctx.beginPath(); ctx.moveTo(support.x, 0); ctx.lineTo(support.x, ch); ctx.stroke();
+        ctx.restore();
+        lineSeg(hipC, support, col(Math.abs(plumbOff) * 100), [3, 3]);   // 髋中心 → 支撑脚
+      }
+      const sc = v => (v == null ? '—' : (Math.round(v * 10) / 10) + '°');
+      ctx.save();
+      ctx.fillStyle = 'rgba(2,6,23,.6)'; ctx.fillRect(0, ch - 34, cw, 34);
+      ctx.fillStyle = 'rgba(226,232,240,.95)'; ctx.font = '11px sans-serif';
+      ctx.fillText('肩 ' + sc(shDeg) + '　髋 ' + sc(hipDeg) + '　重心偏 ' + (plumbOff == null ? '—' : (Math.round(plumbOff * 1000) / 10) + '%'), 8, ch - 20);
+      ctx.fillStyle = 'rgba(148,163,184,.9)'; ctx.font = '10px sans-serif';
+      ctx.fillText('绿<3° 黄<8° 红≥8°（水平度偏差）', 8, ch - 7);
+      ctx.restore();
       if (this.data.showIdx) {
         ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = '10px sans-serif';
         Object.keys(P).forEach(k => { const p = P[k]; ctx.fillText(k, p.x + 3, p.y - 3); });
