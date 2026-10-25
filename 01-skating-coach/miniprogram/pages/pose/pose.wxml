@@ -63,9 +63,22 @@
     </view>
 
     <!-- ④ 结果 -->
+    <!-- 三个大数字（照参考产品形态：大字号、带单位、一眼能读） -->
+    <view class="card" wx:if="{{big.length}}">
+      <view class="card-t">④ 关键结果</view>
+      <view class="big-row">
+        <view class="big-cell" wx:for="{{big}}" wx:key="k">
+          <view class="big-v">{{item.v}}<text class="big-u">{{item.unit}}</text></view>
+          <view class="big-n">{{item.name}}</view>
+          <view class="big-s">{{item.sub}}</view>
+        </view>
+      </view>
+      <view class="concl" wx:if="{{summaryText}}">{{summaryText}}</view>
+    </view>
+
     <!-- 通用指标：跟动作无关，任何花滑动作都能看 -->
     <view class="card" wx:if="{{general.length}}">
-      <view class="card-t">④ 通用指标（任何动作都适用）</view>
+      <view class="card-t">⑤ 通用指标（任何动作都适用）</view>
       <view class="gen-row" wx:for="{{general}}" wx:key="k">
         <view class="gen-l">
           <view class="gen-n">{{item.name}}</view>
@@ -81,8 +94,18 @@
 
     <!-- 视频 + 骨架：在原始画面上叠加关键点 -->
     <view class="card" wx:if="{{trackN}}">
-      <view class="card-t">⑤ 回放：视频上叠加关键点</view>
-      <canvas type="2d" id="player" class="player-canvas"></canvas>
+      <view class="card-t">⑥ 回放：视频上叠加关键点</view>
+      <view class="player-wrap">
+        <canvas type="2d" id="player" class="player-canvas"></canvas>
+        <!-- 画面上的实时数字（照参考产品：时间/帧号/关键点真实量） -->
+        <view class="hud" wx:if="{{hud}}">
+          <view class="hud-l">Time: {{hud.t}}</view>
+          <view class="hud-l">Frame: {{hud.n}}</view>
+          <view class="hud-l" wx:if="{{hud.hip}}">Hip: {{hud.hip}}</view>
+          <view class="hud-l" wx:if="{{hud.leg}}">LegGap: {{hud.leg}}</view>
+          <view class="hud-l" wx:if="{{hud.foot}}">{{hud.foot}}</view>
+        </view>
+      </view>
       <view class="play-row">
         <button class="btn play-btn" bindtap="togglePlay">{{playing ? '⏸ 暂停' : '▶️ 播放（带骨架）'}}</button>
         <text class="play-time">{{playTime}}</text>
@@ -93,7 +116,7 @@
 
     <block wx:if="{{checks.length}}">
       <view class="card">
-        <view class="card-t">⑥ 动作专项参考（燕式 / 步法）</view>
+        <view class="card-t">⑦ 动作专项参考（燕式 / 步法）</view>
         <view class="gen-tip">下面四项是<text class="b">燕式转 / 步法</text>的判据；练别的动作时只看数字，不必在意"需改进"。</view>
         <view class="chk" wx:for="{{checks}}" wx:key="k">
           <view class="chk-top">
@@ -109,7 +132,7 @@
       </view>
 
       <view class="card">
-        <view class="card-t">曲线</view>
+        <view class="card-t">⑧ 曲线</view>
         <view class="row">
           <view class="tag {{chartKey === 'legGap' ? 'on' : ''}}" bindtap="switchChart" data-k="legGap">浮足高度</view>
           <view class="tag {{chartKey === 'kneeL' ? 'on' : ''}}" bindtap="switchChart" data-k="kneeL">左膝角</view>
@@ -135,5 +158,14 @@
     <view class="tip-l warn">识别的是「关节在画面里的位置」，只作<text class="b">自查参考</text>，不代表技术是否达标。</view>
     <view class="tip-t">隐私</view>
     <view class="tip-l">视频只在本机分析，<text class="b">不上传、不保存</text>；帧数据用完即丢。</view>
+  </view>
+  <!-- 训练建议 -->
+  <view class="card" wx:if="{{advice.length}}">
+    <view class="card-t">⑨ 下一步练什么</view>
+    <view class="adv" wx:for="{{advice}}" wx:key="t">
+      <view class="adv-t">{{item.t}}</view>
+      <view class="adv-s" wx:for="{{item.s}}" wx:for-item="step" wx:key="*this">· {{step}}</view>
+    </view>
+    <view class="gen-tip">建议是按这段视频的数值规则生成的，<text class="b">不是教练/医生的诊断</text>；有伤病请先问专业人士。</view>
   </view>
 </view>

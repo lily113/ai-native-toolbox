@@ -83,3 +83,23 @@
 .play-time { flex: none; font-size: 12.5px; color: #64748B; }
 .play-bar { height: 4px; background: #e2e8f0; border-radius: 999px; margin-top: 8px; overflow: hidden; }
 .play-bar-in { height: 100%; background: #0284c7; border-radius: 999px; transition: width .2s; }
+
+/* 回放 + HUD */
+.player-wrap { position: relative; margin-top: 8px; }
+.hud { position: absolute; right: 10px; top: 10px; background: rgba(2,6,23,.62); border-radius: 8px;
+  padding: 6px 9px; line-height: 1.5; }
+.hud-l { font-size: 10.5px; color: #bae6fd; font-family: Menlo, monospace; }
+/* 三个大数字 */
+.big-row { display: flex; gap: 8px; margin-top: 4px; }
+.big-cell { flex: 1; background: #f8fbfe; border: 1px solid #e2eef7; border-radius: 12px; padding: 10px 6px; text-align: center; }
+.big-v { font-size: 24px; font-weight: 800; color: #0284c7; line-height: 1.1; }
+.big-u { font-size: 11px; font-weight: 600; color: #64748B; margin-left: 2px; }
+.big-n { font-size: 10.5px; color: #475569; margin-top: 4px; }
+.big-s { font-size: 10px; color: #94a3b8; margin-top: 1px; }
+.concl { margin-top: 10px; font-size: 12.5px; color: #0f172a; line-height: 1.7; background: #f0f9ff;
+  border-radius: 10px; padding: 10px 12px; }
+/* 训练建议 */
+.adv { padding: 10px 0; border-bottom: 1px solid #f1f5f9; }
+.adv:last-of-type { border-bottom: none; }
+.adv-t { font-size: 13.5px; font-weight: 700; color: #0c4a6e; margin-bottom: 4px; }
+.adv-s { font-size: 12.5px; color: #475569; line-height: 1.75; }
