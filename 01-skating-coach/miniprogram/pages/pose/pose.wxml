@@ -79,11 +79,16 @@
       <view class="gen-tip">这些量不针对某个动作：用来对比"同一动作的不同次""同一天的不同趟"。</view>
     </view>
 
-    <!-- 整段视频的骨架连环画 -->
-    <view class="card" wx:if="{{stripN}}">
-      <view class="card-t">⑤ 整段动作（骨架连环画 · 每 0.5 秒一格）</view>
-      <canvas type="2d" id="strip" class="strip-canvas"></canvas>
-      <view class="gen-tip">按时间顺序从左到右。看姿态怎么变、有没有突然塌/歪/掉。</view>
+    <!-- 视频 + 骨架：在原始画面上叠加关键点 -->
+    <view class="card" wx:if="{{trackN}}">
+      <view class="card-t">⑤ 回放：视频上叠加关键点</view>
+      <canvas type="2d" id="player" class="player-canvas"></canvas>
+      <view class="play-row">
+        <button class="btn play-btn" bindtap="togglePlay">{{playing ? '⏸ 暂停' : '▶️ 播放（带骨架）'}}</button>
+        <text class="play-time">{{playTime}}</text>
+      </view>
+      <view class="play-bar"><view class="play-bar-in" style="width:{{playPct}}%"></view></view>
+      <view class="gen-tip">蓝线=骨架，黄点=关键点。看一眼就知道关键点标得准不准；视频不上传、不保存。</view>
     </view>
 
     <block wx:if="{{checks.length}}">

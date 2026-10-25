@@ -52,7 +52,10 @@ Page({
     checks: [],               // 动作检查项
     stats: [],                // 指标统计
     general: [],              // 通用指标（跟动作无关）
-    stripN: 0,                // 骨架连环画的格子数（>0 才显示那张卡）
+    trackN: 0,                // 已存的关键点帧数（>0 才能回放叠加）
+    playing: false,
+    playPct: 0,
+    playTime: '0.0s',
     chartKey: 'legGap',
     chartTitle: '',
     legend: []
@@ -131,7 +134,7 @@ Page({
     this._view = null; this._calibBox = null;
     this._minConf = this._minConf || 0.5;
     this._skipBusy = 0;
-    this._stripPts = []; this._stripLast = -1e9;
+    this._track = [];
     this._noMapN = 0; this._noMapKeys = []; this._confSum = 0; this._confN = 0; this._confOkSum = 0; this._confOkN = 0;
     this.setData({ analyzing: true, progress: 0, decoded: 0, detected: 0, checks: [], stats: [], formatNote: '', diag: ['开始分析…'] });
     this._series = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [],
@@ -254,6 +257,15 @@ Page({
       setTimeout(next, 0);
     };
     next();
+  },
+
+  // 统一的"有效映射"：`{}` 或残缺的映射会让所有连线都画不出来（连环画全黑就是这个）
+  getMap() {
+    let m = this._map;
+    if (!m) { try { m = store.load(store.KEYS.poseMap); } catch (e) { m = null; } }
+    const need = ['head', 'neck', 'shL', 'shR', 'hipL', 'hipR', 'kneeL', 'kneeR', 'ankL', 'ankR'];
+    const okMap = m && need.every(k => typeof m[k] === 'number');
+    return okMap ? m : pose.DEFAULT_MAP;
   },
 
   // ---------- 会话与诊断 ----------
@@ -565,7 +577,7 @@ Page({
         this._firstPts = body.points;
         this.captureFrame(prep);                    // ← 必须是"这一帧"的画面，否则点和背景错位
         // 用内置映射做一次合理性自检：不对就提示去校准（不拦着分析）
-        const warns = pose.sanityCheck(body.points, this._map || store.load(store.KEYS.poseMap) || pose.DEFAULT_MAP);
+        const warns = pose.sanityCheck(body.points, map);
         this._sanityWarn = warns;
         if (warns.length) {
           this.setData({ diag: (this.data.diag || []).concat(['⚠️ 关键点映射可能不对：' + warns.join('；') + ' → 建议点「校准关键点」']) });
@@ -573,7 +585,7 @@ Page({
       }
       if (this.data.calibrating) return;                       // 校准中只取首帧
       // 没手工校准过 → 直接用内置默认映射（COCO 顺序），所以"不校准也能出指标"
-      const map = this._map || store.load(store.KEYS.poseMap) || pose.DEFAULT_MAP;
+      const map = this.getMap();
       const m = pose.frameMetrics(body.points, map, 'right', this._minConf || 0.5);
       // 一个指标都算不出来：只记原因（缺映射 / 置信度不够），不推入序列
       if (!m.have || !m.have.length) {
@@ -582,13 +594,10 @@ Page({
         return;
       }
       this._confOkSum = (this._confOkSum || 0) + (m.avgConf || 0); this._confOkN = (this._confOkN || 0) + 1;
-      // 骨架连环画取样：每 ~0.5 秒存一个骨架（只存归一化坐标，很轻）
-      if (!this._stripPts) this._stripPts = [];
-      const fpsNow0 = (this._fps || 30) / (this.data.step || 1);
-      const minGap = Math.max(1, Math.round(fpsNow0 * 0.5));
-      if ((n - (this._stripLast == null ? -1e9 : this._stripLast)) >= minGap && this._stripPts.length < 40) {
-        this._stripPts.push({ n: n, pts: body.points.map(q => q ? { x: q.x, y: q.y } : null) });
-        this._stripLast = n;
+      // 每一帧都存关键点（回放时按帧号叠加骨架；只存归一化坐标，很轻）
+      if (!this._track) this._track = [];
+      if (this._track.length < 900) {
+        this._track.push({ n: n, pts: body.points.map(q => q ? { x: q.x, y: q.y } : null) });
       }
       // **能算的就算，算不出的留 null** —— 不再因为某个关节不可信把整帧丢掉
       const S = this._series;
@@ -753,62 +762,116 @@ Page({
     this._clean = { t: S.t, legGap: legGap, kneeL: kneeL, kneeR: kneeR, trunk: trunk, cog: cog };
     this.setData({ checks: checks, stats: stats, general: general, chartKey: 'legGap', chartTitle: '浮足高度差（按身高归一 · 已平滑）' });
     this.drawChart();
-    this.drawStrip();
+    this.setData({ trackN: (this._track || []).length });
   },
 
-  // 骨架连环画：把整段视频按 0.5 秒取样画成一排火柴人 —— 一眼看完动作过程
-  drawStrip() {
-    const list = this._stripPts || [];
-    if (!list.length) return;
-    const map = this._map || store.load(store.KEYS.poseMap) || {};
-    const xs = [], ys = [];
-    list.forEach(it => (it.pts || []).forEach(p => { if (p) { xs.push(p.x); ys.push(p.y); } }));
-    if (xs.length < 6) return;
-    const q = (arr, t) => { const a = arr.slice().sort((m, n) => m - n); return a[Math.min(a.length - 1, Math.floor(a.length * t))]; };
-    const x0 = q(xs, 0.05), x1 = q(xs, 0.95), y0 = q(ys, 0.05), y1 = q(ys, 0.95);
-    const bw = Math.max(0.35, (x1 - x0) / Math.max(0.05, (y1 - y0)));   // 宽高比
-    const cols = Math.min(5, list.length);
-    const rows = Math.ceil(list.length / cols);
-    const cellW = 62;
-    const cellH = Math.round(cellW / Math.min(1.6, bw));
-    const fpsEff = (this._fps || 30) / (this.data.step || 1);
-    this.setData({ stripN: list.length, stripRows: rows });
-    wx.nextTick(() => {
-      wx.createSelectorQuery().in(this).select('#strip').fields({ node: true }).exec(res => {
-        const r = res && res[0];
-        if (!r || !r.node) return;
-        const canvas = r.node;
-        let dpr = 2;
-        try { dpr = wx.getWindowInfo().pixelRatio || 2; } catch (e) {}
-        const W = cols * cellW, H = rows * cellH;
-        canvas.width = W * dpr; canvas.height = H * dpr;
-        const ctx = canvas.getContext('2d');
-        ctx.scale(dpr, dpr);
-        ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, W, H);
-        const s = Math.min(cellW / Math.max(0.05, (x1 - x0)), cellH / Math.max(0.05, (y1 - y0))) * 0.86;
-        const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+  // ---------- 视频 + 骨架回放：在原视频画面上叠加关键点 ----------
+  // 为什么不用 <video> 再盖一层 canvas：视频是原生组件，层级压不住 canvas（会盖掉骨架）。
+  // 所以自己解码逐帧画到 canvas 上，骨架和画面同源，绝不会错位。
+  togglePlay() {
+    if (this._playing) { this.stopPlay(); return; }
+    if (!this.data.videoPath) { wx.showToast({ title: '先选一个视频', icon: 'none' }); return; }
+    if (!(this._track || []).length) { wx.showToast({ title: '先分析一次（要有关键点才能叠加）', icon: 'none' }); return; }
+    this.startPlay();
+  },
+
+  stopPlay() {
+    this._playing = false;
+    this.setData({ playing: false });
+    try { if (this._pdec) { this._pdec.stop(); this._pdec.remove(); } } catch (e) {}
+    this._pdec = null;
+  },
+
+  startPlay() {
+    let dec = null;
+    try { dec = wx.createVideoDecoder(); } catch (e) {
+      wx.showToast({ title: '解码器不可用', icon: 'none' }); return;
+    }
+    this._pdec = dec;
+    let ended = false;
+    try { dec.on('ended', () => { ended = true; }); } catch (e) {}
+    try { dec.start({ source: this.data.videoPath, mode: 1, abortAudio: true }); } catch (e) {
+      wx.showToast({ title: '启动解码失败', icon: 'none' }); return;
+    }
+    this._playing = true;
+    this.setData({ playing: true, playPct: 0, playTime: '0.0s' });
+    const track = this._track || [];
+    const total = Math.max(1, (this._fps || 30) * (this._durSec || 20));
+    let n = -1;
+    const tick = () => {
+      if (!this._playing) return;
+      let f = null;
+      try { f = dec.getFrameData(); } catch (e) {}
+      if (!f || !f.data) {
+        if (ended) { this.stopPlay(); this.setData({ playPct: 100 }); return; }
+        setTimeout(tick, 25); return;
+      }
+      n++;
+      this.drawPlayFrame(f, n, track);
+      const sec = n / Math.max(1, this._fps || 30);
+      if (n % 6 === 0) this.setData({ playPct: Math.min(100, Math.round(sec / (total / (this._fps || 30)) * 100)), playTime: sec.toFixed(1) + 's' });
+      setTimeout(tick, 0);
+    };
+    tick();
+  },
+
+  drawPlayFrame(f, n, track) {
+    const pre = () => new Promise(res => {
+      if (this._playerCv) return res(this._playerCv);
+      wx.createSelectorQuery().in(this).select('#player').fields({ node: true, size: true }).exec(r => {
+        const node = r && r[0];
+        if (!node || !node.node) return res(null);
+        this._playerCv = node.node;
+        this._playerW = node.width; this._playerH = node.height;
+        res(node.node);
+      });
+    });
+    pre().then(canvas => {
+      if (!canvas || !this._playing) return;
+      const prep = this.prepareFrame(f);
+      let dpr = 2;
+      try { dpr = wx.getWindowInfo().pixelRatio || 2; } catch (e) {}
+      const W = this._playerW || 320, H = this._playerH || 180;
+      if (canvas.width !== Math.round(W * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.scale(dpr, dpr);
+      ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, W, H);
+      // 画面按 video 宽高比等比放进画布
+      const fw = prep.width, fh = prep.height;
+      const box = this.fitRect(W, H, fw, fh);
+      try {
+        if (this._w1 && this._w2) {
+          const c1 = this._w1, c2 = this._w2;
+          c1.width = fw; c1.height = fh;
+          const x1 = c1.getContext('2d');
+          const img = x1.createImageData(fw, fh);
+          img.data.set(new Uint8ClampedArray(prep.data, 0, fw * fh * 4));
+          x1.putImageData(img, 0, 0);
+          ctx.drawImage(c1, 0, 0, fw, fh, box.x, box.y, box.w, box.h);
+        }
+      } catch (e) {}
+      // 叠加骨架（取该帧号最近的关键点）
+      const map = this.getMap();
+      let near = null, best = 1e9;
+      (track || []).forEach(it => { const d = Math.abs(it.n - n); if (d < best) { best = d; near = it; } });
+      if (near && best <= 8) {
+        const P = {};
+        (near.pts || []).forEach((p, i) => { if (p) P[i] = { x: box.x + p.x * box.w, y: box.y + p.y * box.h }; });
         const SEG = [['head', 'neck'], ['neck', 'hipL'], ['neck', 'hipR'], ['hipL', 'hipR'],
                      ['hipL', 'kneeL'], ['kneeL', 'ankL'], ['hipR', 'kneeR'], ['kneeR', 'ankR'],
-                     ['neck', 'shL'], ['neck', 'shR']];
-        list.forEach((it, i) => {
-          const cx = (i % cols) * cellW + cellW / 2;
-          const cy = Math.floor(i / cols) * cellH + cellH / 2;
-          const P = {};
-          (it.pts || []).forEach((p, pi) => { if (p) P[pi] = { x: cx + (p.x - mx) * s, y: cy + (p.y - my) * s }; });
-          ctx.strokeStyle = 'rgba(56,189,248,.9)'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
-          SEG.forEach(pair => {
-            const ia = map[pair[0]], ib = map[pair[1]];
-            if (ia == null || ib == null) return;
-            const A = P[ia], B = P[ib];
-            if (!A || !B) return;
-            ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
-          });
-          ctx.fillStyle = 'rgba(250,204,21,.95)';
-          Object.keys(P).forEach(k => { const p = P[k]; ctx.beginPath(); ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2); ctx.fill(); });
-          ctx.fillStyle = 'rgba(148,163,184,.75)'; ctx.font = '9px sans-serif';
-          ctx.fillText((it.n / Math.max(1, fpsEff)).toFixed(1) + 's', (i % cols) * cellW + 3, Math.floor(i / cols) * cellH + 10);
+                     ['neck', 'shL'], ['neck', 'shR'], ['shL', 'hipL'], ['shR', 'hipR']];
+        ctx.strokeStyle = 'rgba(56,189,248,.95)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        SEG.forEach(pair => {
+          const ia = map[pair[0]], ib = map[pair[1]];
+          if (ia == null || ib == null) return;
+          const A = P[ia], B = P[ib];
+          if (!A || !B) return;
+          ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
         });
-      });
+        ctx.fillStyle = 'rgba(250,204,21,.95)';
+        Object.keys(P).forEach(k => { const p = P[k]; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2); ctx.fill(); });
+      }
     });
   },
 
