@@ -41,6 +41,46 @@ function rejectOutliers(series, k) {
   if (!lim) return (series || []).slice();
   return (series || []).map(v => (typeof v === 'number' && isFinite(v) && Math.abs(v - m) <= lim) ? v : null);
 }
+// 峰峰值（用于横向摆动幅度等"范围"类指标）
+function peakToPeak(series) {
+  const a = (series || []).filter(v => typeof v === 'number' && isFinite(v));
+  if (a.length < 3) return null;
+  return Math.max.apply(null, a) - Math.min.apply(null, a);
+}
+
+// 周期检测（自相关）：返回周期（单位=样本数）与置信度。用于"压步节奏""单足换脚"这类反复动作。
+// 做法朴素但够用：去均值 → 自相关 → 在 lag ∈ [4, 采样数/2] 里找最大峰。
+function dominantPeriod(series, minLag, maxLag) {
+  const raw = (series || []).map(v => (typeof v === 'number' && isFinite(v)) ? v : null);
+  const idx = raw.map((v, i) => v == null ? -1 : i).filter(i => i >= 0);
+  if (idx.length < 12) return null;
+  // 只在连续段里算（中间有 null 就用最大连续段）
+  let best = { a: 0, b: 0 }, cur = { a: idx[0], b: idx[0] };
+  for (let i = 1; i < idx.length; i++) {
+    if (idx[i] === idx[i - 1] + 1) cur.b = idx[i];
+    else { if (cur.b - cur.a > best.b - best.a) best = cur; cur = { a: idx[i], b: idx[i] }; }
+  }
+  if (cur.b - cur.a > best.b - best.a) best = cur;
+  const seg = raw.slice(best.a, best.b + 1);
+  if (seg.length < 12) return null;
+  const mean = seg.reduce((x, y) => x + y, 0) / seg.length;
+  const d = seg.map(v => v - mean);
+  const lo = Math.max(2, Math.round(minLag || 4));
+  const hi = Math.min(Math.floor(seg.length / 2), Math.round(maxLag || 60));
+  let bestLag = -1, bestVal = -2;
+  let varSum = 0;
+  for (let i = 0; i < d.length; i++) varSum += d[i] * d[i];
+  if (!varSum) return null;
+  for (let lag = lo; lag <= hi; lag++) {
+    let acc = 0;
+    for (let i = 0; i + lag < d.length; i++) acc += d[i] * d[i + lag];
+    const v = acc / varSum;                          // 归一化自相关
+    if (v > bestVal) { bestVal = v; bestLag = lag; }
+  }
+  if (bestLag < 0 || bestVal < 0.25) return null;     // 相关性太弱认为"没有明显节律"
+  return { lag: bestLag, strength: bestVal, n: seg.length, from: best.a, to: best.b };
+}
+
 function summarize(series) {
   const a = (series || []).filter(v => typeof v === 'number' && isFinite(v)).slice().sort((x, y) => x - y);
   if (!a.length) return null;
@@ -114,7 +154,24 @@ function frameMetrics(pts, map, side, minConf) {
   }
   if (out.legGap != null) out.oneFoot = out.legGap > 0.08;
 
-  out.have = ['bodyH', 'legGap', 'kneeL', 'kneeR', 'trunkTilt', 'cogOffset'].filter(k => out[k] != null);
+  // ---------- 通用指标（跟动作无关，任何花滑动作都能看） ----------
+  const hipC = (hipL && hipR) ? mid(hipL, hipR) : null;
+  const shC = (shL && shR) ? mid(shL, shR) : null;
+  // 髋高度：髋中点比"更低那只踝"高多少（按身高归一）→ 蹲得深不深、起速有没有起来
+  if (hipC && bodyH > 0.05) {
+    const lowAnk = Math.max(ankL ? ankL.y : -1, ankR ? ankR.y : -1);
+    if (lowAnk >= 0) out.hipH = (lowAnk - hipC.y) / bodyH;
+  }
+  // 肩线 / 髋线倾角（度；0=水平，正=右高）
+  if (shL && shR) out.shAng = Math.atan2(shR.y - shL.y, shR.x - shL.x) * 180 / Math.PI;
+  if (hipL && hipR) out.hipAng = Math.atan2(hipR.y - hipL.y, hipR.x - hipL.x) * 180 / Math.PI;
+  // 髋中点横向位置（用于"横向摆动幅度"与"节奏"）
+  if (hipC) out.hipX = hipC.x;
+  // 头—髋连线相对竖直的倾角（整体轴线，比"上身前倾"更中性）
+  if (head && hipC) out.axisTilt = Math.abs(Math.atan2(hipC.x - head.x, hipC.y - head.y) * 180 / Math.PI);
+
+  out.have = ['bodyH', 'legGap', 'kneeL', 'kneeR', 'trunkTilt', 'cogOffset',
+              'hipH', 'shAng', 'hipAng', 'hipX', 'axisTilt'].filter(k => out[k] != null);
   out.ok = out.have.length > 0;                 // 只要有一个指标能用，这帧就有价值
   // 兼容旧调用方
   out.lowConf = out.miss.length > 0;
@@ -150,5 +207,5 @@ function judge(key, value) {
 module.exports = {
   angleAt: angleAt, mid: mid, dist: dist,
   median: median, medianFilter: medianFilter, rejectOutliers: rejectOutliers, summarize: summarize,
-  frameMetrics: frameMetrics, POSE_TARGETS: POSE_TARGETS, judge: judge
+  frameMetrics: frameMetrics, POSE_TARGETS: POSE_TARGETS, judge: judge, peakToPeak: peakToPeak, dominantPeriod: dominantPeriod
 };

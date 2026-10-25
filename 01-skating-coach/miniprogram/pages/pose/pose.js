@@ -51,6 +51,8 @@ Page({
     rangeEnd: '',
     checks: [],               // 动作检查项
     stats: [],                // 指标统计
+    general: [],              // 通用指标（跟动作无关）
+    stripN: 0,                // 骨架连环画的格子数（>0 才显示那张卡）
     chartKey: 'legGap',
     chartTitle: '',
     legend: []
@@ -129,9 +131,11 @@ Page({
     this._view = null; this._calibBox = null;
     this._minConf = this._minConf || 0.5;
     this._skipBusy = 0;
+    this._stripPts = []; this._stripLast = -1e9;
     this._noMapN = 0; this._noMapKeys = []; this._confSum = 0; this._confN = 0; this._confOkSum = 0; this._confOkN = 0;
     this.setData({ analyzing: true, progress: 0, decoded: 0, detected: 0, checks: [], stats: [], formatNote: '', diag: ['开始分析…'] });
-    this._series = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [] };
+    this._series = { t: [], legGap: [], kneeL: [], kneeR: [], trunkTilt: [], cogOffset: [], oneFoot: [], bodyH: [],
+                     hipH: [], shAng: [], hipAng: [], hipX: [], axisTilt: [] };
     this._firstPts = null;
 
     // ① 检测会话（用「测试一帧」选出的配置）
@@ -571,6 +575,14 @@ Page({
         return;
       }
       this._confOkSum = (this._confOkSum || 0) + (m.avgConf || 0); this._confOkN = (this._confOkN || 0) + 1;
+      // 骨架连环画取样：每 ~0.5 秒存一个骨架（只存归一化坐标，很轻）
+      if (!this._stripPts) this._stripPts = [];
+      const fpsNow0 = (this._fps || 30) / (this.data.step || 1);
+      const minGap = Math.max(1, Math.round(fpsNow0 * 0.5));
+      if ((n - (this._stripLast == null ? -1e9 : this._stripLast)) >= minGap && this._stripPts.length < 40) {
+        this._stripPts.push({ n: n, pts: body.points.map(q => q ? { x: q.x, y: q.y } : null) });
+        this._stripLast = n;
+      }
       // **能算的就算，算不出的留 null** —— 不再因为某个关节不可信把整帧丢掉
       const S = this._series;
       S.t.push(n);
@@ -581,6 +593,11 @@ Page({
       S.cogOffset.push(m.cogOffset == null ? null : m.cogOffset);
       S.oneFoot.push(m.legGap == null ? null : (m.oneFoot ? 1 : 0));
       S.bodyH.push(m.bodyH == null ? null : m.bodyH);
+      S.hipH.push(m.hipH == null ? null : m.hipH);
+      S.shAng.push(m.shAng == null ? null : m.shAng);
+      S.hipAng.push(m.hipAng == null ? null : m.hipAng);
+      S.hipX.push(m.hipX == null ? null : m.hipX);
+      S.axisTilt.push(m.axisTilt == null ? null : m.axisTilt);
     }).catch(() => {});
   },
 
@@ -697,9 +714,95 @@ Page({
       { name: '单足帧占比', value: Math.round(S.oneFoot.filter(v => v).length / S.oneFoot.length * 100) + '%' }
     ];
 
+    // ---------- 通用指标（跟动作无关）----------
+    const nn0 = a => (a || []).filter(v => typeof v === 'number' && isFinite(v));
+    const sHipH = pose.summarize(S.hipH), sHipX = pose.summarize(S.hipX), sAxis = pose.summarize(S.axisTilt);
+    const p2pHipX = pose.peakToPeak(S.hipX);
+    // 左右扭转：肩线与髋线的夹角（转体/旋转时这个值会明显变化）
+    const twist = S.shAng.map((v, i) => (v == null || S.hipAng[i] == null) ? null : Math.abs(((v - S.hipAng[i]) + 540) % 360 - 180));
+    const sTwist = pose.summarize(twist);
+    // 节奏：髋横向的主导周期（压步/换脚的节拍）
+    const per = pose.dominantPeriod(S.hipX, 4, 60);
+    const fpsEff = (this._fps || 30) / (this.data.step || 1);
+    const rhythmHz = per ? (fpsEff / per.lag) : null;
+    const sRot = pose.peakToPeak(S.shAng);                  // 肩线角度的范围（转体幅度）
+    const general = [
+      { k: 'hipH', name: '重心高度（髋 vs 支撑踝）', value: sHipH ? (Math.round(sHipH.median * 100) + '% 身高') : '—',
+        sub: sHipH ? ('范围 ' + Math.round(sHipH.min * 100) + '–' + Math.round(sHipH.max * 100) + '%')
+                   : '髋/踝不可见', hint: '越低=蹲得越深；起速时应当明显升高' },
+      { k: 'axis', name: '身体轴线倾角（头—髋 vs 竖直）', value: sAxis ? (Math.round(sAxis.median * 10) / 10 + '°') : '—',
+        sub: sAxis ? ('最大 ' + Math.round(sAxis.max * 10) / 10 + '°') : '', hint: '轴心是否"压得住"：竖直时接近 0°' },
+      { k: 'sway', name: '横向摆动幅度（髋左右）', value: p2pHipX != null ? (Math.round(p2pHipX / Math.max(0.01, sHipH ? 1 : 1) * 1000) / 10 + '% 画面') : '—',
+        sub: '峰峰值', hint: '压步/步法的横向覆盖；太小=没滑开，太大=重心晃' },
+      { k: 'twist', name: '肩髋扭转（肩线 vs 髋线）', value: sTwist ? (Math.round(sTwist.median * 10) / 10 + '°') : '—',
+        sub: sTwist ? ('最大 ' + Math.round(sTwist.max * 10) / 10 + '°') : '', hint: '转体/旋转/跳跃的关键：上身与下身的分离度' },
+      { k: 'rot', name: '肩线转动范围', value: sRot != null ? (Math.round(sRot) + '°') : '—',
+        sub: '整段视频', hint: '转体量：180°≈半圈，360°≈一圈' },
+      { k: 'rhythm', name: '节奏（髋横向周期）', value: rhythmHz ? (Math.round(rhythmHz * 10) / 10 + ' Hz') : '未检出节律',
+        sub: per ? ('周期 ' + (per.lag / fpsEff).toFixed(2) + ' s · 强度 ' + per.strength.toFixed(2)) : '动作不是反复性的',
+        hint: '压步/换脚的节拍：4 拍一动≈0.25 Hz，1 拍一动≈1 Hz' }
+    ];
+
     this._clean = { t: S.t, legGap: legGap, kneeL: kneeL, kneeR: kneeR, trunk: trunk, cog: cog };
-    this.setData({ checks: checks, stats: stats, chartKey: 'legGap', chartTitle: '浮足高度差（按身高归一 · 已平滑）' });
+    this.setData({ checks: checks, stats: stats, general: general, chartKey: 'legGap', chartTitle: '浮足高度差（按身高归一 · 已平滑）' });
     this.drawChart();
+    this.drawStrip();
+  },
+
+  // 骨架连环画：把整段视频按 0.5 秒取样画成一排火柴人 —— 一眼看完动作过程
+  drawStrip() {
+    const list = this._stripPts || [];
+    if (!list.length) return;
+    const map = this._map || store.load(store.KEYS.poseMap) || {};
+    const xs = [], ys = [];
+    list.forEach(it => (it.pts || []).forEach(p => { if (p) { xs.push(p.x); ys.push(p.y); } }));
+    if (xs.length < 6) return;
+    const q = (arr, t) => { const a = arr.slice().sort((m, n) => m - n); return a[Math.min(a.length - 1, Math.floor(a.length * t))]; };
+    const x0 = q(xs, 0.05), x1 = q(xs, 0.95), y0 = q(ys, 0.05), y1 = q(ys, 0.95);
+    const bw = Math.max(0.35, (x1 - x0) / Math.max(0.05, (y1 - y0)));   // 宽高比
+    const cols = Math.min(5, list.length);
+    const rows = Math.ceil(list.length / cols);
+    const cellW = 62;
+    const cellH = Math.round(cellW / Math.min(1.6, bw));
+    const fpsEff = (this._fps || 30) / (this.data.step || 1);
+    this.setData({ stripN: list.length, stripRows: rows });
+    wx.nextTick(() => {
+      wx.createSelectorQuery().in(this).select('#strip').fields({ node: true }).exec(res => {
+        const r = res && res[0];
+        if (!r || !r.node) return;
+        const canvas = r.node;
+        let dpr = 2;
+        try { dpr = wx.getWindowInfo().pixelRatio || 2; } catch (e) {}
+        const W = cols * cellW, H = rows * cellH;
+        canvas.width = W * dpr; canvas.height = H * dpr;
+        const ctx = canvas.getContext('2d');
+        ctx.scale(dpr, dpr);
+        ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, W, H);
+        const s = Math.min(cellW / Math.max(0.05, (x1 - x0)), cellH / Math.max(0.05, (y1 - y0))) * 0.86;
+        const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+        const SEG = [['head', 'neck'], ['neck', 'hipL'], ['neck', 'hipR'], ['hipL', 'hipR'],
+                     ['hipL', 'kneeL'], ['kneeL', 'ankL'], ['hipR', 'kneeR'], ['kneeR', 'ankR'],
+                     ['neck', 'shL'], ['neck', 'shR']];
+        list.forEach((it, i) => {
+          const cx = (i % cols) * cellW + cellW / 2;
+          const cy = Math.floor(i / cols) * cellH + cellH / 2;
+          const P = {};
+          (it.pts || []).forEach((p, pi) => { if (p) P[pi] = { x: cx + (p.x - mx) * s, y: cy + (p.y - my) * s }; });
+          ctx.strokeStyle = 'rgba(56,189,248,.9)'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+          SEG.forEach(pair => {
+            const ia = map[pair[0]], ib = map[pair[1]];
+            if (ia == null || ib == null) return;
+            const A = P[ia], B = P[ib];
+            if (!A || !B) return;
+            ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+          });
+          ctx.fillStyle = 'rgba(250,204,21,.95)';
+          Object.keys(P).forEach(k => { const p = P[k]; ctx.beginPath(); ctx.arc(p.x, p.y, 1.5, 0, Math.PI * 2); ctx.fill(); });
+          ctx.fillStyle = 'rgba(148,163,184,.75)'; ctx.font = '9px sans-serif';
+          ctx.fillText((it.n / Math.max(1, fpsEff)).toFixed(1) + 's', (i % cols) * cellW + 3, Math.floor(i / cols) * cellH + 10);
+        });
+      });
+    });
   },
 
   switchChart(e) {
