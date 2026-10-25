@@ -58,6 +58,8 @@ Page({
     trackN: 0,                // 已存的关键点帧数（>0 才能回放叠加）
     playing: false,
     hud: null,                // 回放时叠加在画面上的实时数字
+    playerH: 200,             // 回放画布高度（按视频比例算出来）
+    showIdx: false,           // 是否叠加关键点序号（核对点序用）
     playPct: 0,
     playTime: '0.0s',
     chartKey: 'legGap',
@@ -819,6 +821,8 @@ Page({
     this.startPlay();
   },
 
+  toggleIdx() { this.setData({ showIdx: !this.data.showIdx }); },
+
   stopPlay() {
     this._playing = false;
     this.setData({ playing: false });
@@ -838,6 +842,7 @@ Page({
       wx.showToast({ title: '启动解码失败', icon: 'none' }); return;
     }
     this._playing = true;
+    this._playerCv = null; this._playerW = 0; this._playerH = 0;   // 重新量画布
     this.setData({ playing: true, playPct: 0, playTime: '0.0s' });
     const track = this._track || [];
     const total = Math.max(1, (this._fps || 30) * (this._durSec || 20));
@@ -869,8 +874,12 @@ Page({
             const lowAnk = Math.max(ankL.y, ankR.y);
             const hipY = (hipL.y + hipR.y) / 2;
             const hipH = bodyH > 0.01 ? (lowAnk - hipY) / bodyH : 0;
-            hud.hip = hCm ? (Math.round(hipH * hCm) + ' cm') : (Math.round(hipH * 100) + '%');
-            hud.leg = Math.round(Math.abs(ankL.y - ankR.y) / Math.max(0.01, bodyH) * 100) + '%';
+            if (bodyH > 0.05) {
+              hud.hip = hCm ? (Math.round(hipH * hCm) + ' cm') : (Math.round(hipH * 100) + '%');
+              hud.leg = Math.round(Math.abs(ankL.y - ankR.y) / bodyH * 100) + '%';
+            } else {
+              hud.hip = '—'; hud.leg = '—';
+            }
             const oneFoot = Math.abs(ankL.y - ankR.y) / Math.max(0.01, bodyH) > 0.08;
             hud.foot = oneFoot ? '单足' : '双足';
           }
@@ -883,63 +892,70 @@ Page({
   },
 
   drawPlayFrame(f, n, track) {
-    const pre = () => new Promise(res => {
-      if (this._playerCv) return res(this._playerCv);
-      wx.createSelectorQuery().in(this).select('#player').fields({ node: true, size: true }).exec(r => {
-        const node = r && r[0];
-        if (!node || !node.node) return res(null);
-        this._playerCv = node.node;
-        this._playerW = node.width; this._playerH = node.height;
-        res(node.node);
-      });
-    });
-    pre().then(canvas => {
-      if (!canvas || !this._playing) return;
-      const prep = this.prepareFrame(f);
+    const prep = this.prepareFrame(f);
+    const fw = prep.width, fh = prep.height;
+    const run = (canvas, W, H) => {
+      if (!canvas) return;
       let dpr = 2;
       try { dpr = wx.getWindowInfo().pixelRatio || 2; } catch (e) {}
-      const W = this._playerW || 320, H = this._playerH || 180;
-      if (canvas.width !== Math.round(W * dpr)) { canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr); }
+      const bw = Math.round(W * dpr), bh = Math.round(H * dpr);
+      if (canvas.width !== bw || canvas.height !== bh) { canvas.width = bw; canvas.height = bh; }
       const ctx = canvas.getContext('2d');
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.scale(dpr, dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.fillStyle = '#0b1220'; ctx.fillRect(0, 0, W, H);
-      // 画面按 video 宽高比等比放进画布
-      const fw = prep.width, fh = prep.height;
-      const box = this.fitRect(W, H, fw, fh);
+      // 画面铺满整块画布（画布比例已按视频比例设好，所以不变形、不需要 letterbox）
       try {
-        if (this._w1 && this._w2) {
-          const c1 = this._w1, c2 = this._w2;
-          c1.width = fw; c1.height = fh;
-          const x1 = c1.getContext('2d');
+        const c = this._w1;
+        if (c) {
+          if (c.width !== fw || c.height !== fh) { c.width = fw; c.height = fh; }
+          const x1 = c.getContext('2d');
           const img = x1.createImageData(fw, fh);
           img.data.set(new Uint8ClampedArray(prep.data, 0, fw * fh * 4));
           x1.putImageData(img, 0, 0);
-          ctx.drawImage(c1, 0, 0, fw, fh, box.x, box.y, box.w, box.h);
+          ctx.drawImage(c, 0, 0, fw, fh, 0, 0, W, H);
         }
       } catch (e) {}
-      // 叠加骨架（取该帧号最近的关键点）
-      const map = this.getMap();
+      // 骨架：直接按画布尺寸映射（与画面同一坐标系）
       let near = null, best = 1e9;
       (track || []).forEach(it => { const d = Math.abs(it.n - n); if (d < best) { best = d; near = it; } });
-      if (near && best <= 8) {
-        const P = {};
-        (near.pts || []).forEach((p, i) => { if (p) P[i] = { x: box.x + p.x * box.w, y: box.y + p.y * box.h }; });
-        const SEG = [['head', 'neck'], ['neck', 'hipL'], ['neck', 'hipR'], ['hipL', 'hipR'],
-                     ['hipL', 'kneeL'], ['kneeL', 'ankL'], ['hipR', 'kneeR'], ['kneeR', 'ankR'],
-                     ['neck', 'shL'], ['neck', 'shR'], ['shL', 'hipL'], ['shR', 'hipR']];
-        ctx.strokeStyle = 'rgba(56,189,248,.95)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-        SEG.forEach(pair => {
-          const ia = map[pair[0]], ib = map[pair[1]];
-          if (ia == null || ib == null) return;
-          const A = P[ia], B = P[ib];
-          if (!A || !B) return;
-          ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
-        });
-        ctx.fillStyle = 'rgba(250,204,21,.95)';
-        Object.keys(P).forEach(k => { const p = P[k]; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2); ctx.fill(); });
+      if (!near || best > 8) return;
+      const map = this.getMap();
+      const P = {};
+      (near.pts || []).forEach((p, i) => { if (p) P[i] = { x: p.x * W, y: p.y * H }; });
+      const SEG = [['head', 'neck'], ['neck', 'hipL'], ['neck', 'hipR'], ['hipL', 'hipR'],
+                   ['hipL', 'kneeL'], ['kneeL', 'ankL'], ['hipR', 'kneeR'], ['kneeR', 'ankR'],
+                   ['neck', 'shL'], ['neck', 'shR'], ['shL', 'hipL'], ['shR', 'hipR']];
+      ctx.strokeStyle = 'rgba(56,189,248,.95)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      SEG.forEach(pair => {
+        const ia = map[pair[0]], ib = map[pair[1]];
+        if (ia == null || ib == null) return;
+        const A = P[ia], B = P[ib];
+        if (!A || !B) return;
+        ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+      });
+      ctx.fillStyle = 'rgba(250,204,21,.95)';
+      Object.keys(P).forEach(k => { const p = P[k]; ctx.beginPath(); ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2); ctx.fill(); });
+      // 序号核对（可选）：用来确认 VisionKit 的点序到底是不是 COCO
+      if (this.data.showIdx) {
+        ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = '10px sans-serif';
+        Object.keys(P).forEach(k => { const p = P[k]; ctx.fillText(k, p.x + 3, p.y - 3); });
       }
-    });
+    };
+
+    // 画布 CSS 宽度量一次，高度按视频比例由 setData 决定（这样比例=视频比例）
+    const withSize = cb => {
+      if (this._playerW) { cb(this._playerCv, this._playerW, this._playerH || Math.round(this._playerW * fh / fw)); return; }
+      wx.createSelectorQuery().in(this).select('#player').fields({ node: true, size: true }).exec(r => {
+        const q = r && r[0];
+        if (!q || !q.node) return;
+        this._playerCv = q.node;
+        this._playerW = q.width || 320;
+        const h = Math.round(this._playerW * fh / fw);
+        this._playerH = h;
+        this.setData({ playerH: h }, () => cb(this._playerCv, this._playerW, h));
+      });
+    };
+    withSize(run);
   },
 
   switchChart(e) {
