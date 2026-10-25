@@ -60,6 +60,7 @@ Page({
     hud: null,                // 回放时叠加在画面上的实时数字
     playerH: 200,             // 回放画布高度（按视频比例算出来）
     showIdx: false,           // 是否叠加关键点序号（核对点序用）
+    advOpen: false,           // 高级区（关键点映射）默认收起
     playPct: 0,
     playTime: '0.0s',
     chartKey: 'legGap',
@@ -70,6 +71,7 @@ Page({
   onLoad() {
     const map = store.load(store.KEYS.poseMap);
     const calibrated = !!(map && POSE_JOINTS.every(j => typeof map[j.k] === 'number'));
+    this._map = calibrated ? map : null;      // 没校准过就用内置默认映射
     const meta = store.load(store.KEYS.meta) || {};
     this.setData({ calibrated: calibrated, heightCm: Number(meta.heightCm) || 0 });
     this.checkSupport();
@@ -586,7 +588,10 @@ Page({
         const warns = pose.sanityCheck(body.points, map);
         this._sanityWarn = warns;
         if (warns.length) {
-          this.setData({ diag: (this.data.diag || []).concat(['⚠️ 关键点映射可能不对：' + warns.join('；') + ' → 建议点「校准关键点」']) });
+          this.setData({
+            advOpen: true,          // 自动展开"高级：关键点映射"，告诉用户补救入口在哪
+            diag: (this.data.diag || []).concat(['⚠️ 关键点映射可能不对：' + warns.join('；') + ' → 已在页面底部展开「高级：关键点映射」'])
+          });
         }
       }
       if (this.data.calibrating) return;                       // 校准中只取首帧
@@ -822,6 +827,24 @@ Page({
   },
 
   toggleIdx() { this.setData({ showIdx: !this.data.showIdx }); },
+
+  toggleAdv() { this.setData({ advOpen: !this.data.advOpen }); },
+
+  // 恢复自动映射：清掉手工校准的结果
+  resetCalib() {
+    wx.showModal({
+      title: '恢复自动映射',
+      content: '清掉手工记录的关节对应关系，改用内置标准映射（COCO 顺序）。之后不用再点关节。',
+      confirmText: '恢复',
+      success: r => {
+        if (!r.confirm) return;
+        try { store.save(store.KEYS.poseMap, null); } catch (e) {}
+        this._map = null;
+        this.setData({ calibrated: false });
+        wx.showToast({ title: '已恢复自动映射', icon: 'none' });
+      }
+    });
+  },
 
   stopPlay() {
     this._playing = false;
